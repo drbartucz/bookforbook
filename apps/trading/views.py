@@ -19,8 +19,11 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
-class ProposalListView(APIView):
-    """GET /api/v1/proposals/ — user's proposals (sent and received)."""
+class ProposalListCreateView(APIView):
+    """
+    GET  /api/v1/proposals/ — user's proposals (sent and received).
+    POST /api/v1/proposals/ — create a new trade proposal.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -37,11 +40,6 @@ class ProposalListView(APIView):
             'items__user_book__book'
         ).order_by('-created_at')
         return Response(TradeProposalSerializer(proposals, many=True).data)
-
-
-class ProposalCreateView(APIView):
-    """POST /api/v1/proposals/"""
-    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         serializer = TradeProposalCreateSerializer(

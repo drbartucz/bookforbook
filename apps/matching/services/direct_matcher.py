@@ -8,9 +8,8 @@ import logging
 from typing import Optional
 
 from django.db import transaction
-from django.utils import timezone
 
-from apps.inventory.models import ConditionChoices, UserBook, WishlistItem, condition_meets_minimum
+from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg
 
 logger = logging.getLogger(__name__)
@@ -18,8 +17,6 @@ logger = logging.getLogger(__name__)
 
 def count_active_matches_for_user(user) -> int:
     """Count the number of active (pending/proposed) matches a user is involved in."""
-    from apps.trading.models import TradeShipment
-
     match_count = MatchLeg.objects.filter(
         sender=user,
         match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],

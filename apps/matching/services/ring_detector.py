@@ -8,7 +8,6 @@ from collections import defaultdict
 from typing import Optional
 
 from django.db import transaction
-from django.utils import timezone
 
 from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg

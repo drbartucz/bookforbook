@@ -21,8 +21,8 @@ def on_user_login(sender, request, user, **kwargs):
     # Re-list delisted books if any
     if user.books_delisted_at:
         relisted_count = UserBook.objects.filter(
-            user=user, status='delisted'
-        ).update(status='available')
+            user=user, status=UserBook.Status.DELISTED
+        ).update(status=UserBook.Status.AVAILABLE)
 
         if relisted_count > 0:
             logger.info(
