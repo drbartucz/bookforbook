@@ -13,8 +13,11 @@ from .serializers import DonationCreateSerializer, DonationSerializer
 logger = logging.getLogger(__name__)
 
 
-class DonationListView(APIView):
-    """GET /api/v1/donations/ — user's donations as donor or institution."""
+class DonationListCreateView(APIView):
+    """
+    GET  /api/v1/donations/ — user's donations as donor or institution.
+    POST /api/v1/donations/ — offer a donation.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -32,11 +35,6 @@ class DonationListView(APIView):
             'donor', 'institution', 'user_book__book'
         ).order_by('-created_at')
         return Response(DonationSerializer(donations, many=True, context={'request': request}).data)
-
-
-class DonationOfferView(APIView):
-    """POST /api/v1/donations/ — offer a donation."""
-    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         serializer = DonationCreateSerializer(
