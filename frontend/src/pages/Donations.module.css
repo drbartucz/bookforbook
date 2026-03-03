@@ -1,0 +1,151 @@
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.tab {
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-gray-500);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+
+.tab:hover { color: var(--color-gray-700); }
+
+.activeTab {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.donationList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.donationCard {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.donationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.donationDate {
+  font-size: 0.8125rem;
+  color: var(--color-gray-400);
+}
+
+.donationBody {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.bookInfo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.bookCover {
+  width: 48px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-gray-200);
+  flex-shrink: 0;
+}
+
+.bookTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-gray-900);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bookAuthor {
+  font-size: 0.8125rem;
+  color: var(--color-gray-500);
+  margin: 0.125rem 0;
+}
+
+.noBook {
+  font-size: 0.875rem;
+  color: var(--color-gray-400);
+  font-style: italic;
+}
+
+.participants {
+  display: flex;
+  gap: 1.25rem;
+  flex-shrink: 0;
+}
+
+.participant {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.participantLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-gray-400);
+}
+
+.participantName {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+.donationActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.empty {
+  text-align: center;
+  padding: 4rem 1rem;
+}
+
+.emptyTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-gray-700);
+  margin-bottom: 0.5rem;
+}
+
+.emptySubtitle {
+  color: var(--color-gray-500);
+  font-size: 0.9375rem;
+  max-width: 440px;
+  margin: 0 auto;
+}

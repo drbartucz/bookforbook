@@ -1,0 +1,97 @@
+.hero {
+  text-align: center;
+  padding: 3rem 1rem 2rem;
+  max-width: 640px;
+  margin: 0 auto 2rem;
+}
+
+.heroTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-gray-900);
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .heroTitle {
+    font-size: 2.75rem;
+  }
+}
+
+.heroSubtitle {
+  font-size: 1.0625rem;
+  color: var(--color-gray-500);
+  line-height: 1.6;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.filters {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.searchWrapper {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-gray-400);
+  pointer-events: none;
+}
+
+.searchInput {
+  padding-left: 2.25rem;
+}
+
+.conditionSelect {
+  min-width: 160px;
+  flex-shrink: 0;
+}
+
+.resultsHeader {
+  margin-bottom: 1rem;
+}
+
+.resultsCount {
+  font-size: 0.875rem;
+  color: var(--color-gray-500);
+}
+
+.grid {
+  margin-bottom: 1rem;
+}
+
+.empty {
+  text-align: center;
+  padding: 4rem 1rem;
+}
+
+.emptyTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-gray-700);
+  margin-bottom: 0.5rem;
+}
+
+.emptySubtitle {
+  color: var(--color-gray-500);
+  font-size: 0.9375rem;
+}

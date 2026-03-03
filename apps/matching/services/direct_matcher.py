@@ -1,0 +1,213 @@
+"""
+Direct match detection service.
+
+A direct match: User A has a book User B wants, AND User B has a book User A wants.
+Both books must meet the minimum condition requirement.
+"""
+import logging
+from typing import Optional
+
+from django.db import transaction
+from django.utils import timezone
+
+from apps.inventory.models import ConditionChoices, UserBook, WishlistItem, condition_meets_minimum
+from apps.matching.models import Match, MatchLeg
+
+logger = logging.getLogger(__name__)
+
+
+def count_active_matches_for_user(user) -> int:
+    """Count the number of active (pending/proposed) matches a user is involved in."""
+    from apps.trading.models import TradeShipment
+
+    match_count = MatchLeg.objects.filter(
+        sender=user,
+        match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+    ).values('match').distinct().count()
+
+    proposal_count = 0
+    try:
+        from apps.trading.models import TradeProposal
+        proposal_count = TradeProposal.objects.filter(
+            proposer=user,
+            status__in=['pending', 'countered', 'accepted'],
+        ).count() + TradeProposal.objects.filter(
+            recipient=user,
+            status__in=['pending', 'countered', 'accepted'],
+        ).count()
+    except Exception:
+        pass
+
+    return match_count + proposal_count
+
+
+def user_at_match_limit(user) -> bool:
+    """Return True if the user has reached their active match limit."""
+    return count_active_matches_for_user(user) >= user.max_active_matches
+
+
+def _active_match_exists_for_user_book(user_book_id) -> bool:
+    """Check if the given UserBook is already in an active match."""
+    return MatchLeg.objects.filter(
+        user_book_id=user_book_id,
+        match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+    ).exists()
+
+
+def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
+    """
+    Run direct match detection.
+
+    If user_book is provided, only scan for matches involving that specific book.
+    Otherwise, scan all available books for matches.
+
+    Returns a list of newly created Match objects.
+    """
+    created_matches = []
+
+    if user_book is not None:
+        # Focused scan: find matches for this specific book
+        candidates = [user_book] if user_book.status == UserBook.Status.AVAILABLE else []
+    else:
+        # Full scan: all available books
+        candidates = list(
+            UserBook.objects.filter(
+                status=UserBook.Status.AVAILABLE,
+            ).select_related('user', 'book')
+        )
+
+    logger.info('Running direct matching over %d candidate books', len(candidates))
+
+    for book_a in candidates:
+        user_a = book_a.user
+
+        # Skip institutional users (they don't trade)
+        if user_a.is_institutional:
+            continue
+
+        # Skip if book is already in an active match
+        if _active_match_exists_for_user_book(book_a.pk):
+            continue
+
+        # Skip if user is at their match limit
+        if user_at_match_limit(user_a):
+            continue
+
+        # Find users who want book_a (condition met)
+        wishlist_entries = WishlistItem.objects.filter(
+            book=book_a.book,
+            is_active=True,
+            user__email_verified=True,
+            user__is_active=True,
+        ).select_related('user').exclude(user=user_a)
+
+        for wish_b in wishlist_entries:
+            user_b = wish_b.user
+
+            # Skip institutional users
+            if user_b.is_institutional:
+                continue
+
+            # Check if book_a meets user_b's minimum condition
+            if not condition_meets_minimum(book_a.condition, wish_b.min_condition):
+                continue
+
+            # Skip if user_b is at their match limit
+            if user_at_match_limit(user_b):
+                continue
+
+            # Find books that user_a wants that user_b has available
+            match_book_b = _find_book_for_trade(user_a=user_a, user_b=user_b)
+            if match_book_b is None:
+                continue
+
+            # Skip if book_b is already in an active match
+            if _active_match_exists_for_user_book(match_book_b.pk):
+                continue
+
+            # Check for duplicate active match
+            if _duplicate_match_exists(user_a, user_b, book_a, match_book_b):
+                continue
+
+            # Create the direct match
+            match = _create_direct_match(user_a, user_b, book_a, match_book_b)
+            if match:
+                created_matches.append(match)
+                logger.info(
+                    'Created direct match %s: %s ↔ %s',
+                    match.pk, user_a.username, user_b.username,
+                )
+
+                # Notify asynchronously
+                try:
+                    from apps.notifications.tasks import send_match_notification
+                    send_match_notification.delay(str(match.pk))
+                except Exception:
+                    logger.exception('Failed to queue match notification for %s', match.pk)
+
+    return created_matches
+
+
+def _find_book_for_trade(user_a, user_b) -> Optional[UserBook]:
+    """
+    Find an available book that user_b has and user_a wants.
+    Returns the first qualifying UserBook, or None.
+    """
+    wishlist_a = WishlistItem.objects.filter(
+        user=user_a,
+        is_active=True,
+    ).values_list('book_id', 'min_condition')
+
+    for book_id, min_condition in wishlist_a:
+        candidate = UserBook.objects.filter(
+            user=user_b,
+            book_id=book_id,
+            status=UserBook.Status.AVAILABLE,
+        ).first()
+
+        if candidate and condition_meets_minimum(candidate.condition, min_condition):
+            return candidate
+
+    return None
+
+
+def _duplicate_match_exists(user_a, user_b, book_a: UserBook, book_b: UserBook) -> bool:
+    """Check if an equivalent active direct match already exists."""
+    existing = MatchLeg.objects.filter(
+        match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+        match__match_type=Match.MatchType.DIRECT,
+        user_book=book_a,
+        sender=user_a,
+        receiver=user_b,
+    ).exists()
+    return existing
+
+
+@transaction.atomic
+def _create_direct_match(user_a, user_b, book_a: UserBook, book_b: UserBook) -> Optional[Match]:
+    """Create a direct Match with two MatchLegs."""
+    try:
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT,
+            status=Match.Status.PROPOSED,
+        )
+        # Leg 0: A sends book_a to B
+        MatchLeg.objects.create(
+            match=match,
+            sender=user_a,
+            receiver=user_b,
+            user_book=book_a,
+            position=0,
+        )
+        # Leg 1: B sends book_b to A
+        MatchLeg.objects.create(
+            match=match,
+            sender=user_b,
+            receiver=user_a,
+            user_book=book_b,
+            position=1,
+        )
+        return match
+    except Exception:
+        logger.exception('Failed to create direct match between %s and %s', user_a.pk, user_b.pk)
+        return None
