@@ -21,7 +21,7 @@ BookForBook is a book bartering platform where users in the continental USA trad
 | Search | PostgreSQL full-text search (upgrade to Meilisearch later if needed) |
 | File storage | S3-compatible (AWS S3, Backblaze B2, or local dev) |
 | Auth | JWT via `djangorestframework-simplejwt` |
-| Deployment | Docker Compose on VPS, or managed (Railway/Render) |
+| Deployment | Native (PostgreSQL + Redis installed directly), or managed (Railway/Render) |
 
 ---
 
@@ -33,7 +33,6 @@ bookforbook/
 ├── README.md
 ├── manage.py
 ├── requirements.txt
-├── docker-compose.yml
 ├── .env.example
 ├── docs/
 │   └── bookswap-architecture.md     # Full architecture spec (read this first)
@@ -266,9 +265,15 @@ No API key required. Rate-limit requests to avoid abuse. Cache all results local
 ## Development Setup (When Code Exists)
 
 ```bash
+# Start PostgreSQL and Redis (must be installed and running natively)
+# Ubuntu/Debian: sudo service postgresql start && sudo service redis-server start
+# macOS:        brew services start postgresql@16 && brew services start redis
+
+# Create the database
+createdb bookforbook
+
 # Backend
 cp .env.example .env
-docker-compose up -d          # starts postgres, redis
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
@@ -292,7 +297,7 @@ See `docs/bookswap-architecture.md` for full details.
 
 | Phase | Focus |
 |-------|-------|
-| 1 | Django scaffold, Docker, User model, auth endpoints, Open Library |
+| 1 | Django scaffold, User model, auth endpoints, Open Library |
 | 2 | UserBook + WishlistItem CRUD, browse/search |
 | 3 | Direct match detection, match limits, accept/decline + address reveal |
 | 4 | Trade proposals, shipment tracking, messaging, ratings, auto-close |
