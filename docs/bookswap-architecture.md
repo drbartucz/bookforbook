@@ -18,7 +18,7 @@ BookForBook is a book bartering platform where users trade books 1-for-1 without
 | Notifications | Email (Django + SendGrid/SES), SMS optional (Twilio) | Trade alerts, match notifications, shipping confirmations |
 | Search | PostgreSQL full-text search (upgrade to Meilisearch/Typesense if needed) | Book catalog browsing |
 | File storage | S3-compatible (AWS S3, Backblaze B2, or local for dev) | Cover image caching |
-| Deployment | VPS with Docker Compose OR managed (Railway, Render) | Flexible based on preference |
+| Deployment | Native (PostgreSQL + Redis installed directly on VPS) OR managed (Railway, Render) | Flexible based on preference |
 
 ---
 
@@ -666,7 +666,6 @@ User requests deletion → POST /api/v1/users/me/ (DELETE)
 bookforbook/
 ├── manage.py
 ├── requirements.txt
-├── docker-compose.yml
 ├── .env.example
 │
 ├── config/                     # Django project settings
@@ -763,7 +762,7 @@ bookforbook/
 This architecture is designed to be built incrementally with Claude Code. Recommended build order:
 
 ### Phase 1 — Foundation
-1. Django project scaffold with settings, Docker Compose (Postgres + Redis)
+1. Django project scaffold with settings (requires PostgreSQL 16 + Redis installed natively)
 2. Custom User model with account types and email verification fields
 3. Auth endpoints: register, login, email verification, password reset
 4. Book model + Open Library API service

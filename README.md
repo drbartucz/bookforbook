@@ -29,15 +29,22 @@ Verified libraries and bookstores can receive book donations.
 
 ### Prerequisites
 
-- Docker and Docker Compose
 - Python 3.12+
 - Node.js 20+
+- PostgreSQL 16
+- Redis
 
 ### Backend
 
 ```bash
+# Start PostgreSQL and Redis (if not already running)
+# e.g. on Ubuntu/Debian:  sudo service postgresql start && sudo service redis-server start
+# e.g. on macOS:          brew services start postgresql@16 && brew services start redis
+
+# Create the database
+createdb bookforbook
+
 cp .env.example .env          # fill in secrets
-docker compose up -d          # start postgres + redis
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
