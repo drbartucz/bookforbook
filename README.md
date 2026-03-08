@@ -31,36 +31,100 @@ Verified libraries and bookstores can receive book donations.
 
 - Python 3.12+
 - Node.js 20+
-- PostgreSQL 16
 - Redis
+- PostgreSQL 16 — set up via `setup_postgres.sh` (see below)
 
-### Backend
+### 1. Set up PostgreSQL
+
+Run the setup script once to create a managed PostgreSQL instance:
 
 ```bash
-# Start PostgreSQL and Redis (if not already running)
-# e.g. on Ubuntu/Debian:  sudo service postgresql start && sudo service redis-server start
-# e.g. on macOS:          brew services start postgresql@16 && brew services start redis
+sh setup_postgres.sh
+```
 
-# Create the database
-createdb bookforbook
+This creates a PostgreSQL instance at `~/private/postgres1/` running on a Unix socket
+(no TCP port — this is normal for this hosting environment).
 
-cp .env.example .env          # fill in secrets
+Load the environment variables it configures:
+
+```bash
+source ~/apps/postgres1/home/.bashrc
+```
+
+> Add that `source` line to your shell's `~/.bashrc` (or `~/.profile`) so `PGHOST` is set
+> automatically on every login.
+
+Verify the instance is running and you can connect:
+
+```bash
+psql postgres -c "\conninfo"
+```
+
+Create the application database and user:
+
+```bash
+# Generate a strong password
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Create the user (replace YOUR_PASSWORD with the generated password)
+psql postgres -c "CREATE USER bookforbook WITH PASSWORD 'YOUR_PASSWORD';"
+
+# Create the database owned by that user
+psql postgres -c "CREATE DATABASE bookforbook OWNER bookforbook;"
+
+# Grant schema permissions
+psql bookforbook -c "GRANT ALL ON SCHEMA public TO bookforbook;"
+```
+
+Note your socket directory — you'll need it for `.env`:
+
+```bash
+echo $PGHOST
+# e.g. /home/yourusername/private/postgres1/run
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set at minimum:
+
+```
+SECRET_KEY=<generate with: python3 -c "import secrets; print(secrets.token_urlsafe(50))">
+DATABASE_URL=postgresql://bookforbook:YOUR_PASSWORD@/bookforbook?host=/home/YOUR_USERNAME/private/postgres1/run
+REDIS_URL=redis://localhost:6379/0
+FIELD_ENCRYPTION_KEY=<generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
+ALLOWED_HOSTS=yourdomain.com
+FRONTEND_URL=https://yourdomain.com
+```
+
+Replace `/home/YOUR_USERNAME/private/postgres1/run` with the actual path from `echo $PGHOST`.
+
+### 3. Install dependencies and run migrations
+
+```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser
-python manage.py runserver
 ```
 
+### 4. Start the application
+
 ```bash
-# Celery worker (separate terminal)
+# Django dev server
+python manage.py runserver
+
+# Celery worker (separate terminal, with .venv activated)
 celery -A config worker -l info
 
-# Celery beat scheduler (separate terminal)
+# Celery beat scheduler (separate terminal, with .venv activated)
 celery -A config beat -l info
 ```
 
-### Frontend
+### 5. Frontend
 
 ```bash
 cd frontend

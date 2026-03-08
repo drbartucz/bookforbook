@@ -13,21 +13,27 @@ DATABASE_URL = config('DATABASE_URL', default='')
 
 
 def _parse_db_url(url: str) -> dict:
-    """Simple DATABASE_URL parser that supports postgresql:// and postgres:// schemes."""
+    """Simple DATABASE_URL parser that supports postgresql:// and postgres:// schemes.
+
+    Supports TCP:   postgresql://user:pass@host:5432/dbname
+    Supports socket: postgresql://user:pass@/dbname?host=/path/to/socket/dir
+    """
     pattern = re.compile(
         r'(?P<scheme>postgres(?:ql)?)://(?P<user>[^:]+):(?P<password>[^@]*)@'
-        r'(?P<host>[^:/]+)(?::(?P<port>\d+))?/(?P<name>[^?]+)'
+        r'(?P<host>[^:/]*)(?::(?P<port>\d+))?/(?P<name>[^?]+)'
+        r'(?:\?host=(?P<socketdir>[^&\s]+))?'
     )
     match = pattern.match(url)
     if not match:
         return {}
+    host = match.group('socketdir') or match.group('host') or ''
     return {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': match.group('name'),
         'USER': match.group('user'),
         'PASSWORD': match.group('password'),
-        'HOST': match.group('host'),
-        'PORT': match.group('port') or '5432',
+        'HOST': host,
+        'PORT': match.group('port') or '',
     }
 
 
