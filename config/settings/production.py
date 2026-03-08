@@ -19,23 +19,32 @@ X_FRAME_OPTIONS = 'DENY'
 
 
 def _parse_db_url(url: str) -> dict:
-    """Parse a DATABASE_URL string into Django DATABASES config."""
+    """Parse a DATABASE_URL string into Django DATABASES config.
+
+    Supports TCP:    postgresql://user:pass@host:5432/dbname
+    Supports socket: postgresql://user:pass@/dbname?host=/path/to/socket/dir
+    """
     pattern = re.compile(
         r'(?P<scheme>postgres(?:ql)?)://(?P<user>[^:]+):(?P<password>[^@]*)@'
-        r'(?P<host>[^:/]+)(?::(?P<port>\d+))?/(?P<name>[^?]+)'
+        r'(?P<host>[^:/]*)(?::(?P<port>\d+))?/(?P<name>[^?]+)'
+        r'(?:\?host=(?P<socketdir>[^&\s]+))?'
     )
     match = pattern.match(url)
     if not match:
         raise ValueError(f'Invalid DATABASE_URL: {url!r}')
+    socket_dir = match.group('socketdir')
+    host = socket_dir or match.group('host') or ''
+    options: dict = {'CONN_MAX_AGE': 600}
+    if not socket_dir:
+        options['OPTIONS'] = {'sslmode': 'require'}
     return {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': match.group('name'),
         'USER': match.group('user'),
         'PASSWORD': match.group('password'),
-        'HOST': match.group('host'),
-        'PORT': match.group('port') or '5432',
-        'OPTIONS': {'sslmode': 'require'},
-        'CONN_MAX_AGE': 600,
+        'HOST': host,
+        'PORT': match.group('port') or '',
+        **options,
     }
 
 
