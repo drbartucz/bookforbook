@@ -107,8 +107,8 @@ def run_ring_detection() -> list[Match]:
                 created_matches.append(match)
                 logger.info('Created ring match %s with %d participants', match.pk, len(cycle))
                 try:
-                    from apps.notifications.tasks import send_match_notification
-                    send_match_notification.delay(str(match.pk))
+                    from django_q.tasks import async_task
+                    async_task('apps.notifications.tasks.send_match_notification', str(match.pk))
                 except Exception:
                     logger.exception('Failed to queue ring match notification for %s', match.pk)
 

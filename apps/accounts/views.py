@@ -38,10 +38,10 @@ class RegisterView(APIView):
 
         # Send verification email asynchronously
         try:
-            from apps.notifications.tasks import send_verification_email
+            from django_q.tasks import async_task
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = email_verification_token.make_token(user)
-            send_verification_email.delay(str(user.pk), uid, token)
+            async_task('apps.notifications.tasks.send_verification_email', str(user.pk), uid, token)
         except Exception:
             logger.exception('Failed to queue verification email for user %s', user.pk)
 
@@ -97,8 +97,8 @@ class PasswordResetRequestView(APIView):
             user = User.objects.get(email=email, is_active=True)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            from apps.notifications.tasks import send_password_reset_email
-            send_password_reset_email.delay(str(user.pk), uid, token)
+            from django_q.tasks import async_task
+            async_task('apps.notifications.tasks.send_password_reset_email', str(user.pk), uid, token)
         except User.DoesNotExist:
             pass  # Don't reveal if email exists
 
@@ -144,8 +144,8 @@ class UserMeView(APIView):
 
         # Queue GDPR export + deletion
         try:
-            from apps.notifications.tasks import send_account_deletion_initiated
-            send_account_deletion_initiated.delay(str(user.pk))
+            from django_q.tasks import async_task
+            async_task('apps.notifications.tasks.send_account_deletion_initiated', str(user.pk))
         except Exception:
             logger.exception('Failed to queue deletion notification for user %s', user.pk)
 

@@ -51,8 +51,8 @@ class MyBooksView(APIView):
 
         # Trigger async matching scan
         try:
-            from apps.matching.tasks import run_matching_for_new_item
-            run_matching_for_new_item.delay(user_book_id=str(user_book.pk))
+            from django_q.tasks import async_task
+            async_task('apps.matching.tasks.run_matching_for_new_item', user_book_id=str(user_book.pk))
         except Exception:
             logger.exception('Failed to queue matching task for user_book %s', user_book.pk)
 
@@ -105,8 +105,8 @@ class WishlistView(APIView):
 
         # Trigger async matching scan
         try:
-            from apps.matching.tasks import run_matching_for_new_item
-            run_matching_for_new_item.delay(wishlist_item_id=str(item.pk))
+            from django_q.tasks import async_task
+            async_task('apps.matching.tasks.run_matching_for_new_item', wishlist_item_id=str(item.pk))
         except Exception:
             logger.exception('Failed to queue matching task for wishlist_item %s', item.pk)
 
