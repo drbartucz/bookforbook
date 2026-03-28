@@ -119,10 +119,10 @@ python manage.py createsuperuser
 python manage.py runserver
 
 # Celery worker (separate terminal, with .venv activated)
-celery --pool=solo --concurrency=1 -A config worker -l info
+celery -A config worker --pool=solo --concurrency=1 -l info
 
 # Celery beat scheduler (separate terminal, with .venv activated)
-celery --pool=solo --concurrency=1 -A config beat -l info
+celery -A config beat --pool=solo --concurrency=1 -l info
 ```
 
 ### 5. Frontend
