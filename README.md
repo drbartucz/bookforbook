@@ -18,7 +18,7 @@ Verified libraries and bookstores can receive book donations.
 |---|---|
 | Backend | Django 5.x + Django REST Framework |
 | Database | PostgreSQL 16 |
-| Task queue | Celery + Redis |
+| Task queue | Django-Q2 (PostgreSQL broker) |
 | Frontend | React 18 (Vite) as PWA |
 | ISBN data | Open Library API |
 | Auth | JWT (djangorestframework-simplejwt) |
@@ -31,7 +31,6 @@ Verified libraries and bookstores can receive book donations.
 
 - Python 3.12+
 - Node.js 20+
-- Redis
 - PostgreSQL 16 — set up via `setup_postgres.sh` (see below)
 
 ### 1. Set up PostgreSQL
@@ -94,7 +93,6 @@ Edit `.env` and set at minimum:
 ```
 SECRET_KEY=<generate with: python3 -c "import secrets; print(secrets.token_urlsafe(50))">
 DATABASE_URL=postgresql://bookforbook:YOUR_PASSWORD@/bookforbook?host=/home/YOUR_USERNAME/private/postgres1/run
-REDIS_URL=redis://localhost:6379/0
 FIELD_ENCRYPTION_KEY=<generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
 ALLOWED_HOSTS=yourdomain.com
 FRONTEND_URL=https://yourdomain.com
@@ -117,11 +115,8 @@ python manage.py createsuperuser
 # Django dev server
 python manage.py runserver
 
-# Celery worker (separate terminal, with .venv activated)
-celery -A config worker -l info
-
-# Celery beat scheduler (separate terminal, with .venv activated)
-celery -A config beat -l info
+# Task worker + scheduler (separate terminal, with .venv activated)
+python manage.py qcluster
 ```
 
 ### 5. Frontend
@@ -160,7 +155,7 @@ All endpoints live under `/api/v1/`. JWT auth is required except for browse/sear
 
 ```
 bookforbook/
-├── config/                  # Django project settings, Celery, URLs
+├── config/                  # Django project settings, URLs
 ├── apps/
 │   ├── accounts/            # User model, auth, profiles
 │   ├── books/               # Book cache, ISBN lookup, Open Library client
@@ -169,7 +164,7 @@ bookforbook/
 │   ├── trading/             # Proposals, trades, shipment tracking
 │   ├── donations/           # Institutional donation workflow
 │   ├── ratings/             # 1-5 star ratings with rolling average
-│   ├── notifications/       # Email/in-app notifications via Celery
+│   ├── notifications/       # Email/in-app notifications via Django-Q2
 │   └── messaging/           # Structured trade messages
 ├── frontend/                # React PWA (Vite)
 ├── scripts/                 # Dev utilities (seed data)

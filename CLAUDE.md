@@ -14,14 +14,14 @@ BookForBook is a book bartering platform where users in the continental USA trad
 |-------|-----------|
 | Backend | Django 5.x + Django REST Framework |
 | Database | PostgreSQL 16 |
-| Task queue | Celery + Redis |
+| Task queue | Django-Q2 (PostgreSQL broker) |
 | Frontend | React 18 (Vite) as PWA |
 | ISBN enrichment | Open Library API (free, no key required) |
 | Notifications | Email via SendGrid/AWS SES; optional SMS via Twilio |
 | Search | PostgreSQL full-text search (upgrade to Meilisearch later if needed) |
 | File storage | S3-compatible (AWS S3, Backblaze B2, or local dev) |
 | Auth | JWT via `djangorestframework-simplejwt` |
-| Deployment | Native (PostgreSQL + Redis installed directly), or managed (Railway/Render) |
+| Deployment | Native (PostgreSQL installed directly), or managed (Railway/Render) |
 
 ---
 
@@ -43,7 +43,6 @@ bookforbook/
 │   │   ├── development.py
 │   │   └── production.py
 │   ├── urls.py
-│   ├── celery.py
 │   └── wsgi.py
 │
 ├── apps/
@@ -54,7 +53,7 @@ bookforbook/
 │   ├── trading/                     # Proposals, Trades, Shipments
 │   ├── donations/                   # Institutional donation workflow
 │   ├── ratings/                     # Rating system + rolling average
-│   ├── notifications/               # Email/in-app notifications, Celery tasks
+│   ├── notifications/               # Email/in-app notifications, Django-Q2 tasks
 │   └── messaging/                   # Structured trade messages
 │
 ├── frontend/                        # React PWA (Vite + vite-plugin-pwa)
@@ -116,7 +115,7 @@ All primary keys are UUIDs. All personal address fields are encrypted at rest.
 ### Trade (execution record, created after confirmation)
 - `source_type`: `match` | `proposal` | `donation`
 - `auto_close_at = confirmed_at + 3 weeks`
-- Weekly Celery task sends up to 3 rating reminders; auto-closes with `auto_closed` status if no rating submitted
+- Weekly background task sends up to 3 rating reminders; auto-closes with `auto_closed` status if no rating submitted
 
 ### TradeShipment (one per direction)
 - `status`: `pending` | `shipped` | `received` | `not_received`
@@ -179,7 +178,7 @@ browse/         available/, available/?q=, partner/:id/books/, shipping-estimate
 
 ## Core Workflows
 
-### Matching Engine (Celery, triggered on new UserBook/WishlistItem + periodic 6h scan)
+### Matching Engine (Django-Q2, triggered on new UserBook/WishlistItem + periodic 6h scan)
 
 **Direct match:**
 ```
@@ -246,7 +245,7 @@ No API key required. Rate-limit requests to avoid abuse. Cache all results local
 - **UUID primary keys** on all models
 - **ENUM fields**: use Django's `TextChoices` for status/type fields
 - **Encrypted fields**: use `django-fernet-fields` or equivalent for address fields
-- **Celery tasks**: defined in `tasks.py` per app; triggered via Django signals
+- **Background tasks**: defined in `tasks.py` per app; dispatched via `django_q.tasks.async_task()`; triggered via Django signals
 - **Type hints**: use throughout Python code
 - **Serializers validate**: all input at the API boundary; never trust raw request data
 
@@ -265,9 +264,9 @@ No API key required. Rate-limit requests to avoid abuse. Cache all results local
 ## Development Setup (When Code Exists)
 
 ```bash
-# Start PostgreSQL and Redis (must be installed and running natively)
-# Ubuntu/Debian: sudo service postgresql start && sudo service redis-server start
-# macOS:        brew services start postgresql@16 && brew services start redis
+# Start PostgreSQL (must be installed and running natively)
+# Ubuntu/Debian: sudo service postgresql start
+# macOS:        brew services start postgresql@16
 
 # Create the database
 createdb bookforbook
@@ -280,8 +279,8 @@ python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 
-# Celery worker (separate terminal)
-celery -A config worker -l info
+# Task worker + scheduler (separate terminal)
+python manage.py qcluster
 
 # Frontend
 cd frontend
@@ -316,9 +315,8 @@ See `docs/bookswap-architecture.md` for full details.
 |------|---------|
 | `docs/bookswap-architecture.md` | Complete architecture specification — read before implementing anything |
 | `config/settings/base.py` | Django base settings (to be created) |
-| `config/celery.py` | Celery app configuration (to be created) |
 | `apps/matching/services/direct_matcher.py` | Direct match detection logic (to be created) |
 | `apps/matching/services/ring_detector.py` | Exchange ring cycle detection (to be created) |
 | `apps/books/services/openlibrary.py` | Open Library API client (to be created) |
 | `apps/ratings/services/rolling_average.py` | Rolling average recomputation (to be created) |
-| `apps/notifications/tasks.py` | All Celery notification tasks (to be created) |
+| `apps/notifications/tasks.py` | All notification tasks (to be created) |

@@ -12,13 +12,13 @@ BookForBook is a book bartering platform where users trade books 1-for-1 without
 |-------|-----------|-----------|
 | Backend framework | Django 5.x + Django REST Framework | Auth, ORM, admin panel out of the box; strong Python ecosystem |
 | Database | PostgreSQL 16 | Relational data model, full-text search, JSON fields for flexibility |
-| Task queue | Celery + Redis | Background matching engine, email notifications, ISBN enrichment |
+| Task queue | Django-Q2 (PostgreSQL broker) | Background matching engine, email notifications, ISBN enrichment |
 | Frontend | React 18 (Vite) as PWA | Interactive browsing, trade flows; PWA for mobile access |
 | ISBN enrichment | Open Library API (free, no key required) | Title, author, cover image, publisher, year, page count |
 | Notifications | Email (Django + SendGrid/SES), SMS optional (Twilio) | Trade alerts, match notifications, shipping confirmations |
 | Search | PostgreSQL full-text search (upgrade to Meilisearch/Typesense if needed) | Book catalog browsing |
 | File storage | S3-compatible (AWS S3, Backblaze B2, or local for dev) | Cover image caching |
-| Deployment | Native (PostgreSQL + Redis installed directly on VPS) OR managed (Railway, Render) | Flexible based on preference |
+| Deployment | Native (PostgreSQL installed directly on VPS) OR managed (Railway, Render) | Flexible based on preference |
 
 ---
 
@@ -258,7 +258,7 @@ TradeShipment (one per direction in the trade)
 - Address is revealed to both parties at this point.
 - Each shipment is tracked independently — one side might ship before the other.
 - `one_received` means one party confirmed receipt; `completed` means both have.
-- **Auto-close logic:** After a match is accepted, a weekly Celery task sends rating reminders to users who haven't rated yet (up to 3 reminders). After 3 weeks with no rating, the trade is auto-closed with status `auto_closed` — the book is assumed received, UserBooks move to `traded`, and user trade counts are updated. No rating is recorded.
+- **Auto-close logic:** After a match is accepted, a weekly background task sends rating reminders to users who haven't rated yet (up to 3 reminders). After 3 weeks with no rating, the trade is auto-closed with status `auto_closed` — the book is assumed received, UserBooks move to `traded`, and user trade counts are updated. No rating is recorded.
 - **No dispute resolution.** The rating system is the only accountability mechanism. Users who send wrong books or don't ship will accumulate bad ratings.
 
 ### Ratings
@@ -282,7 +282,7 @@ UNIQUE CONSTRAINT: (trade_id, rater_id) — one rating per user per trade
 **Notes:**
 - Only the **last 10 ratings** are used for computing `avg_recent_rating` on the User profile.
 - Historical ratings are kept in the database but not surfaced publicly.
-- A Celery task or DB trigger recomputes the rolling average after each new rating.
+- A background task or DB trigger recomputes the rolling average after each new rating.
 - `book_condition_accurate` helps build trust signals beyond the star rating.
 
 ### Shipping Estimates
@@ -350,7 +350,7 @@ User enters ISBN
 - Cover image: `https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg`
 - Search fallback: `https://openlibrary.org/search.json?isbn={isbn}`
 
-### 2. Matching Engine (Background — Celery)
+### 2. Matching Engine (Background — Django-Q2)
 
 **Runs on triggers:**
 - New UserBook or WishlistItem created
@@ -440,7 +440,7 @@ Individual browses institution's wanted list
 ```
 After a trade is confirmed:
     → Set auto_close_at = confirmed_at + 3 weeks
-    → Weekly Celery task checks all active trades:
+    → Weekly background task checks all active trades:
         → If user hasn't rated AND trade is still open:
             → Send rating reminder email (up to 3 per user)
             → Increment rating_reminders_sent
@@ -505,7 +505,7 @@ User registers with email + password
 ### 9. Inactivity Management
 
 ```
-Daily Celery task scans all users:
+Daily background task scans all users:
 
 1 month since last_active_at (no warning sent yet):
     → Send "We miss you" email with summary of any pending matches
@@ -646,7 +646,7 @@ User requests deletion → POST /api/v1/users/me/ (DELETE)
 | Account deletion initiated (30-day grace) | Email | Critical |
 | Account deletion completed | Email | Critical |
 
-**Implementation:** Celery tasks triggered by Django signals. Email via SendGrid or AWS SES. In-app via a simple Notification model polled by frontend (upgrade to WebSockets later if needed).
+**Implementation:** background tasks triggered by Django signals. Email via SendGrid or AWS SES. In-app via a simple Notification model polled by frontend (upgrade to WebSockets later if needed).
 
 ---
 
@@ -674,7 +674,7 @@ bookforbook/
 │   │   ├── development.py
 │   │   └── production.py
 │   ├── urls.py
-│   ├── celery.py
+│   ├── __init__.py
 │   └── wsgi.py
 │
 ├── apps/
@@ -731,7 +731,7 @@ bookforbook/
 │   │
 │   ├── notifications/          # Email, in-app notifications
 │       ├── models.py
-│       ├── tasks.py            # Celery tasks
+│       ├── tasks.py            # background tasks
 │       └── templates/          # Email templates
 │
 │   └── messaging/              # Structured trade messages
@@ -762,7 +762,7 @@ bookforbook/
 This architecture is designed to be built incrementally with Claude Code. Recommended build order:
 
 ### Phase 1 — Foundation
-1. Django project scaffold with settings (requires PostgreSQL 16 + Redis installed natively)
+1. Django project scaffold with settings (requires PostgreSQL 16 installed natively)
 2. Custom User model with account types and email verification fields
 3. Auth endpoints: register, login, email verification, password reset
 4. Book model + Open Library API service
@@ -774,7 +774,7 @@ This architecture is designed to be built incrementally with Claude Code. Recomm
 8. Browse available books with search/filter
 
 ### Phase 3 — Matching Engine
-9. Direct match detection service + Celery task
+9. Direct match detection service + background task
 10. Match model + notification on match
 11. Match limit enforcement (rating-based capacity)
 12. Accept/decline flow with address reveal
@@ -786,7 +786,7 @@ This architecture is designed to be built incrementally with Claude Code. Recomm
 16. Shipping estimate utility (Media Mail rate lookup by page count)
 17. Post-match partner browsing + additional proposals
 18. Rating system with rolling average
-19. Weekly rating reminder Celery task
+19. Weekly rating reminder background task
 20. 3-week auto-close logic for unrated trades
 
 ### Phase 5 — Institutions
@@ -801,7 +801,7 @@ This architecture is designed to be built incrementally with Claude Code. Recomm
 27. Ring trade execution
 
 ### Phase 7 — User Lifecycle
-28. Inactivity detection Celery task (1m/2m warnings, 3m delist)
+28. Inactivity detection background task (1m/2m warnings, 3m delist)
 29. Auto-relist on login after delisting
 30. GDPR data export endpoint
 31. Account deletion with 30-day grace period and anonymization

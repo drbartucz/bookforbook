@@ -38,8 +38,8 @@ def create_trade_from_match(match) -> 'Trade':
 
     # Notify all parties
     try:
-        from apps.notifications.tasks import send_trade_confirmed_notification
-        send_trade_confirmed_notification.delay(str(trade.pk))
+        from django_q.tasks import async_task
+        async_task('apps.notifications.tasks.send_trade_confirmed_notification', str(trade.pk))
     except Exception:
         logger.exception('Failed to queue trade confirmed notification for trade %s', trade.pk)
 
@@ -80,8 +80,8 @@ def create_trade_from_proposal(proposal) -> 'Trade':
         )
 
     try:
-        from apps.notifications.tasks import send_trade_confirmed_notification
-        send_trade_confirmed_notification.delay(str(trade.pk))
+        from django_q.tasks import async_task
+        async_task('apps.notifications.tasks.send_trade_confirmed_notification', str(trade.pk))
     except Exception:
         logger.exception('Failed to queue trade confirmed notification for trade %s', trade.pk)
 
