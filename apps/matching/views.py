@@ -131,8 +131,8 @@ class MatchDeclineView(APIView):
                     from apps.matching.services.ring_detector import retry_ring_after_decline
                     new_match = retry_ring_after_decline(match, user)
                     if new_match:
-                        from apps.notifications.tasks import send_match_notification
-                        send_match_notification.delay(str(new_match.pk))
+                        from django_q.tasks import async_task
+                        async_task('apps.notifications.tasks.send_match_notification', str(new_match.pk))
                     else:
                         # Notify all participants that ring could not be reformed
                         _notify_ring_cancelled(match, user)

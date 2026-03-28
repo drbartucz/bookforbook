@@ -1,12 +1,10 @@
 import logging
 
-from celery import shared_task
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task
 def send_rating_reminders():
     """
     Weekly task: send rating reminders to users who haven't rated yet.
@@ -14,6 +12,7 @@ def send_rating_reminders():
     """
     from apps.trading.models import Trade, TradeShipment
     from apps.ratings.models import Rating
+    from django_q.tasks import async_task
 
     # Find completed/shipping trades that still need ratings
     active_statuses = [
@@ -44,8 +43,7 @@ def send_rating_reminders():
 
         for uid in unrated_user_ids:
             try:
-                from apps.notifications.tasks import send_rating_reminder
-                send_rating_reminder.delay(str(trade.pk), uid)
+                async_task('apps.notifications.tasks.send_rating_reminder', str(trade.pk), uid)
             except Exception:
                 logger.exception('Failed to queue rating reminder for trade %s, user %s', trade.pk, uid)
 
@@ -53,7 +51,6 @@ def send_rating_reminders():
         trade.save(update_fields=['rating_reminders_sent'])
 
 
-@shared_task
 def auto_close_trades():
     """
     Weekly task: close trades that have passed their auto_close_at deadline.
