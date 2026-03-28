@@ -165,6 +165,7 @@ Q_CLUSTER = {
     'catch_up': False,
     'max_attempts': 3,
     'ack_failures': True,
+    'sync': True,  # No forking — required on hosts without /dev/shm (e.g. SureSupport)
 }
 
 # Encrypted model fields
