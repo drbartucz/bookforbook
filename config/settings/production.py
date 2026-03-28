@@ -6,6 +6,8 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
+ALLOWED_HOSTS = ['bookforbook.com', 'www.bookforbook.com']
+
 # Security settings
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
