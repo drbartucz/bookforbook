@@ -112,13 +112,111 @@ python manage.py createsuperuser
 
 ### 4. Start the application
 
-```bash
-# Django dev server
-python manage.py runserver
+#### Development only
 
-# Periodic tasks are run via cron (no qcluster needed on shared hosting)
-# See apps/notifications/management/commands/run_periodic_tasks.py for crontab entries
+```bash
+python manage.py runserver
 ```
+
+Never use this in production — it is single-threaded, not hardened, and not persistent.
+
+#### Production — gunicorn
+
+gunicorn is already in `requirements.txt`. It serves Django over HTTP and handles multiple concurrent requests.
+
+**First, find your assigned port** from the SureSupport control panel. You need this to bind gunicorn correctly.
+
+**Create a gunicorn config file** at the project root:
+
+```bash
+cat > ~/private/bookforbook/gunicorn.conf.py << 'EOF'
+bind = "0.0.0.0:PORT"          # replace PORT with your assigned port
+workers = 2                     # 2 workers is fine for shared hosting
+timeout = 60                    # seconds before a worker is killed
+accesslog = "/home/bookforbook/logs/gunicorn-access.log"
+errorlog  = "/home/bookforbook/logs/gunicorn-error.log"
+loglevel  = "info"
+proc_name = "bookforbook"
+EOF
+```
+
+Replace `PORT` and the log path username with your actual values. Create the log directory:
+
+```bash
+mkdir -p ~/logs
+```
+
+**Start gunicorn in a screen session** so it keeps running after you disconnect:
+
+```bash
+screen -S bookforbook
+cd ~/private/bookforbook
+source .venv/bin/activate
+gunicorn config.wsgi:application -c gunicorn.conf.py
+```
+
+Detach from screen without stopping gunicorn: press `Ctrl+A` then `D`.
+
+**Reattach** to the running session later:
+
+```bash
+screen -r bookforbook
+```
+
+**List all screen sessions:**
+
+```bash
+screen -ls
+```
+
+**Stop gunicorn** (when you need to restart after a code update):
+
+```bash
+screen -r bookforbook
+# Then press Ctrl+C to stop gunicorn, then restart it:
+gunicorn config.wsgi:application -c gunicorn.conf.py
+# Detach again with Ctrl+A, D
+```
+
+#### Keeping gunicorn alive across reboots
+
+Screen sessions are lost on server reboot. Add a `@reboot` cron entry to restart gunicorn automatically:
+
+```bash
+crontab -e
+```
+
+Add this line (replace paths with your actual username):
+
+```
+@reboot cd /home/bookforbook/private/bookforbook && /home/bookforbook/private/bookforbook/.venv/bin/gunicorn config.wsgi:application -c gunicorn.conf.py >> /home/bookforbook/logs/gunicorn-reboot.log 2>&1
+```
+
+#### Reloading after code updates
+
+Gunicorn can reload workers without dropping connections using a graceful restart. After pulling new code and running migrations:
+
+```bash
+# Find the gunicorn master process ID
+cat /tmp/bookforbook.pid
+# or
+pgrep -f "gunicorn.*bookforbook"
+
+# Send HUP signal to gracefully reload workers
+kill -HUP <PID>
+```
+
+To enable the PID file, add this to `gunicorn.conf.py`:
+
+```python
+pidfile = "/tmp/bookforbook.pid"
+```
+
+Or just stop and restart gunicorn via screen (simpler, causes a brief outage of a few seconds).
+
+#### Periodic tasks are run via cron (no background worker needed)
+
+See the crontab entries in `SUPERUSER.md` under **Cron Schedule Reference**.
 
 ### 5. Frontend
 
