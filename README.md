@@ -116,8 +116,8 @@ python manage.py createsuperuser
 # Django dev server
 python manage.py runserver
 
-# Task worker + scheduler (separate terminal, with .venv activated)
-python manage.py qcluster
+# Periodic tasks are run via cron (no qcluster needed on shared hosting)
+# See apps/notifications/management/commands/run_periodic_tasks.py for crontab entries
 ```
 
 ### 5. Frontend
