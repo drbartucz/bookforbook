@@ -137,8 +137,8 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
 
                 # Notify asynchronously
                 try:
-                    from apps.notifications.tasks import send_match_notification
-                    send_match_notification.delay(str(match.pk))
+                    from django_q.tasks import async_task
+                    async_task('apps.notifications.tasks.send_match_notification', str(match.pk))
                 except Exception:
                     logger.exception('Failed to queue match notification for %s', match.pk)
 

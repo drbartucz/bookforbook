@@ -32,8 +32,8 @@ def on_user_login(sender, request, user, **kwargs):
             )
             # Trigger matching scan for newly available books
             try:
-                from apps.matching.tasks import run_matching_for_relisted_books
-                run_matching_for_relisted_books.delay(str(user.pk))
+                from django_q.tasks import async_task
+                async_task('apps.matching.tasks.run_matching_for_relisted_books', str(user.pk))
             except Exception:
                 logger.exception('Failed to queue matching for relisted books, user %s', user.pk)
 
