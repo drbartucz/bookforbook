@@ -318,9 +318,16 @@ The dev server proxies `/api` to `http://localhost:8000` automatically — no en
 
 Cloudflare Pages builds and hosts the React app. The Django API runs separately at `api.bookforbook.com`.
 
+> **Cloudflare Pages vs Cloudflare Workers — use Pages.** These are two different products. Pages is for hosting static sites and SPAs built from a git repo. Workers is a serverless compute platform. Using Workers by mistake will cause the build to fail with wrangler errors. Always use the **Pages** flow described below.
+
 ##### Step 1 — Add the API subdomain on SureSupport
 
-In the SureSupport control panel, add a subdomain `api.bookforbook.com` pointing to the same gunicorn webapp as `bookforbook.com`. No extra configuration needed — Django already accepts `api.bookforbook.com` in `ALLOWED_HOSTS`.
+Adding `api.bookforbook.com` routes API traffic to the same gunicorn webapp as `bookforbook.com`. Django already accepts this hostname in `ALLOWED_HOSTS`.
+
+In the SureSupport control panel:
+
+1. Add a subdomain `api.bookforbook.com`. SureSupport will ask for a document root folder — set it to `www/www` or whatever the default is. **This folder is never used** since all requests are forwarded to gunicorn; the value doesn't matter.
+2. Add `api.bookforbook.com` as an additional hostname on your existing gunicorn webapp.
 
 ##### Step 2 — Allow the frontend domain in Django CORS
 
@@ -338,7 +345,10 @@ kill -HUP $(cat /tmp/bookforbook.pid)
 
 ##### Step 3 — Deploy to Cloudflare Pages
 
-1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com) → **Pages** → **Create a project** → **Connect to Git**
+1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
+
+   > Do not choose **Workers**. If you land on a screen that asks for a "deploy command", you are in the Workers flow — go back and select **Pages**.
+
 2. Select the `bookforbook` repository
 3. Configure the build:
 
@@ -346,10 +356,11 @@ kill -HUP $(cat /tmp/bookforbook.pid)
    |---------|-------|
    | **Framework preset** | None |
    | **Build command** | `npm run build` |
+   | **Deploy command** | *(leave blank — Pages does not use this)* |
    | **Build output directory** | `dist` |
    | **Root directory** | `frontend` |
 
-4. Add an environment variable:
+4. Add an environment variable under **Settings → Environment variables → Production**:
 
    | Variable | Value |
    |----------|-------|
