@@ -181,7 +181,7 @@ export const institutions = {
 
 // ── Browse ────────────────────────────────────────────────────────────────────
 export const browse = {
-  available: (params) => apiClient.get('/browse/', { params }),
+  available: (params) => apiClient.get('/browse/available/', { params }),
   partnerBooks: (userId, params) => apiClient.get(`/browse/partner/${userId}/`, { params }),
   shippingEstimate: (data) => apiClient.post('/browse/shipping-estimate/', data),
 };
