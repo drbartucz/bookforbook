@@ -377,56 +377,91 @@ kill -HUP $(cat /tmp/bookforbook.pid)
 | `www.bookforbook.com` | Cloudflare Pages | Serves the React frontend |
 | `api.bookforbook.com` | SureSupport server | Serves the Django API |
 
-**Recommended: use Cloudflare as your nameserver**
+Cloudflare manages all three DNS records. `bookforbook.com` and `www` are proxied through Cloudflare (CDN + DDoS protection). `api` bypasses Cloudflare's proxy and goes direct to SureSupport — this is required so Django sees real user IPs for logging and rate limiting.
 
-Transfer your domain's nameservers to Cloudflare (free). This is the simplest approach because:
-- Cloudflare handles the apex domain (`bookforbook.com`) automatically — standard DNS doesn't allow a CNAME at the apex, but Cloudflare flattens it transparently
-- Custom domain setup in Pages becomes one click
-- SSL is provisioned automatically for all hostnames
+---
 
-To transfer nameservers: Cloudflare dashboard → **Add a site** → enter your domain → follow the steps → update nameservers at your registrar to the two Cloudflare nameservers provided.
+**4a — Find your SureSupport server IP**
 
-Once your domain is on Cloudflare DNS, create these records:
+You need this before starting. SSH into the server and run:
 
-| Type | Name | Value | Proxy |
-|------|------|-------|-------|
-| CNAME | `bookforbook.com` (or `@`) | `bookforbook.pages.dev` | Proxied (orange cloud) |
-| CNAME | `www` | `bookforbook.pages.dev` | Proxied (orange cloud) |
-| A | `api` | *(your SureSupport server IP)* | DNS only (grey cloud) |
-
-The `api` subdomain must be **grey cloud (DNS only)**. If it were proxied, requests would arrive at SureSupport appearing to come from Cloudflare's IPs rather than the user's real IP, which complicates logging and rate limiting.
-
-To find your SureSupport server IP:
 ```bash
-# Run this on the server, or check the SureSupport control panel
 curl -s ifconfig.me
-# or
-hostname -I
 ```
 
-**Then add custom domains in Cloudflare Pages:**
+Note the IP address — you'll enter it as the `api` DNS record shortly.
 
-In your Pages project → **Custom domains** → **Set up a custom domain** → add `bookforbook.com`, then repeat for `www.bookforbook.com`. Because Cloudflare manages your DNS, it will verify and activate each domain automatically. SSL certificates are provisioned within a few minutes.
+---
 
-**If you cannot move nameservers to Cloudflare:**
+**4b — Add your domain to Cloudflare**
 
-Create these records at wherever your DNS is currently managed:
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) and log in (create a free account if needed)
+2. Click **Add a domain**
+3. Enter `bookforbook.com` and click **Continue**
+4. Select the **Free** plan and click **Continue**
+5. Cloudflare scans your existing DNS records and shows them. Review the list — it may have pre-populated some records from your current ICDSoft DNS. You can leave these for now; you'll adjust them in the next step.
+6. Click **Continue to nameservers**
+7. Cloudflare shows you **two nameserver addresses** — they look like:
+   ```
+   aida.ns.cloudflare.com
+   bert.ns.cloudflare.com
+   ```
+   (yours will have different names — copy the exact values shown on screen)
 
-| Type | Name | Value |
-|------|------|-------|
-| ALIAS or ANAME | `bookforbook.com` | `bookforbook.pages.dev` |
-| CNAME | `www` | `bookforbook.pages.dev` |
-| A | `api` | *(your SureSupport server IP)* |
+---
 
-> Note: not all DNS providers support ALIAS/ANAME records at the apex. If yours doesn't, the only option is to redirect `bookforbook.com` to `www.bookforbook.com` and use a CNAME for `www`. Moving nameservers to Cloudflare is the simpler path.
+**4c — Update nameservers at ICDSoft**
 
-**SSL for `api.bookforbook.com`:**
+1. Log in to the **ICDSoft Account Panel** (not the hosting Control Panel — this is the billing/domain management panel at account.icdsoft.com)
+2. Go to **Hosting Resources** → **Domains**
+3. Click on **bookforbook.com**
+4. Find the **Nameservers** section
+5. Replace the existing nameservers with the two Cloudflare nameservers from the previous step
+6. Save
 
-SureSupport provisions SSL for subdomains automatically when you add them via the control panel. Verify it is working after setup:
+Nameserver propagation typically takes 5–30 minutes but can take up to 24 hours. Cloudflare will email you when your domain is active. You can also check status in the Cloudflare dashboard — the domain will show **Active** when propagation is complete.
+
+---
+
+**4d — Create DNS records in Cloudflare**
+
+Once the domain is active, go to Cloudflare dashboard → **bookforbook.com** → **DNS** → **Records**.
+
+Delete any records Cloudflare auto-imported that conflict with the ones below, then create:
+
+| Type | Name | Content | Proxy status |
+|------|------|---------|--------------|
+| CNAME | `@` | `bookforbook.pages.dev` | **Proxied** (orange cloud) |
+| CNAME | `www` | `bookforbook.pages.dev` | **Proxied** (orange cloud) |
+| A | `api` | *(your SureSupport server IP from step 4a)* | **DNS only** (grey cloud) |
+
+To set proxy status when creating a record: there is a toggle labelled **Proxy status** — orange cloud means proxied, grey cloud means DNS only. Make sure `api` is grey.
+
+> The `@` symbol means the root domain (`bookforbook.com` itself). Some DNS interfaces show it as `@`, some show the full domain name.
+
+---
+
+**4e — Add custom domains to Cloudflare Pages**
+
+1. In Cloudflare dashboard → **Workers & Pages** → your Pages project → **Custom domains**
+2. Click **Set up a custom domain**
+3. Enter `bookforbook.com` → click **Continue** → **Activate domain**
+4. Repeat for `www.bookforbook.com`
+
+Because Cloudflare manages your DNS, it will verify and activate each domain automatically within a few minutes. SSL certificates are provisioned at the same time — no separate step needed.
+
+---
+
+**4f — Verify everything is working**
 
 ```bash
+# Frontend should load
+curl -I https://bookforbook.com
+# Expected: HTTP 200
+
+# API should respond
 curl -I https://api.bookforbook.com/api/v1/browse/
-# Should return HTTP 200, not a certificate error
+# Expected: HTTP 200, not a certificate error
 ```
 
 ##### Deploying updates
