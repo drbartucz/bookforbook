@@ -318,9 +318,16 @@ The dev server proxies `/api` to `http://localhost:8000` automatically — no en
 
 Cloudflare Pages builds and hosts the React app. The Django API runs separately at `api.bookforbook.com`.
 
+> **Cloudflare Pages vs Cloudflare Workers — use Pages.** These are two different products. Pages is for hosting static sites and SPAs built from a git repo. Workers is a serverless compute platform. Using Workers by mistake will cause the build to fail with wrangler errors. Always use the **Pages** flow described below.
+
 ##### Step 1 — Add the API subdomain on SureSupport
 
-In the SureSupport control panel, add a subdomain `api.bookforbook.com` pointing to the same gunicorn webapp as `bookforbook.com`. No extra configuration needed — Django already accepts `api.bookforbook.com` in `ALLOWED_HOSTS`.
+Adding `api.bookforbook.com` routes API traffic to the same gunicorn webapp as `bookforbook.com`. Django already accepts this hostname in `ALLOWED_HOSTS`.
+
+In the SureSupport control panel:
+
+1. Add a subdomain `api.bookforbook.com`. SureSupport will ask for a document root folder — set it to `www/www` or whatever the default is. **This folder is never used** since all requests are forwarded to gunicorn; the value doesn't matter.
+2. Add `api.bookforbook.com` as an additional hostname on your existing gunicorn webapp.
 
 ##### Step 2 — Allow the frontend domain in Django CORS
 
@@ -338,7 +345,10 @@ kill -HUP $(cat /tmp/bookforbook.pid)
 
 ##### Step 3 — Deploy to Cloudflare Pages
 
-1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com) → **Pages** → **Create a project** → **Connect to Git**
+1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
+
+   > Do not choose **Workers** — that is a different product.
+
 2. Select the `bookforbook` repository
 3. Configure the build:
 
@@ -349,7 +359,7 @@ kill -HUP $(cat /tmp/bookforbook.pid)
    | **Build output directory** | `dist` |
    | **Root directory** | `frontend` |
 
-4. Add an environment variable:
+4. Add an environment variable under **Settings → Environment variables → Production**:
 
    | Variable | Value |
    |----------|-------|
@@ -357,11 +367,102 @@ kill -HUP $(cat /tmp/bookforbook.pid)
 
 5. Click **Save and Deploy**. Cloudflare builds the app and deploys it globally in ~2 minutes.
 
-##### Step 4 — Point your domain at Cloudflare Pages
+##### Step 4 — DNS configuration
 
-In the Cloudflare Pages project → **Custom domains** → add `bookforbook.com` and `www.bookforbook.com`. Cloudflare handles SSL automatically.
+**Overview — what points where:**
 
-> **DNS:** If your domain's nameservers are already on Cloudflare, the custom domain setup is automatic. If not, add a CNAME record for `bookforbook.com` pointing to your Pages project URL (e.g. `bookforbook.pages.dev`).
+| Hostname | Destination | Why |
+|----------|-------------|-----|
+| `bookforbook.com` | Cloudflare Pages | Serves the React frontend |
+| `www.bookforbook.com` | Cloudflare Pages | Serves the React frontend |
+| `api.bookforbook.com` | SureSupport server | Serves the Django API |
+
+Cloudflare manages all three DNS records. `bookforbook.com` and `www` are proxied through Cloudflare (CDN + DDoS protection). `api` bypasses Cloudflare's proxy and goes direct to SureSupport — this is required so Django sees real user IPs for logging and rate limiting.
+
+---
+
+**4a — Find your SureSupport server IP**
+
+You need this before starting. SSH into the server and run:
+
+```bash
+curl -s ifconfig.me
+```
+
+Note the IP address — you'll enter it as the `api` DNS record shortly.
+
+---
+
+**4b — Add your domain to Cloudflare**
+
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) and log in (create a free account if needed)
+2. Click **Add a domain**
+3. Enter `bookforbook.com` and click **Continue**
+4. Select the **Free** plan and click **Continue**
+5. Cloudflare scans your existing DNS records and shows them. Review the list — it may have pre-populated some records from your current ICDSoft DNS. You can leave these for now; you'll adjust them in the next step.
+6. Click **Continue to nameservers**
+7. Cloudflare shows you **two nameserver addresses** — they look like:
+   ```
+   aida.ns.cloudflare.com
+   bert.ns.cloudflare.com
+   ```
+   (yours will have different names — copy the exact values shown on screen)
+
+---
+
+**4c — Update nameservers at ICDSoft**
+
+1. Log in to the **ICDSoft Account Panel** (not the hosting Control Panel — this is the billing/domain management panel at account.icdsoft.com)
+2. Go to **Hosting Resources** → **Domains**
+3. Click on **bookforbook.com**
+4. Find the **Nameservers** section
+5. Replace the existing nameservers with the two Cloudflare nameservers from the previous step
+6. Save
+
+Nameserver propagation typically takes 5–30 minutes but can take up to 24 hours. Cloudflare will email you when your domain is active. You can also check status in the Cloudflare dashboard — the domain will show **Active** when propagation is complete.
+
+---
+
+**4d — Create DNS records in Cloudflare**
+
+Once the domain is active, go to Cloudflare dashboard → **bookforbook.com** → **DNS** → **Records**.
+
+Delete any records Cloudflare auto-imported that conflict with the ones below, then create:
+
+| Type | Name | Content | Proxy status |
+|------|------|---------|--------------|
+| CNAME | `@` | `bookforbook.pages.dev` | **Proxied** (orange cloud) |
+| CNAME | `www` | `bookforbook.pages.dev` | **Proxied** (orange cloud) |
+| A | `api` | *(your SureSupport server IP from step 4a)* | **DNS only** (grey cloud) |
+
+To set proxy status when creating a record: there is a toggle labelled **Proxy status** — orange cloud means proxied, grey cloud means DNS only. Make sure `api` is grey.
+
+> The `@` symbol means the root domain (`bookforbook.com` itself). Some DNS interfaces show it as `@`, some show the full domain name.
+
+---
+
+**4e — Add custom domains to Cloudflare Pages**
+
+1. In Cloudflare dashboard → **Workers & Pages** → your Pages project → **Custom domains**
+2. Click **Set up a custom domain**
+3. Enter `bookforbook.com` → click **Continue** → **Activate domain**
+4. Repeat for `www.bookforbook.com`
+
+Because Cloudflare manages your DNS, it will verify and activate each domain automatically within a few minutes. SSL certificates are provisioned at the same time — no separate step needed.
+
+---
+
+**4f — Verify everything is working**
+
+```bash
+# Frontend should load
+curl -I https://bookforbook.com
+# Expected: HTTP 200
+
+# API should respond
+curl -I https://api.bookforbook.com/api/v1/browse/
+# Expected: HTTP 200, not a certificate error
+```
 
 ##### Deploying updates
 
