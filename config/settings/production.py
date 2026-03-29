@@ -6,7 +6,7 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['bookforbook.com', 'www.bookforbook.com']
+ALLOWED_HOSTS = ['bookforbook.com', 'www.bookforbook.com', 'api.bookforbook.com']
 
 # WhiteNoise — serve and compress static files directly from gunicorn
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
