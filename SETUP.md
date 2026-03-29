@@ -129,7 +129,7 @@ gunicorn is already in `requirements.txt`. On SureSupport, the control panel man
 ##### Step 1 — Create the log directory
 
 ```bash
-mkdir -p ~/logs
+mkdir -p ~/private/logs
 ```
 
 ---
@@ -182,7 +182,9 @@ source .venv/bin/activate
 python manage.py collectstatic --noinput
 ```
 
-This copies everything to `staticfiles/`. The control panel's web server serves them directly.
+This copies everything to `staticfiles/`. Static files are served by **WhiteNoise** directly from the gunicorn process — no separate web server step needed. WhiteNoise also compresses files and adds cache-busting hashes to filenames automatically.
+
+> **Important:** Run `collectstatic` before the first startup and after any code update that adds or changes static files (CSS, JS, images). If you forget, the admin panel will load without styles.
 
 ---
 
@@ -191,7 +193,7 @@ This copies everything to `staticfiles/`. The control panel's web server serves 
 Start (or restart) the webapp from the SureSupport control panel. Check the error log if it doesn't come up:
 
 ```bash
-tail -f ~/logs/gunicorn-error.log
+tail -f ~/private/logs/gunicorn-error.log
 ```
 
 ---
@@ -298,11 +300,74 @@ See the crontab entries in `SUPERUSER.md` under **Cron Schedule Reference**.
 
 ### 5. Frontend
 
+The frontend is a React PWA built with Vite. It talks to the Django API over HTTPS and is deployed separately on **Cloudflare Pages** (free tier, global CDN).
+
+#### Development
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+
+The dev server proxies `/api` to `http://localhost:8000` automatically — no env vars needed.
+
+---
+
+#### Production — Cloudflare Pages
+
+Cloudflare Pages builds and hosts the React app. The Django API runs separately at `api.bookforbook.com`.
+
+##### Step 1 — Add the API subdomain on SureSupport
+
+In the SureSupport control panel, add a subdomain `api.bookforbook.com` pointing to the same gunicorn webapp as `bookforbook.com`. No extra configuration needed — Django already accepts `api.bookforbook.com` in `ALLOWED_HOSTS`.
+
+##### Step 2 — Allow the frontend domain in Django CORS
+
+In `.env` on the server, set:
+
+```
+CORS_ALLOWED_ORIGINS=https://bookforbook.com,https://www.bookforbook.com
+```
+
+Reload gunicorn after saving:
+
+```bash
+kill -HUP $(cat /tmp/bookforbook.pid)
+```
+
+##### Step 3 — Deploy to Cloudflare Pages
+
+1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com) → **Pages** → **Create a project** → **Connect to Git**
+2. Select the `bookforbook` repository
+3. Configure the build:
+
+   | Setting | Value |
+   |---------|-------|
+   | **Framework preset** | None |
+   | **Build command** | `npm run build` |
+   | **Build output directory** | `dist` |
+   | **Root directory** | `frontend` |
+
+4. Add an environment variable:
+
+   | Variable | Value |
+   |----------|-------|
+   | `VITE_API_URL` | `https://api.bookforbook.com` |
+
+5. Click **Save and Deploy**. Cloudflare builds the app and deploys it globally in ~2 minutes.
+
+##### Step 4 — Point your domain at Cloudflare Pages
+
+In the Cloudflare Pages project → **Custom domains** → add `bookforbook.com` and `www.bookforbook.com`. Cloudflare handles SSL automatically.
+
+> **DNS:** If your domain's nameservers are already on Cloudflare, the custom domain setup is automatic. If not, add a CNAME record for `bookforbook.com` pointing to your Pages project URL (e.g. `bookforbook.pages.dev`).
+
+##### Deploying updates
+
+Every push to the main branch triggers an automatic rebuild and deploy — no manual steps needed.
+
+To rebuild manually: Cloudflare Pages dashboard → **Deployments** → **Retry deployment**.
 
 ### Seed development data
 
