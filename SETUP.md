@@ -427,7 +427,11 @@ Nameserver propagation typically takes 5–30 minutes but can take up to 24 hour
 
 Once the domain is active, go to Cloudflare dashboard → **bookforbook.com** → **DNS** → **Records**.
 
-Delete any records Cloudflare auto-imported that conflict with the ones below, then create:
+Cloudflare auto-imports your existing DNS records when you add the domain. You must delete the conflicting ones before adding the new records — Cloudflare will not let you add a CNAME if an A or AAAA record with the same name already exists.
+
+Delete any existing **A**, **AAAA**, or **CNAME** records named `@` or `www`. Do **not** delete MX or TXT records — those handle email and domain verification.
+
+Then create:
 
 | Type | Name | Content | Proxy status |
 |------|------|---------|--------------|
