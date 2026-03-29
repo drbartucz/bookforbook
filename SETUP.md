@@ -347,7 +347,7 @@ kill -HUP $(cat /tmp/bookforbook.pid)
 
 1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
 
-   > Do not choose **Workers**. If you land on a screen that asks for a "deploy command", you are in the Workers flow — go back and select **Pages**.
+   > Do not choose **Workers** — that is a different product.
 
 2. Select the `bookforbook` repository
 3. Configure the build:
@@ -356,7 +356,6 @@ kill -HUP $(cat /tmp/bookforbook.pid)
    |---------|-------|
    | **Framework preset** | None |
    | **Build command** | `npm run build` |
-   | **Deploy command** | *(leave blank — Pages does not use this)* |
    | **Build output directory** | `dist` |
    | **Root directory** | `frontend` |
 
