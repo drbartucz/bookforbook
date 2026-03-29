@@ -1,7 +1,19 @@
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import include, path
 
+
+def api_root(request):
+    return JsonResponse({
+        'name': 'BookForBook API',
+        'status': 'online',
+        'docs': 'https://github.com/drbartucz/bookforbook',
+        'note': 'This is the API backend. The app is at https://bookforbook.com',
+    })
+
+
 urlpatterns = [
+    path('', api_root),
     path('admin/', admin.site.urls),
     path('api/v1/auth/', include('apps.accounts.urls')),
     path('api/v1/users/', include('apps.accounts.user_urls')),
