@@ -8,6 +8,9 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['bookforbook.com', 'www.bookforbook.com']
 
+# WhiteNoise — serve and compress static files directly from gunicorn
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # Security settings
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
