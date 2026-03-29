@@ -120,101 +120,179 @@ python manage.py runserver
 
 Never use this in production — it is single-threaded, not hardened, and not persistent.
 
-#### Production — gunicorn
+#### Production — gunicorn on SureSupport
 
-gunicorn is already in `requirements.txt`. It serves Django over HTTP and handles multiple concurrent requests.
+gunicorn is already in `requirements.txt`. On SureSupport, the control panel manages the reverse proxy and SSL for you — you only need to configure gunicorn and point the webapp at it.
 
-**First, find your assigned port** from the SureSupport control panel. You need this to bind gunicorn correctly.
+---
 
-**Create a gunicorn config file** at the project root:
-
-```bash
-cat > ~/private/bookforbook/gunicorn.conf.py << 'EOF'
-bind = "0.0.0.0:PORT"          # replace PORT with your assigned port
-workers = 2                     # 2 workers is fine for shared hosting
-timeout = 60                    # seconds before a worker is killed
-accesslog = "/home/bookforbook/logs/gunicorn-access.log"
-errorlog  = "/home/bookforbook/logs/gunicorn-error.log"
-loglevel  = "info"
-proc_name = "bookforbook"
-EOF
-```
-
-Replace `PORT` and the log path username with your actual values. Create the log directory:
+##### Step 1 — Create the log directory
 
 ```bash
 mkdir -p ~/logs
 ```
 
-**Start gunicorn in a screen session** so it keeps running after you disconnect:
+---
 
-```bash
-screen -S bookforbook
-cd ~/private/bookforbook
-source .venv/bin/activate
-gunicorn config.wsgi:application -c gunicorn.conf.py
-```
+##### Step 2 — Configure gunicorn
 
-Detach from screen without stopping gunicorn: press `Ctrl+A` then `D`.
-
-**Reattach** to the running session later:
-
-```bash
-screen -r bookforbook
-```
-
-**List all screen sessions:**
-
-```bash
-screen -ls
-```
-
-**Stop gunicorn** (when you need to restart after a code update):
-
-```bash
-screen -r bookforbook
-# Then press Ctrl+C to stop gunicorn, then restart it:
-gunicorn config.wsgi:application -c gunicorn.conf.py
-# Detach again with Ctrl+A, D
-```
-
-#### Keeping gunicorn alive across reboots
-
-Screen sessions are lost on server reboot. Add a `@reboot` cron entry to restart gunicorn automatically:
-
-```bash
-crontab -e
-```
-
-Add this line (replace paths with your actual username):
-
-```
-@reboot cd /home/bookforbook/private/bookforbook && /home/bookforbook/private/bookforbook/.venv/bin/gunicorn config.wsgi:application -c gunicorn.conf.py >> /home/bookforbook/logs/gunicorn-reboot.log 2>&1
-```
-
-#### Reloading after code updates
-
-Gunicorn can reload workers without dropping connections using a graceful restart. After pulling new code and running migrations:
-
-```bash
-# Find the gunicorn master process ID
-cat /tmp/bookforbook.pid
-# or
-pgrep -f "gunicorn.*bookforbook"
-
-# Send HUP signal to gracefully reload workers
-kill -HUP <PID>
-```
-
-To enable the PID file, add this to `gunicorn.conf.py`:
+`gunicorn.conf.py` is already in the project root. It is pre-configured for this hosting environment:
 
 ```python
-pidfile = "/tmp/bookforbook.pid"
+bind = "0.0.0.0:26386"         # port assigned by SureSupport control panel
+workers = 2
+timeout = 60
+keepalive = 5
+accesslog = "/home/bookforbook/logs/gunicorn-access.log"
+errorlog  = "/home/bookforbook/logs/gunicorn-error.log"
+loglevel  = "info"
+pidfile   = "/tmp/bookforbook.pid"
+proc_name = "bookforbook"
 ```
 
-Or just stop and restart gunicorn via screen (simpler, causes a brief outage of a few seconds).
+Replace `bookforbook` in the log paths if your username differs.
 
-#### Periodic tasks are run via cron (no background worker needed)
+---
+
+##### Step 3 — Configure the SureSupport webapp
+
+In the SureSupport control panel, create or edit the webapp for `bookforbook.com` with these settings:
+
+| Setting | Value |
+|---------|-------|
+| **Start command** | `/home/bookforbook/private/bookforbook/.venv/bin/gunicorn config.wsgi:application -c /home/bookforbook/private/bookforbook/gunicorn.conf.py --chdir /home/bookforbook/private/bookforbook` |
+| **Port** | `26386` |
+| **Environment variable** | `DJANGO_SETTINGS_MODULE=config.settings.production` |
+
+Replace `bookforbook` in the paths with your actual username if different.
+
+The `--chdir` flag is required so gunicorn finds the project files. The full path to the gunicorn binary is required so it uses the virtualenv Python with all packages installed.
+
+The `.env` file is loaded automatically by `python-decouple` — you do not need to duplicate all variables in the control panel. Only `DJANGO_SETTINGS_MODULE` needs to be set there.
+
+---
+
+##### Step 4 — Collect static files
+
+Django does not serve static files itself in production. Run this once (and again after any code update that changes static files):
+
+```bash
+cd ~/private/bookforbook
+source .venv/bin/activate
+python manage.py collectstatic --noinput
+```
+
+This copies everything to `staticfiles/`. The control panel's web server serves them directly.
+
+---
+
+##### Step 5 — Start the webapp
+
+Start (or restart) the webapp from the SureSupport control panel. Check the error log if it doesn't come up:
+
+```bash
+tail -f ~/logs/gunicorn-error.log
+```
+
+---
+
+##### Reloading after code updates
+
+After `git pull origin main` and `python manage.py migrate`, reload gunicorn without dropping connections:
+
+```bash
+kill -HUP $(cat /tmp/bookforbook.pid)
+```
+
+Or restart the webapp from the SureSupport control panel (causes a few seconds of downtime).
+
+---
+
+##### If the web server is not managed by SureSupport
+
+On a VPS or server where you have full access, you need to configure the reverse proxy yourself. Check which web server is running:
+
+```bash
+ps aux | grep -E 'nginx|apache|httpd' | grep -v grep
+```
+
+###### nginx config
+
+```nginx
+server {
+    listen 80;
+    server_name bookforbook.com www.bookforbook.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name bookforbook.com www.bookforbook.com;
+
+    ssl_certificate     /etc/letsencrypt/live/bookforbook.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bookforbook.com/privkey.pem;
+
+    location /static/ {
+        alias /home/bookforbook/private/bookforbook/staticfiles/;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:26386;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/bookforbook /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+###### Apache config
+
+```apache
+<VirtualHost *:80>
+    ServerName bookforbook.com
+    ServerAlias www.bookforbook.com
+    Redirect permanent / https://bookforbook.com/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName bookforbook.com
+    ServerAlias www.bookforbook.com
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/bookforbook.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/bookforbook.com/privkey.pem
+
+    ProxyPreserveHost On
+    ProxyPass        /static/ !
+    Alias            /static/ /home/bookforbook/private/bookforbook/staticfiles/
+    ProxyPass / http://127.0.0.1:26386/
+    ProxyPassReverse / http://127.0.0.1:26386/
+    RequestHeader set X-Forwarded-Proto "https"
+</VirtualHost>
+```
+
+```bash
+sudo a2enmod proxy proxy_http headers ssl rewrite
+sudo a2ensite bookforbook.conf
+sudo apache2ctl configtest && sudo systemctl reload apache2
+```
+
+SSL certificate (both web servers):
+
+```bash
+sudo certbot --nginx -d bookforbook.com -d www.bookforbook.com
+# or: sudo certbot --apache -d bookforbook.com -d www.bookforbook.com
+```
+
+---
+
+##### Periodic tasks are run via cron (no background worker needed)
 
 See the crontab entries in `SUPERUSER.md` under **Cron Schedule Reference**.
 
