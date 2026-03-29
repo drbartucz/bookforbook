@@ -203,19 +203,19 @@ Edit the crontab with `crontab -e`. Replace the paths with your actual username 
 
 ```
 # Every 6 hours — full matching scan
-0 */6 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=matching >> /home/bookforbook/logs/cron.log 2>&1
+0 */6 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=matching >> /home/bookforbook/private/logs/cron.log 2>&1
 
 # Every hour — expire old matches
-0 * * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=expire_matches >> /home/bookforbook/logs/cron.log 2>&1
+0 * * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=expire_matches >> /home/bookforbook/private/logs/cron.log 2>&1
 
 # Daily at 2am — inactivity check (warnings + auto-delist)
-0 2 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=inactivity >> /home/bookforbook/logs/cron.log 2>&1
+0 2 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=inactivity >> /home/bookforbook/private/logs/cron.log 2>&1
 
 # Weekly Sunday 3am — rating reminders
-0 3 * * 0 /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=rating_reminders >> /home/bookforbook/logs/cron.log 2>&1
+0 3 * * 0 /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=rating_reminders >> /home/bookforbook/private/logs/cron.log 2>&1
 
 # Weekly Sunday 3:15am — auto-close expired trades
-15 3 * * 0 /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=auto_close >> /home/bookforbook/logs/cron.log 2>&1
+15 3 * * 0 /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=auto_close >> /home/bookforbook/private/logs/cron.log 2>&1
 ```
 
 Create the log directory if it doesn't exist:
@@ -303,7 +303,7 @@ LOGGING = {
     'handlers': {
         'file': {
             'class': 'logging.FileHandler',
-            'filename': '/home/bookforbook/logs/django.log',
+            'filename': '/home/bookforbook/private/logs/django.log',
         },
     },
     'root': {
