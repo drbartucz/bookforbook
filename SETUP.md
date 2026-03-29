@@ -403,8 +403,8 @@ Note the IP address — you'll enter it as the `api` DNS record shortly.
 6. Click **Continue to nameservers**
 7. Cloudflare shows you **two nameserver addresses** — they look like:
    ```
-   aida.ns.cloudflare.com
-   bert.ns.cloudflare.com
+   jobs.ns.cloudflare.com
+   lina.ns.cloudflare.com
    ```
    (yours will have different names — copy the exact values shown on screen)
 
