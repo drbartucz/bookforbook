@@ -326,8 +326,24 @@ Adding `api.bookforbook.com` routes API traffic to the same gunicorn webapp as `
 
 In the SureSupport control panel:
 
-1. Add a subdomain `api.bookforbook.com`. SureSupport will ask for a document root folder — set it to `www/www` or whatever the default is. **This folder is never used** since all requests are forwarded to gunicorn; the value doesn't matter.
+1. Add a subdomain `api.bookforbook.com`. SureSupport will ask for a document root folder — set it to `www/www` or whatever the default is. **Do not set the Web access path** — leave it empty. Setting it causes Apache to serve static files from that folder instead of proxying to gunicorn.
 2. Add `api.bookforbook.com` as an additional hostname on your existing gunicorn webapp.
+
+> **SureSupport bot protection — action required.** SureSupport runs ModSecurity-based bot protection that intercepts POST requests from IP addresses flagged by reputation services (CleanTalk, StopForumSpam, AbuseIPDB). This blocks legitimate API calls from the browser with a 302 redirect to a `/.captcha/` URL, which has no CORS headers, causing a CORS error in the browser. The `.htaccess` workaround does **not** work for proxied requests — the fix must be applied at the Apache VirtualHost level by SureSupport.
+>
+> **Open a support ticket** with SureSupport and ask them to disable ModSecurity rule 90000 for `api.bookforbook.com`. Include this exact rule:
+> ```
+> SecRuleRemoveById 90000
+> ```
+> They will apply it to the VirtualHost config for your subdomain. You can verify it is working by running:
+> ```bash
+> curl -v -X POST \
+>   -H "Origin: https://bookforbook.com" \
+>   -H "Content-Type: application/json" \
+>   -d '{"email":"test@test.com","username":"test","password":"test1234","password2":"test1234","account_type":"individual"}' \
+>   https://api.bookforbook.com/api/v1/auth/register/
+> ```
+> The response should show `server: gunicorn` (not `server: Apache`) and return a JSON response from Django. If it returns a 302 to `/.captcha/`, the rule has not been applied yet.
 
 ##### Step 2 — Allow the frontend domain in Django CORS
 
