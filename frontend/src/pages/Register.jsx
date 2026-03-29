@@ -28,6 +28,7 @@ export default function Register() {
         email: data.email,
         username: data.username,
         password: data.password,
+        password2: data.confirmPassword,
         account_type: data.account_type,
       });
       setSuccess(true);
