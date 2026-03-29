@@ -120,46 +120,29 @@ python manage.py runserver
 
 Never use this in production — it is single-threaded, not hardened, and not persistent.
 
-#### Production — gunicorn
+#### Production — gunicorn on SureSupport
 
-gunicorn is already in `requirements.txt`. It serves Django over HTTP and handles multiple concurrent requests. A reverse proxy (nginx or Apache) sits in front of it, handles SSL, and forwards requests to gunicorn.
-
----
-
-##### Step 1 — Find your port and web server
-
-First, pick an unused port for gunicorn to listen on. Any port above 1024 that isn't already in use is fine — `8000` is a common choice.
-
-Check whether nginx or Apache is running:
-
-```bash
-nginx -v 2>/dev/null && echo "nginx is installed"
-apache2 -v 2>/dev/null && echo "apache2 is installed"
-httpd -v 2>/dev/null && echo "httpd (Apache) is installed"
-```
-
-Or check running processes:
-
-```bash
-ps aux | grep -E 'nginx|apache|httpd' | grep -v grep
-```
-
-Use whichever is running. Most SureSupport servers run Apache. If neither returns output, contact SureSupport support to confirm.
+gunicorn is already in `requirements.txt`. On SureSupport, the control panel manages the reverse proxy and SSL for you — you only need to configure gunicorn and point the webapp at it.
 
 ---
 
-##### Step 2 — Create the gunicorn config
+##### Step 1 — Create the log directory
 
 ```bash
 mkdir -p ~/logs
 ```
 
-Edit `~/private/bookforbook/gunicorn.conf.py`:
+---
+
+##### Step 2 — Configure gunicorn
+
+`gunicorn.conf.py` is already in the project root. It is pre-configured for this hosting environment:
 
 ```python
-bind = "127.0.0.1:8000"        # listen on localhost only — nginx/Apache proxies to this
+bind = "0.0.0.0:26386"         # port assigned by SureSupport control panel
 workers = 2
 timeout = 60
+keepalive = 5
 accesslog = "/home/bookforbook/logs/gunicorn-access.log"
 errorlog  = "/home/bookforbook/logs/gunicorn-error.log"
 loglevel  = "info"
@@ -167,50 +150,78 @@ pidfile   = "/tmp/bookforbook.pid"
 proc_name = "bookforbook"
 ```
 
-Replace `bookforbook` in log paths with your actual username.
+Replace `bookforbook` in the log paths if your username differs.
 
 ---
 
-##### Step 3 — Start gunicorn in a screen session
+##### Step 3 — Configure the SureSupport webapp
+
+In the SureSupport control panel, create or edit the webapp for `bookforbook.com` with these settings:
+
+| Setting | Value |
+|---------|-------|
+| **Start command** | `/home/bookforbook/private/bookforbook/.venv/bin/gunicorn config.wsgi:application -c /home/bookforbook/private/bookforbook/gunicorn.conf.py --chdir /home/bookforbook/private/bookforbook` |
+| **Port** | `26386` |
+| **Environment variable** | `DJANGO_SETTINGS_MODULE=config.settings.production` |
+
+Replace `bookforbook` in the paths with your actual username if different.
+
+The `--chdir` flag is required so gunicorn finds the project files. The full path to the gunicorn binary is required so it uses the virtualenv Python with all packages installed.
+
+The `.env` file is loaded automatically by `python-decouple` — you do not need to duplicate all variables in the control panel. Only `DJANGO_SETTINGS_MODULE` needs to be set there.
+
+---
+
+##### Step 4 — Collect static files
+
+Django does not serve static files itself in production. Run this once (and again after any code update that changes static files):
 
 ```bash
-screen -S bookforbook
 cd ~/private/bookforbook
 source .venv/bin/activate
-gunicorn config.wsgi:application -c gunicorn.conf.py
+python manage.py collectstatic --noinput
 ```
 
-Detach without stopping: press `Ctrl+A` then `D`.
-
-Reattach later: `screen -r bookforbook`
+This copies everything to `staticfiles/`. The control panel's web server serves them directly.
 
 ---
 
-##### Step 4 — Configure the reverse proxy
+##### Step 5 — Start the webapp
 
-The reverse proxy receives requests on port 80/443 and forwards them to gunicorn on port 8000.
-
-###### If nginx is running
-
-Find where your site config lives:
+Start (or restart) the webapp from the SureSupport control panel. Check the error log if it doesn't come up:
 
 ```bash
-ls /etc/nginx/sites-available/
-ls /etc/nginx/conf.d/
+tail -f ~/logs/gunicorn-error.log
 ```
 
-Create or edit the config for your domain. If you have write access:
+---
+
+##### Reloading after code updates
+
+After `git pull origin main` and `python manage.py migrate`, reload gunicorn without dropping connections:
 
 ```bash
-sudo nano /etc/nginx/sites-available/bookforbook
+kill -HUP $(cat /tmp/bookforbook.pid)
 ```
+
+Or restart the webapp from the SureSupport control panel (causes a few seconds of downtime).
+
+---
+
+##### If the web server is not managed by SureSupport
+
+On a VPS or server where you have full access, you need to configure the reverse proxy yourself. Check which web server is running:
+
+```bash
+ps aux | grep -E 'nginx|apache|httpd' | grep -v grep
+```
+
+###### nginx config
 
 ```nginx
 server {
     listen 80;
     server_name bookforbook.com www.bookforbook.com;
-
-    # Redirect all HTTP to HTTPS
     return 301 https://$host$request_uri;
 }
 
@@ -221,42 +232,26 @@ server {
     ssl_certificate     /etc/letsencrypt/live/bookforbook.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/bookforbook.com/privkey.pem;
 
+    location /static/ {
+        alias /home/bookforbook/private/bookforbook/staticfiles/;
+    }
+
     location / {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:26386;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-
-    location /static/ {
-        alias /home/bookforbook/private/bookforbook/staticfiles/;
-    }
 }
 ```
 
-Enable the site and reload:
-
 ```bash
 sudo ln -s /etc/nginx/sites-available/bookforbook /etc/nginx/sites-enabled/
-sudo nginx -t        # test config — must say "ok"
-sudo systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-###### If Apache is running
-
-Find your virtualhost config directory:
-
-```bash
-ls /etc/apache2/sites-available/
-ls /etc/httpd/conf.d/
-```
-
-Create a config file:
-
-```bash
-sudo nano /etc/apache2/sites-available/bookforbook.conf
-```
+###### Apache config
 
 ```apache
 <VirtualHost *:80>
@@ -274,83 +269,26 @@ sudo nano /etc/apache2/sites-available/bookforbook.conf
     SSLCertificateKeyFile /etc/letsencrypt/live/bookforbook.com/privkey.pem
 
     ProxyPreserveHost On
-    ProxyPass / http://127.0.0.1:8000/
-    ProxyPassReverse / http://127.0.0.1:8000/
-
+    ProxyPass        /static/ !
+    Alias            /static/ /home/bookforbook/private/bookforbook/staticfiles/
+    ProxyPass / http://127.0.0.1:26386/
+    ProxyPassReverse / http://127.0.0.1:26386/
     RequestHeader set X-Forwarded-Proto "https"
 </VirtualHost>
 ```
 
-Enable required modules and the site, then reload:
-
 ```bash
 sudo a2enmod proxy proxy_http headers ssl rewrite
 sudo a2ensite bookforbook.conf
-sudo apache2ctl configtest   # must say "Syntax OK"
-sudo systemctl reload apache2
+sudo apache2ctl configtest && sudo systemctl reload apache2
 ```
 
-###### If you don't have sudo access (shared hosting)
-
-SureSupport may provide a control panel option to configure a reverse proxy or "Python app" for your domain. Look for:
-
-- **"Proxy"** or **"Reverse proxy"** settings
-- **"Python app"** or **"WSGI app"** configuration
-- **"Custom port"** or **"App port"** under your domain settings
-
-Point it at `127.0.0.1:8000`. If none of these options exist, contact SureSupport support and tell them you need HTTP requests for `bookforbook.com` proxied to `127.0.0.1:8000`.
-
----
-
-##### Step 5 — SSL certificate
-
-If Let's Encrypt (`certbot`) is available:
+SSL certificate (both web servers):
 
 ```bash
 sudo certbot --nginx -d bookforbook.com -d www.bookforbook.com
-# or for Apache:
-sudo certbot --apache -d bookforbook.com -d www.bookforbook.com
+# or: sudo certbot --apache -d bookforbook.com -d www.bookforbook.com
 ```
-
-This obtains a free certificate and edits the nginx/Apache config automatically. Certificates renew automatically via a certbot cron job.
-
-If you don't have sudo access, request SSL through the SureSupport control panel — most shared hosts offer one-click Let's Encrypt.
-
----
-
-##### Step 6 — Collect static files
-
-Django serves static files through the web server in production, not through itself:
-
-```bash
-cd ~/private/bookforbook
-source .venv/bin/activate
-python manage.py collectstatic --noinput
-```
-
-This copies all static files to `staticfiles/`. The nginx/Apache config above serves them directly from that directory.
-
----
-
-##### Keeping gunicorn alive across reboots
-
-Add a `@reboot` cron entry (`crontab -e`):
-
-```
-@reboot cd /home/bookforbook/private/bookforbook && /home/bookforbook/private/bookforbook/.venv/bin/gunicorn config.wsgi:application -c gunicorn.conf.py >> /home/bookforbook/logs/gunicorn-reboot.log 2>&1
-```
-
----
-
-##### Reloading after code updates
-
-After `git pull` and `python manage.py migrate`:
-
-```bash
-kill -HUP $(cat /tmp/bookforbook.pid)
-```
-
-This gracefully restarts workers with no dropped connections. Or reattach to the screen session and restart manually (causes a few seconds of downtime).
 
 ---
 
