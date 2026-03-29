@@ -363,7 +363,9 @@ kill -HUP $(cat /tmp/bookforbook.pid)
 
    | Variable | Value |
    |----------|-------|
-   | `VITE_API_URL` | `https://api.bookforbook.com` |
+   | `VITE_API_URL` | `https://api.bookforbook.com/api/v1` |
+
+   > Note the `/api/v1` suffix — the frontend appends paths like `/browse/` directly to this value, so the full URL becomes `https://api.bookforbook.com/api/v1/browse/`.
 
 5. Click **Save and Deploy**. Cloudflare builds the app and deploys it globally in ~2 minutes.
 
