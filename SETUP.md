@@ -367,11 +367,67 @@ kill -HUP $(cat /tmp/bookforbook.pid)
 
 5. Click **Save and Deploy**. Cloudflare builds the app and deploys it globally in ~2 minutes.
 
-##### Step 4 — Point your domain at Cloudflare Pages
+##### Step 4 — DNS configuration
 
-In the Cloudflare Pages project → **Custom domains** → add `bookforbook.com` and `www.bookforbook.com`. Cloudflare handles SSL automatically.
+**Overview — what points where:**
 
-> **DNS:** If your domain's nameservers are already on Cloudflare, the custom domain setup is automatic. If not, add a CNAME record for `bookforbook.com` pointing to your Pages project URL (e.g. `bookforbook.pages.dev`).
+| Hostname | Destination | Why |
+|----------|-------------|-----|
+| `bookforbook.com` | Cloudflare Pages | Serves the React frontend |
+| `www.bookforbook.com` | Cloudflare Pages | Serves the React frontend |
+| `api.bookforbook.com` | SureSupport server | Serves the Django API |
+
+**Recommended: use Cloudflare as your nameserver**
+
+Transfer your domain's nameservers to Cloudflare (free). This is the simplest approach because:
+- Cloudflare handles the apex domain (`bookforbook.com`) automatically — standard DNS doesn't allow a CNAME at the apex, but Cloudflare flattens it transparently
+- Custom domain setup in Pages becomes one click
+- SSL is provisioned automatically for all hostnames
+
+To transfer nameservers: Cloudflare dashboard → **Add a site** → enter your domain → follow the steps → update nameservers at your registrar to the two Cloudflare nameservers provided.
+
+Once your domain is on Cloudflare DNS, create these records:
+
+| Type | Name | Value | Proxy |
+|------|------|-------|-------|
+| CNAME | `bookforbook.com` (or `@`) | `bookforbook.pages.dev` | Proxied (orange cloud) |
+| CNAME | `www` | `bookforbook.pages.dev` | Proxied (orange cloud) |
+| A | `api` | *(your SureSupport server IP)* | DNS only (grey cloud) |
+
+The `api` subdomain must be **grey cloud (DNS only)**. If it were proxied, requests would arrive at SureSupport appearing to come from Cloudflare's IPs rather than the user's real IP, which complicates logging and rate limiting.
+
+To find your SureSupport server IP:
+```bash
+# Run this on the server, or check the SureSupport control panel
+curl -s ifconfig.me
+# or
+hostname -I
+```
+
+**Then add custom domains in Cloudflare Pages:**
+
+In your Pages project → **Custom domains** → **Set up a custom domain** → add `bookforbook.com`, then repeat for `www.bookforbook.com`. Because Cloudflare manages your DNS, it will verify and activate each domain automatically. SSL certificates are provisioned within a few minutes.
+
+**If you cannot move nameservers to Cloudflare:**
+
+Create these records at wherever your DNS is currently managed:
+
+| Type | Name | Value |
+|------|------|-------|
+| ALIAS or ANAME | `bookforbook.com` | `bookforbook.pages.dev` |
+| CNAME | `www` | `bookforbook.pages.dev` |
+| A | `api` | *(your SureSupport server IP)* |
+
+> Note: not all DNS providers support ALIAS/ANAME records at the apex. If yours doesn't, the only option is to redirect `bookforbook.com` to `www.bookforbook.com` and use a CNAME for `www`. Moving nameservers to Cloudflare is the simpler path.
+
+**SSL for `api.bookforbook.com`:**
+
+SureSupport provisions SSL for subdomains automatically when you add them via the control panel. Verify it is working after setup:
+
+```bash
+curl -I https://api.bookforbook.com/api/v1/browse/
+# Should return HTTP 200, not a certificate error
+```
 
 ##### Deploying updates
 
