@@ -85,5 +85,10 @@ LOGGING = {
             'level': 'WARNING',
             'propagate': False,
         },
+        'apps': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
