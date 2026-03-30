@@ -36,23 +36,14 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Send verification email asynchronously
+        # Send verification email
         try:
-            from django.conf import settings as django_settings
-            with open('/home/bookforbook/private/logs/register_debug.log', 'a') as f:
-                f.write(f'Register called. Email backend: {django_settings.EMAIL_BACKEND}\n')
-            from django_q.tasks import async_task
+            from apps.notifications.email import send_verification_email
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = email_verification_token.make_token(user)
-            with open('/home/bookforbook/private/logs/register_debug.log', 'a') as f:
-                f.write(f'Calling async_task for user {user.pk} email {user.email}\n')
-            async_task('apps.notifications.tasks.send_verification_email', str(user.pk), uid, token)
-            with open('/home/bookforbook/private/logs/register_debug.log', 'a') as f:
-                f.write(f'async_task returned ok\n')
-        except Exception as e:
-            with open('/home/bookforbook/private/logs/register_debug.log', 'a') as f:
-                f.write(f'Exception: {e}\n')
-            logger.exception('Failed to queue verification email for user %s', user.pk)
+            send_verification_email(user, uid, token)
+        except Exception:
+            logger.exception('Failed to send verification email for user %s', user.pk)
 
         return Response(
             {'detail': 'Account created. Please verify your email address.'},
