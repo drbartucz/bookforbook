@@ -41,10 +41,31 @@ This document covers everything a platform administrator needs to manage BookFor
 The Django admin panel is available at:
 
 ```
-https://yourdomain.com/admin/
+https://api.bookforbook.com/admin/
 ```
 
 Log in with your superuser credentials. From here you can manage all models in the system.
+
+---
+
+## Important: Running Management Commands on the Server
+
+`manage.py` defaults to `config.settings.development` (which uses the console email backend and SQLite). **Always prefix management commands with the production settings module**, or add it to your shell profile.
+
+**Option A — add to `~/.bashrc` (recommended, do this once):**
+
+```bash
+echo 'export DJANGO_SETTINGS_MODULE=config.settings.production' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Option B — prefix every command:**
+
+```bash
+DJANGO_SETTINGS_MODULE=config.settings.production python manage.py <command>
+```
+
+If you forget this, emails will print to the terminal instead of being sent, and the command will connect to SQLite instead of PostgreSQL.
 
 ---
 
