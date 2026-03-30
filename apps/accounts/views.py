@@ -39,7 +39,8 @@ class RegisterView(APIView):
         # Send verification email asynchronously
         try:
             from django.conf import settings as django_settings
-            logger.warning('DEBUG email backend: %s', django_settings.EMAIL_BACKEND)
+            with open('/home/bookforbook/private/logs/register_debug.log', 'a') as f:
+                f.write(f'Register called. Email backend: {django_settings.EMAIL_BACKEND}\n')
             from django_q.tasks import async_task
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = email_verification_token.make_token(user)
