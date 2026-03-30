@@ -13,3 +13,7 @@ loglevel  = "info"
 
 pidfile   = "/tmp/bookforbook.pid"   # used for graceful reloads (kill -HUP)
 proc_name = "bookforbook"
+
+raw_env = [
+    "DJANGO_SETTINGS_MODULE=config.settings.production",
+]
