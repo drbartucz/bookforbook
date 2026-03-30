@@ -44,8 +44,14 @@ class RegisterView(APIView):
             from django_q.tasks import async_task
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = email_verification_token.make_token(user)
+            with open('/home/bookforbook/private/logs/register_debug.log', 'a') as f:
+                f.write(f'Calling async_task for user {user.pk} email {user.email}\n')
             async_task('apps.notifications.tasks.send_verification_email', str(user.pk), uid, token)
-        except Exception:
+            with open('/home/bookforbook/private/logs/register_debug.log', 'a') as f:
+                f.write(f'async_task returned ok\n')
+        except Exception as e:
+            with open('/home/bookforbook/private/logs/register_debug.log', 'a') as f:
+                f.write(f'Exception: {e}\n')
             logger.exception('Failed to queue verification email for user %s', user.pk)
 
         return Response(
