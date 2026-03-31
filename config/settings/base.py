@@ -159,25 +159,24 @@ CORS_ALLOW_CREDENTIALS = True
 # Django-Q2 (uses PostgreSQL as broker — no Redis needed)
 Q_CLUSTER = {
     'name': 'bookforbook',
-    'workers': 1,
+    'workers': 2,
     'timeout': 300,
     'retry': 360,
     'orm': 'default',
     'catch_up': False,
     'max_attempts': 3,
     'ack_failures': True,
-    'sync': True,  # No forking — required on hosts without /dev/shm (e.g. SureSupport)
 }
 
 # Encrypted model fields
 FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default='')
 
-# Email settings
+# Email settings (defaults match SMTP2GO; overridden per environment)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = config('EMAIL_HOST', default='smtp.sendgrid.net')
+EMAIL_HOST = config('EMAIL_HOST', default='mail.smtp2go.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='apikey')
-EMAIL_HOST_PASSWORD = config('SENDGRID_API_KEY', default='')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@bookforbook.com')
 
