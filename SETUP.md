@@ -77,7 +77,7 @@ FIELD_ENCRYPTION_KEY=<generate with: python3 -c "from cryptography.fernet import
 ```bash
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python manage.py makemigrations accounts
+python manage.py makemigrations
 python manage.py migrate
 python manage.py createsuperuser
 ```

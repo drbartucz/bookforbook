@@ -369,7 +369,7 @@ This cascades to their UserBooks, WishlistItems, and TradeProposal records. Rati
 After pushing new code, Railway deploys automatically. If migrations are needed:
 
 ```bash
-railway run python manage.py makemigrations accounts
+railway run python manage.py makemigrations
 railway run python manage.py migrate
 ```
 
