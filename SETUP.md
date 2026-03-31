@@ -103,6 +103,25 @@ BookForBook runs on two services:
 | API + worker | Railway | Django API (gunicorn) + Django-Q2 task worker |
 | Frontend | Cloudflare Pages | React PWA (static build, global CDN) |
 
+### Email — Inbound Forwarding (Cloudflare Email Routing)
+
+Cloudflare Email Routing forwards mail sent to `info@bookforbook.com` to the destination address. This requires no code changes — it is configured entirely in the Cloudflare dashboard.
+
+1. In Cloudflare dashboard > **bookforbook.com** > **Email** > **Email Routing**
+2. Click **Get started** — Cloudflare adds the required MX records to your DNS automatically
+3. Go to **Routing rules** > **Create address**:
+   - **Custom address:** `info`
+   - **Action:** Send to an email
+   - **Destination:** `bookforbook.wfp8f@simplelogin.com`
+4. Click **Save**
+5. Cloudflare sends a verification email to `bookforbook.wfp8f@simplelogin.com` — click the link before forwarding activates
+
+> **Note:** Enabling Email Routing adds Cloudflare's MX records to your domain. This takes over inbound mail delivery for `bookforbook.com`. Do not add other MX records alongside Cloudflare's — they will conflict.
+
+> **SMTP2GO and Cloudflare Email Routing are independent.** SMTP2GO sends outbound email (from the Django app). Cloudflare Email Routing receives inbound email. They use different DNS record types and do not interfere with each other.
+
+---
+
 ### Email — SMTP2GO Setup
 
 SMTP2GO handles all transactional email (verification, password reset, notifications).
