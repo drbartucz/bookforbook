@@ -171,9 +171,9 @@ Q_CLUSTER = {
 # Encrypted model fields
 FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default='')
 
-# Email settings (defaults match SMTP2GO; overridden per environment)
+# Email settings (defaults match Proton Mail SMTP submission; overridden per environment)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = config('EMAIL_HOST', default='mail.smtp2go.com')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.protonmail.ch')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')

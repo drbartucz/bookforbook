@@ -65,9 +65,9 @@ def _parse_db_url(url: str) -> dict:
 DATABASE_URL = config('DATABASE_URL')
 DATABASES = {'default': _parse_db_url(DATABASE_URL)}
 
-# Email — SMTP2GO
+# Email — Proton Mail SMTP submission
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = config('EMAIL_HOST', default='mail.smtp2go.com')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.protonmail.ch')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
