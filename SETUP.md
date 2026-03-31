@@ -43,11 +43,20 @@ brew install postgresql@16 && brew services start postgresql@16
 sudo apt install postgresql-16 && sudo service postgresql start
 ```
 
-Create the database:
+Create the database user and database:
 
 ```bash
-createdb bookforbook
+psql postgres -c "CREATE USER bookforbook WITH PASSWORD 'bookforbook';"
+psql postgres -c "CREATE DATABASE bookforbook OWNER bookforbook;"
+psql bookforbook -c "GRANT ALL ON SCHEMA public TO bookforbook;"
 ```
+
+> If `psql postgres` fails with "role does not exist", your PostgreSQL superuser is your macOS username. Use:
+> ```bash
+> psql -U $(whoami) postgres -c "CREATE USER bookforbook WITH PASSWORD 'bookforbook';"
+> psql -U $(whoami) postgres -c "CREATE DATABASE bookforbook OWNER bookforbook;"
+> psql -U $(whoami) bookforbook -c "GRANT ALL ON SCHEMA public TO bookforbook;"
+> ```
 
 ### 2. Configure environment
 
@@ -63,14 +72,19 @@ DATABASE_URL=postgresql://bookforbook:bookforbook@localhost:5432/bookforbook
 FIELD_ENCRYPTION_KEY=<generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
 ```
 
-### 3. Install dependencies and run migrations
+### 3. Install dependencies, migrate, and create superuser
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+python manage.py makemigrations accounts
 python manage.py migrate
 python manage.py createsuperuser
 ```
+
+> **Python version:** Use Python 3.12 to match Railway. If you have multiple versions installed: `python3.12 -m venv .venv`
+>
+> **Order matters:** `migrate` must run before `runserver`. `createsuperuser` is needed to access `/admin/`.
 
 ### 4. Start the application (local dev)
 
@@ -78,7 +92,7 @@ python manage.py createsuperuser
 # Terminal 1 — Django dev server
 python manage.py runserver
 
-# Terminal 2 — Django-Q2 task worker
+# Terminal 2 — Django-Q2 task worker (optional locally, required in production)
 python manage.py qcluster
 ```
 
@@ -217,6 +231,7 @@ In Railway, go to your **web service** > **Variables** and add:
 In the Railway dashboard, open a shell on the web service (**web service** > **Settings** > **Shell**) or use the Railway CLI:
 
 ```bash
+railway run python manage.py makemigrations accounts
 railway run python manage.py migrate
 railway run python manage.py createsuperuser
 railway run python manage.py collectstatic --noinput
