@@ -6,7 +6,12 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['bookforbook.com', 'www.bookforbook.com', 'api.bookforbook.com']
+# Allow the custom domain, the Railway-assigned domain, and localhost for health checks
+_allowed = ['bookforbook.com', 'www.bookforbook.com', 'api.bookforbook.com']
+_railway_domain = config('RAILWAY_PUBLIC_DOMAIN', default='')
+if _railway_domain:
+    _allowed.append(_railway_domain)
+ALLOWED_HOSTS = _allowed
 
 # WhiteNoise — serve and compress static files directly from gunicorn
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
@@ -17,10 +22,14 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
-SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 X_FRAME_OPTIONS = 'DENY'
+
+# Railway terminates TLS at the proxy — tell Django to trust the forwarded header
+# instead of redirecting in an infinite loop
+SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 def _parse_db_url(url: str) -> dict:
@@ -56,8 +65,17 @@ def _parse_db_url(url: str) -> dict:
 DATABASE_URL = config('DATABASE_URL')
 DATABASES = {'default': _parse_db_url(DATABASE_URL)}
 
-# Email backend — real SMTP in production
+# Email — Proton Mail SMTP submission
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.protonmail.ch')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@bookforbook.com')
+
+# Frontend URL (for email links)
+FRONTEND_URL = config('FRONTEND_URL', default='https://bookforbook.com')
 
 # Logging
 LOGGING = {

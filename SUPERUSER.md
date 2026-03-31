@@ -7,6 +7,7 @@ This document covers everything a platform administrator needs to manage BookFor
 ## Table of Contents
 
 - [Accessing the Admin Panel](#accessing-the-admin-panel)
+- [Running Management Commands](#running-management-commands)
 - [Creating a Superuser](#creating-a-superuser)
 - [Managing Users](#managing-users)
   - [Approving Institutional Accounts](#approving-institutional-accounts)
@@ -16,9 +17,10 @@ This document covers everything a platform administrator needs to manage BookFor
 - [Managing Books](#managing-books)
 - [Managing Matches and Trades](#managing-matches-and-trades)
 - [Managing Donations](#managing-donations)
-- [Background Tasks and Scheduling](#background-tasks-and-scheduling)
-  - [Running Periodic Tasks Manually](#running-periodic-tasks-manually)
-  - [Cron Schedule Reference](#cron-schedule-reference)
+- [Background Tasks](#background-tasks)
+  - [How Tasks Work on Railway](#how-tasks-work-on-railway)
+  - [Running Tasks Manually](#running-tasks-manually)
+  - [Scheduled Tasks (Django-Q2)](#scheduled-tasks-django-q2)
 - [Monitoring and Maintenance](#monitoring-and-maintenance)
   - [Checking for Stuck Trades](#checking-for-stuck-trades)
   - [Manually Expiring Old Matches](#manually-expiring-old-matches)
@@ -30,9 +32,6 @@ This document covers everything a platform administrator needs to manage BookFor
   - [Rotating the Secret Key](#rotating-the-secret-key)
 - [GDPR and Data Deletion](#gdpr-and-data-deletion)
 - [Deployment Tasks](#deployment-tasks)
-  - [Applying Migrations](#applying-migrations)
-  - [Collecting Static Files](#collecting-static-files)
-  - [Restarting the Server](#restarting-the-server)
 
 ---
 
@@ -48,35 +47,24 @@ Log in with your superuser credentials. From here you can manage all models in t
 
 ---
 
-## Important: Running Management Commands on the Server
+## Running Management Commands
 
-`manage.py` defaults to `config.settings.development` (which uses the console email backend and SQLite). **Always prefix management commands with the production settings module**, or add it to your shell profile.
-
-**Option A — add to `~/.bashrc` (recommended, do this once):**
+Use the Railway CLI to run management commands against the production environment:
 
 ```bash
-echo 'export DJANGO_SETTINGS_MODULE=config.settings.production' >> ~/.bashrc
-source ~/.bashrc
+railway run python manage.py <command>
 ```
 
-**Option B — prefix every command:**
+Or use the Railway dashboard shell: **web service** > **Settings** > **Shell**.
 
-```bash
-DJANGO_SETTINGS_MODULE=config.settings.production python manage.py <command>
-```
-
-If you forget this, emails will print to the terminal instead of being sent, and the command will connect to SQLite instead of PostgreSQL.
+Railway automatically sets `DJANGO_SETTINGS_MODULE=config.settings.production` and `DATABASE_URL` from the environment — no need to prefix commands manually.
 
 ---
 
 ## Creating a Superuser
 
-If no superuser exists yet (fresh install):
-
 ```bash
-cd ~/private/bookforbook
-source .venv/bin/activate
-python manage.py createsuperuser
+railway run python manage.py createsuperuser
 ```
 
 You will be prompted for a username, email, and password.
@@ -92,7 +80,7 @@ To create additional admin users without full superuser privileges, create a reg
 Libraries and bookstores must be approved by an admin before they can participate.
 
 **In the admin panel:**
-1. Go to **Accounts → Users**
+1. Go to **Accounts > Users**
 2. Filter by `account_type = library` or `account_type = bookstore`
 3. Find accounts where `is_verified = False`
 4. Open the user record
@@ -112,7 +100,7 @@ Until `is_verified` is True, the institution will not appear in the public insti
 If a user did not receive their verification email:
 
 **In the admin panel:**
-1. Go to **Accounts → Users**
+1. Go to **Accounts > Users**
 2. Find the user
 3. Check **Email verified** and set **Email verified at** to the current time
 4. Save
@@ -122,7 +110,7 @@ If a user did not receive their verification email:
 ### Suspending or Deactivating a User
 
 **In the admin panel:**
-1. Go to **Accounts → Users**
+1. Go to **Accounts > Users**
 2. Find the user
 3. Uncheck **Is active**
 4. Save
@@ -152,7 +140,7 @@ The **Books** model is a local cache of ISBN data from Open Library. You general
 - Open Library returned no data (title/author are blank) and you want to fill them in manually
 - A title or author was cached incorrectly
 
-**In the admin panel:** Go to **Books → Books**, search by ISBN or title, and edit the record.
+**In the admin panel:** Go to **Books > Books**, search by ISBN or title, and edit the record.
 
 Books are never deleted — they are cached permanently once looked up.
 
@@ -165,89 +153,86 @@ Books are never deleted — they are cached permanently once looked up.
 If a match needs to be manually cancelled (e.g. both users report a problem):
 
 **In the admin panel:**
-1. Go to **Matching → Matches**
+1. Go to **Matching > Matches**
 2. Find the match
 3. Change `status` to `expired`
 4. Save
 
-The associated UserBooks will remain `reserved` — you may need to manually set them back to `available` via **Inventory → User books**.
+The associated UserBooks will remain `reserved` — you may need to manually set them back to `available` via **Inventory > User books**.
 
 ### Viewing All Active Trades
 
-**In the admin panel:** Go to **Trading → Trades**, filter by status `confirmed`, `shipping`, or `one_received`.
+**In the admin panel:** Go to **Trading > Trades**, filter by status `confirmed`, `shipping`, or `one_received`.
 
 ### Manually Closing a Trade
 
 If both parties confirm a trade is done but the system hasn't auto-closed it:
 
 **In the admin panel:**
-1. Go to **Trading → Trades**
+1. Go to **Trading > Trades**
 2. Find the trade
 3. Set `status` to `completed` and set `completed_at` to now
 4. Save
-5. Manually mark the associated UserBooks as `traded` via **Inventory → User books**
+5. Manually mark the associated UserBooks as `traded` via **Inventory > User books**
 
 ---
 
 ## Managing Donations
 
-**In the admin panel:** Go to **Donations → Donations** to see all pending, accepted, and declined donations.
+**In the admin panel:** Go to **Donations > Donations** to see all pending, accepted, and declined donations.
 
 If a donation offer is stuck (neither accepted nor declined), you can manually set its status or delete the record.
 
 ---
 
-## Background Tasks and Scheduling
+## Background Tasks
 
-Periodic tasks run via cron rather than a background worker (the hosting environment does not support background processes with shared memory).
+### How Tasks Work on Railway
 
-### Running Periodic Tasks Manually
+Django-Q2 runs as a separate **worker** service alongside the web service. The worker process (`python manage.py qcluster`) picks up tasks from the PostgreSQL-backed queue and executes them.
+
+Tasks are dispatched by the web process using `async_task()` (e.g., sending emails after registration, running the matching engine after a book is listed). The worker processes them asynchronously.
+
+You can monitor task status in the Django admin under **Django_Q > Successful tasks** and **Django_Q > Failed tasks**.
+
+### Running Tasks Manually
 
 ```bash
-cd ~/private/bookforbook
-source .venv/bin/activate
+# Full matching scan
+railway run python manage.py run_periodic_tasks --task=matching
 
-# Run a specific task
-python manage.py run_periodic_tasks --task=matching
-python manage.py run_periodic_tasks --task=expire_matches
-python manage.py run_periodic_tasks --task=inactivity
-python manage.py run_periodic_tasks --task=rating_reminders
-python manage.py run_periodic_tasks --task=auto_close
+# Expire old matches
+railway run python manage.py run_periodic_tasks --task=expire_matches
 
-# Run all tasks at once
-python manage.py run_periodic_tasks --task=all
+# Inactivity check (warnings + auto-delist)
+railway run python manage.py run_periodic_tasks --task=inactivity
+
+# Rating reminders
+railway run python manage.py run_periodic_tasks --task=rating_reminders
+
+# Auto-close expired trades
+railway run python manage.py run_periodic_tasks --task=auto_close
+
+# All tasks at once
+railway run python manage.py run_periodic_tasks --task=all
 ```
 
-### Cron Schedule Reference
+### Scheduled Tasks (Django-Q2)
 
-Edit the crontab with `crontab -e`. Replace the paths with your actual username and paths.
+Django-Q2 supports scheduled/recurring tasks via the admin panel. Set these up once:
 
-```
-# Every 6 hours — full matching scan
-0 */6 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=matching >> /home/bookforbook/private/logs/cron.log 2>&1
+1. Go to **Django_Q > Scheduled tasks** in the admin panel
+2. Click **Add Scheduled Task** for each:
 
-# Every hour — expire old matches
-0 * * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=expire_matches >> /home/bookforbook/private/logs/cron.log 2>&1
+| Name | Function | Schedule Type | Minutes/Cron |
+|------|----------|--------------|--------------|
+| Full matching scan | `apps.matching.tasks.run_periodic_matching` | Cron | `0 */6 * * *` |
+| Expire old matches | `apps.matching.tasks.expire_old_matches` | Cron | `0 * * * *` |
+| Inactivity check | `apps.notifications.tasks.check_inactivity` | Cron | `0 2 * * *` |
+| Rating reminders | `apps.trading.tasks.send_rating_reminders` | Cron | `0 3 * * 0` |
+| Auto-close trades | `apps.trading.tasks.auto_close_trades` | Cron | `15 3 * * 0` |
 
-# Daily at 2am — inactivity check (warnings + auto-delist)
-0 2 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=inactivity >> /home/bookforbook/private/logs/cron.log 2>&1
-
-# Weekly Sunday 3am — rating reminders
-0 3 * * 0 /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=rating_reminders >> /home/bookforbook/private/logs/cron.log 2>&1
-
-# Weekly Sunday 3:15am — auto-close expired trades
-15 3 * * 0 /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=auto_close >> /home/bookforbook/private/logs/cron.log 2>&1
-```
-
-Create the log directory if it doesn't exist:
-```bash
-mkdir -p ~/logs
-```
-
-View cron output:
-```bash
-tail -f ~/logs/cron.log
-```
+The qcluster worker picks up and executes these automatically — no cron needed.
 
 ---
 
@@ -255,20 +240,20 @@ tail -f ~/logs/cron.log
 
 ### Checking for Stuck Trades
 
-Trades stuck in `confirmed` or `shipping` for more than 3 weeks should auto-close via cron. To check manually:
+Trades stuck in `confirmed` or `shipping` for more than 3 weeks should auto-close. To check manually:
 
-**In the admin panel:** Go to **Trading → Trades**, filter by status `confirmed` or `shipping`, and sort by `confirmed_at` ascending. Any trade older than 3 weeks should have been auto-closed — if not, run the task manually:
+**In the admin panel:** Go to **Trading > Trades**, filter by status `confirmed` or `shipping`, and sort by `confirmed_at` ascending. Any trade older than 3 weeks should have been auto-closed — if not, run the task manually:
 
 ```bash
-python manage.py run_periodic_tasks --task=auto_close
+railway run python manage.py run_periodic_tasks --task=auto_close
 ```
 
 ### Manually Expiring Old Matches
 
-Matches in `pending` or `proposed` status that have passed their `expires_at` time will be cleaned up by the `expire_matches` cron task. To run immediately:
+Matches in `pending` or `proposed` status that have passed their `expires_at` time will be cleaned up by the scheduled `expire_old_matches` task. To run immediately:
 
 ```bash
-python manage.py run_periodic_tasks --task=expire_matches
+railway run python manage.py run_periodic_tasks --task=expire_matches
 ```
 
 ### Triggering the Matching Engine
@@ -276,18 +261,17 @@ python manage.py run_periodic_tasks --task=expire_matches
 To run the full matching scan immediately (e.g. after importing a batch of books):
 
 ```bash
-python manage.py run_periodic_tasks --task=matching
+railway run python manage.py run_periodic_tasks --task=matching
 ```
 
 ---
 
 ## Database Access
 
-Connect directly to the PostgreSQL database:
+Connect to the Railway PostgreSQL database:
 
 ```bash
-source ~/apps/postgres1/home/.bashrc
-psql bookforbook
+railway run psql $DATABASE_URL
 ```
 
 Useful queries:
@@ -314,25 +298,13 @@ WHERE account_type IN ('library', 'bookstore') AND is_verified = false;
 
 ## Logs
 
-Django logs go to stdout by default. If running via gunicorn or a process manager, redirect output to a file.
+Django logs to stdout/stderr. Railway captures these automatically.
 
-To add file-based logging, add to your `.env` or `production.py`:
+**Viewing logs:**
+- Railway dashboard > your service > **Logs** tab
+- Or via CLI: `railway logs`
 
-```python
-LOGGING = {
-    'version': 1,
-    'handlers': {
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': '/home/bookforbook/private/logs/django.log',
-        },
-    },
-    'root': {
-        'handlers': ['file'],
-        'level': 'INFO',
-    },
-}
-```
+Both the web and worker services have separate log streams visible in the dashboard.
 
 ---
 
@@ -340,7 +312,7 @@ LOGGING = {
 
 ### Rotating the Encryption Key
 
-Address fields are encrypted with `FIELD_ENCRYPTION_KEY`. **Rotating this key requires re-encrypting all address data** — do not simply change it in `.env` or existing data will become unreadable.
+Address fields are encrypted with `FIELD_ENCRYPTION_KEY`. **Rotating this key requires re-encrypting all address data** — do not simply change it in Railway's environment variables or existing data will become unreadable.
 
 To rotate:
 1. Add the new key as a secondary key (consult `django-encrypted-model-fields` docs for multi-key rotation)
@@ -355,8 +327,8 @@ Contact the project maintainer before attempting this.
 
 To rotate:
 1. Generate a new key: `python3 -c "import secrets; print(secrets.token_urlsafe(50))"`
-2. Update `SECRET_KEY` in `.env`
-3. Restart the server
+2. Update `SECRET_KEY` in Railway's environment variables
+3. Railway will automatically redeploy
 
 ---
 
@@ -367,7 +339,7 @@ To rotate:
 Users can export their own data via `GET /api/v1/users/me/export/`. As an admin you can retrieve the same data from the admin panel or via the shell:
 
 ```bash
-python manage.py shell
+railway run python manage.py shell
 ```
 ```python
 from apps.accounts.views import _build_user_export
@@ -382,7 +354,7 @@ print(json.dumps(_build_user_export(user), indent=2, default=str))
 When a user requests deletion via the API, their account is deactivated immediately. Full anonymization (keeping rating scores but removing the user reference) should be performed after the 30-day grace period.
 
 To fully delete a user from the admin panel:
-1. Go to **Accounts → Users**
+1. Go to **Accounts > Users**
 2. Find the user
 3. Use the **Delete** action
 
@@ -394,28 +366,23 @@ This cascades to their UserBooks, WishlistItems, and TradeProposal records. Rati
 
 ### Applying Migrations
 
-After pulling new code:
+After pushing new code, Railway deploys automatically. If migrations are needed:
 
 ```bash
-cd ~/private/bookforbook
-source .venv/bin/activate
-git pull origin main
-pip install -r requirements.txt
-python manage.py migrate
+railway run python manage.py migrate
 ```
 
 ### Collecting Static Files
 
 ```bash
-python manage.py collectstatic --noinput
+railway run python manage.py collectstatic --noinput
 ```
 
-### Restarting the Server
+> Consider adding `python manage.py collectstatic --noinput` to a Railway deploy hook or to the `web` start command in the Procfile so it runs automatically on each deploy.
 
-If running via gunicorn with a process manager, send a HUP signal to reload:
+### Restarting Services
 
-```bash
-kill -HUP $(cat /tmp/gunicorn.pid)
-```
+Railway redeploys automatically on every push. To manually restart:
 
-Or if using a simpler setup, stop and restart the process manually.
+- Railway dashboard > your service > **Settings** > **Restart**
+- Or trigger a new deploy: **Deploy** > **Trigger Deploy**

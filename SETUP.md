@@ -17,13 +17,13 @@ Verified libraries and bookstores can receive book donations.
 | Layer | Technology |
 |---|---|
 | Backend | Django 5.x + Django REST Framework |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 16 (Railway managed) |
 | Task queue | Django-Q2 (PostgreSQL broker) |
-| Frontend | React 18 (Vite) as PWA |
+| Frontend | React 18 (Vite) as PWA on Cloudflare Pages |
 | ISBN data | Open Library API |
 | Auth | JWT (djangorestframework-simplejwt) |
-| File storage | S3-compatible |
-| Notifications | Email (SendGrid/AWS SES), optional SMS (Twilio) |
+| Email | Proton Mail (custom domain + SMTP submission) |
+| Hosting | Railway (API + worker), Cloudflare Pages (frontend) |
 
 ## Getting Started
 
@@ -31,55 +31,22 @@ Verified libraries and bookstores can receive book donations.
 
 - Python 3.12+
 - Node.js 20+
-- PostgreSQL 16 — set up via `setup_postgres.sh` (see below)
+- PostgreSQL 16 (for local development)
 
-### 1. Set up PostgreSQL
-
-Run the setup script once to create a managed PostgreSQL instance:
+### 1. Set up PostgreSQL (local dev)
 
 ```bash
-sh setup_postgres.sh
+# macOS
+brew install postgresql@16 && brew services start postgresql@16
+
+# Ubuntu/Debian
+sudo apt install postgresql-16 && sudo service postgresql start
 ```
 
-This creates a PostgreSQL instance at `~/private/postgres1/` running on a Unix socket
-(no TCP port — this is normal for this hosting environment).
-
-Load the environment variables it configures:
+Create the database:
 
 ```bash
-source ~/apps/postgres1/home/.bashrc
-```
-
-> Add that `source` line to your shell's `~/.bashrc` (or `~/.profile`) so `PGHOST` is set
-> automatically on every login.
-
-Verify the instance is running and you can connect:
-
-```bash
-psql postgres -c "\conninfo"
-```
-
-Create the application database and user:
-
-```bash
-# Generate a strong password
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-
-# Create the user (replace YOUR_PASSWORD with the generated password)
-psql postgres -c "CREATE USER bookforbook WITH PASSWORD 'YOUR_PASSWORD';"
-
-# Create the database owned by that user
-psql postgres -c "CREATE DATABASE bookforbook OWNER bookforbook;"
-
-# Grant schema permissions
-psql bookforbook -c "GRANT ALL ON SCHEMA public TO bookforbook;"
-```
-
-Note your socket directory — you'll need it for `.env`:
-
-```bash
-echo $PGHOST
-# e.g. /home/yourusername/private/postgres1/run
+createdb bookforbook
 ```
 
 ### 2. Configure environment
@@ -92,217 +59,30 @@ Edit `.env` and set at minimum:
 
 ```
 SECRET_KEY=<generate with: python3 -c "import secrets; print(secrets.token_urlsafe(50))">
-DATABASE_URL=postgresql://bookforbook:YOUR_PASSWORD@/bookforbook?host=/home/YOUR_USERNAME/private/postgres1/run
+DATABASE_URL=postgresql://bookforbook:bookforbook@localhost:5432/bookforbook
 FIELD_ENCRYPTION_KEY=<generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
-ALLOWED_HOSTS=yourdomain.com
-FRONTEND_URL=https://yourdomain.com
 ```
-
-Replace `/home/YOUR_USERNAME/private/postgres1/run` with the actual path from `echo $PGHOST`.
 
 ### 3. Install dependencies and run migrations
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python manage.py makemigrations accounts
 python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 4. Start the application
-
-#### Development only
+### 4. Start the application (local dev)
 
 ```bash
+# Terminal 1 — Django dev server
 python manage.py runserver
+
+# Terminal 2 — Django-Q2 task worker
+python manage.py qcluster
 ```
 
-Never use this in production — it is single-threaded, not hardened, and not persistent.
-
-#### Production — gunicorn on SureSupport
-
-gunicorn is already in `requirements.txt`. On SureSupport, the control panel manages the reverse proxy and SSL for you — you only need to configure gunicorn and point the webapp at it.
-
----
-
-##### Step 1 — Create the log directory
-
-```bash
-mkdir -p ~/private/logs
-```
-
----
-
-##### Step 2 — Configure gunicorn
-
-`gunicorn.conf.py` is already in the project root. It is pre-configured for this hosting environment:
-
-```python
-bind = "0.0.0.0:26386"         # port assigned by SureSupport control panel
-workers = 2
-timeout = 60
-keepalive = 5
-accesslog = "/home/bookforbook/private/logs/gunicorn-access.log"
-errorlog  = "/home/bookforbook/private/logs/gunicorn-error.log"
-loglevel  = "info"
-pidfile   = "/tmp/bookforbook.pid"
-proc_name = "bookforbook"
-```
-
-Replace `bookforbook` in the log paths if your username differs.
-
----
-
-##### Step 3 — Configure the SureSupport webapp
-
-In the SureSupport control panel, create or edit the webapp for `bookforbook.com` with these settings:
-
-| Setting | Value |
-|---------|-------|
-| **Start command** | `/home/bookforbook/private/bookforbook/.venv/bin/gunicorn config.wsgi:application -c /home/bookforbook/private/bookforbook/gunicorn.conf.py --chdir /home/bookforbook/private/bookforbook` |
-| **Port** | `26386` |
-| **Environment variable** | `DJANGO_SETTINGS_MODULE=config.settings.production` |
-
-Replace `bookforbook` in the paths with your actual username if different.
-
-The `--chdir` flag is required so gunicorn finds the project files. The full path to the gunicorn binary is required so it uses the virtualenv Python with all packages installed.
-
-The `.env` file is loaded automatically by `python-decouple` — you do not need to duplicate all variables in the control panel. Only `DJANGO_SETTINGS_MODULE` needs to be set there.
-
----
-
-##### Step 4 — Collect static files
-
-Django does not serve static files itself in production. Run this once (and again after any code update that changes static files):
-
-```bash
-cd ~/private/bookforbook
-source .venv/bin/activate
-python manage.py collectstatic --noinput
-```
-
-This copies everything to `staticfiles/`. Static files are served by **WhiteNoise** directly from the gunicorn process — no separate web server step needed. WhiteNoise also compresses files and adds cache-busting hashes to filenames automatically.
-
-> **Important:** Run `collectstatic` before the first startup and after any code update that adds or changes static files (CSS, JS, images). If you forget, the admin panel will load without styles.
-
----
-
-##### Step 5 — Start the webapp
-
-Start (or restart) the webapp from the SureSupport control panel. Check the error log if it doesn't come up:
-
-```bash
-tail -f ~/private/logs/gunicorn-error.log
-```
-
----
-
-##### Reloading after code updates
-
-After `git pull origin main` and `python manage.py migrate`, reload gunicorn without dropping connections:
-
-```bash
-kill -HUP $(cat /tmp/bookforbook.pid)
-```
-
-Or restart the webapp from the SureSupport control panel (causes a few seconds of downtime).
-
----
-
-##### If the web server is not managed by SureSupport
-
-On a VPS or server where you have full access, you need to configure the reverse proxy yourself. Check which web server is running:
-
-```bash
-ps aux | grep -E 'nginx|apache|httpd' | grep -v grep
-```
-
-###### nginx config
-
-```nginx
-server {
-    listen 80;
-    server_name bookforbook.com www.bookforbook.com;
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    server_name bookforbook.com www.bookforbook.com;
-
-    ssl_certificate     /etc/letsencrypt/live/bookforbook.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/bookforbook.com/privkey.pem;
-
-    location /static/ {
-        alias /home/bookforbook/private/bookforbook/staticfiles/;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:26386;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/bookforbook /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-###### Apache config
-
-```apache
-<VirtualHost *:80>
-    ServerName bookforbook.com
-    ServerAlias www.bookforbook.com
-    Redirect permanent / https://bookforbook.com/
-</VirtualHost>
-
-<VirtualHost *:443>
-    ServerName bookforbook.com
-    ServerAlias www.bookforbook.com
-
-    SSLEngine on
-    SSLCertificateFile    /etc/letsencrypt/live/bookforbook.com/fullchain.pem
-    SSLCertificateKeyFile /etc/letsencrypt/live/bookforbook.com/privkey.pem
-
-    ProxyPreserveHost On
-    ProxyPass        /static/ !
-    Alias            /static/ /home/bookforbook/private/bookforbook/staticfiles/
-    ProxyPass / http://127.0.0.1:26386/
-    ProxyPassReverse / http://127.0.0.1:26386/
-    RequestHeader set X-Forwarded-Proto "https"
-</VirtualHost>
-```
-
-```bash
-sudo a2enmod proxy proxy_http headers ssl rewrite
-sudo a2ensite bookforbook.conf
-sudo apache2ctl configtest && sudo systemctl reload apache2
-```
-
-SSL certificate (both web servers):
-
-```bash
-sudo certbot --nginx -d bookforbook.com -d www.bookforbook.com
-# or: sudo certbot --apache -d bookforbook.com -d www.bookforbook.com
-```
-
----
-
-##### Periodic tasks are run via cron (no background worker needed)
-
-See the crontab entries in `SUPERUSER.md` under **Cron Schedule Reference**.
-
-### 5. Frontend
-
-The frontend is a React PWA built with Vite. It talks to the Django API over HTTPS and is deployed separately on **Cloudflare Pages** (free tier, global CDN).
-
-#### Development
+### 5. Frontend (local dev)
 
 ```bash
 cd frontend
@@ -310,60 +90,176 @@ npm install
 npm run dev
 ```
 
-The dev server proxies `/api` to `http://localhost:8000` automatically — no env vars needed.
+The dev server proxies `/api` to `http://localhost:8000` automatically.
 
 ---
 
-#### Production — Cloudflare Pages
+## Production Deployment
 
-Cloudflare Pages builds and hosts the React app. The Django API runs separately at `api.bookforbook.com`.
+BookForBook runs on two services:
 
-> **Cloudflare Pages vs Cloudflare Workers — use Pages.** These are two different products. Pages is for hosting static sites and SPAs built from a git repo. Workers is a serverless compute platform. Using Workers by mistake will cause the build to fail with wrangler errors. Always use the **Pages** flow described below.
+| Service | Platform | Purpose |
+|---------|----------|---------|
+| API + worker | Railway | Django API (gunicorn) + Django-Q2 task worker |
+| Frontend | Cloudflare Pages | React PWA (static build, global CDN) |
 
-##### Step 1 — Add the API subdomain on SureSupport
+### Email — Proton Mail Setup
 
-Adding `api.bookforbook.com` routes API traffic to the same gunicorn webapp as `bookforbook.com`. Django already accepts this hostname in `ALLOWED_HOSTS`.
+Proton Mail handles both inbound email (`info@bookforbook.com` inbox) and outbound transactional email from Django (verification emails, password resets, notifications) via Proton's SMTP submission feature.
 
-In the SureSupport control panel:
+#### Step 1 — Create a Proton Mail account and add the custom domain
 
-1. Add a subdomain `api.bookforbook.com`. SureSupport will ask for a document root folder — set it to `www/www` or whatever the default is. **Do not set the Web access path** — leave it empty. Setting it causes Apache to serve static files from that folder instead of proxying to gunicorn.
-2. Add `api.bookforbook.com` as an additional hostname on your existing gunicorn webapp.
+1. Sign up or log in at [proton.me](https://proton.me) (a paid plan is required for custom domains and SMTP submission)
+2. Go to **Settings** > **All settings** > **Domain names** > **Add domain**
+3. Enter `bookforbook.com` and follow the verification steps
+4. Proton will give you DNS records to add — add them all in Cloudflare DNS:
 
-> **SureSupport bot protection — action required.** SureSupport runs ModSecurity-based bot protection that intercepts POST requests from IP addresses flagged by reputation services (CleanTalk, StopForumSpam, AbuseIPDB). This blocks legitimate API calls from the browser with a 302 redirect to a `/.captcha/` URL, which has no CORS headers, causing a CORS error in the browser. The `.htaccess` workaround does **not** work for proxied requests — the fix must be applied at the Apache VirtualHost level by SureSupport.
->
-> **Open a support ticket** with SureSupport and ask them to disable ModSecurity rule 90000 for `api.bookforbook.com`. Include this exact rule:
-> ```
-> SecRuleRemoveById 90000
-> ```
-> They will apply it to the VirtualHost config for your subdomain. You can verify it is working by running:
-> ```bash
-> curl -v -X POST \
->   -H "Origin: https://bookforbook.com" \
->   -H "Content-Type: application/json" \
->   -d '{"email":"test@test.com","username":"test","password":"test1234","password2":"test1234","account_type":"individual"}' \
->   https://api.bookforbook.com/api/v1/auth/register/
-> ```
-> The response should show `server: gunicorn` (not `server: Apache`) and return a JSON response from Django. If it returns a 302 to `/.captcha/`, the rule has not been applied yet.
+   | Type | Purpose | Proxy status |
+   |------|---------|--------------|
+   | TXT | Domain ownership verification | DNS only |
+   | MX | Inbound mail delivery | DNS only |
+   | TXT | SPF | DNS only |
+   | CNAME | DKIM (×3) | DNS only |
+   | TXT | DMARC | DNS only |
 
-##### Step 2 — Allow the frontend domain in Django CORS
+   > All email DNS records must be **DNS only** (grey cloud) — never proxied.
 
-In `.env` on the server, set:
+   > **MX records conflict warning:** Adding Proton's MX records takes over all inbound mail for `bookforbook.com`. Remove any existing MX records first. Do not add Cloudflare Email Routing MX records alongside Proton's.
+
+5. Once Proton verifies the domain, create a mailbox address — e.g. `info@bookforbook.com`
+
+#### Step 2 — Generate an SMTP token for Django
+
+Proton Mail uses a dedicated SMTP token (not your login password) to authenticate outbound sending from third-party apps.
+
+1. Go to **Settings** > **All settings** > **Email** > **SMTP submission**
+2. Enable SMTP submission if not already enabled
+3. Click **Generate token**
+4. Note the token — **you cannot view it again after closing the dialog**
+
+The SMTP settings for Django are:
+
+| Setting | Value |
+|---------|-------|
+| Host | `smtp.protonmail.ch` |
+| Port | `587` |
+| Username | Your Proton Mail address (e.g. `info@bookforbook.com`) |
+| Password | The SMTP token generated above |
+| TLS | STARTTLS (enabled) |
+
+#### Step 3 — Set environment variables in Railway
+
+| Variable | Value |
+|----------|-------|
+| `EMAIL_HOST` | `smtp.protonmail.ch` |
+| `EMAIL_PORT` | `587` |
+| `EMAIL_HOST_USER` | `info@bookforbook.com` |
+| `EMAIL_HOST_PASSWORD` | *(your Proton SMTP token)* |
+| `EMAIL_USE_TLS` | `True` |
+| `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
+
+> Note: `DEFAULT_FROM_EMAIL` can be any address on your verified domain. If you want to send as `noreply@bookforbook.com`, add that as an additional address in Proton Mail settings.
+
+### Railway — API Deployment
+
+#### Step 1 — Create a Railway project
+
+1. Sign up at [railway.com](https://railway.com) and connect your GitHub account
+2. Click **New Project** > **Deploy from GitHub repo**
+3. Select the `bookforbook` repository
+
+Railway detects the `Procfile` and creates a service automatically. The `Procfile` defines two process types:
 
 ```
-CORS_ALLOWED_ORIGINS=https://bookforbook.com,https://www.bookforbook.com
+web: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+worker: python manage.py qcluster
 ```
 
-Reload gunicorn after saving:
+Railway will initially deploy only the `web` service. You need to add the worker separately.
+
+#### Step 2 — Add a PostgreSQL database
+
+1. In your Railway project, click **New** > **Database** > **PostgreSQL**
+2. Railway automatically sets the `DATABASE_URL` environment variable on all services in the project
+
+#### Step 3 — Add the worker service
+
+1. In your Railway project, click **New** > **Service** > select the same GitHub repo
+2. Go to the new service's **Settings** > **Deploy** section
+3. Set the **Start command** to: `python manage.py qcluster`
+4. The worker shares the same environment variables as the web service (they're project-level)
+
+#### Step 4 — Set environment variables
+
+In Railway, go to your **web service** > **Variables** and add:
+
+| Variable | Value |
+|----------|-------|
+| `DJANGO_SETTINGS_MODULE` | `config.settings.production` |
+| `SECRET_KEY` | *(generate a secure key)* |
+| `FIELD_ENCRYPTION_KEY` | *(generate with Fernet)* |
+| `ALLOWED_HOSTS` | `bookforbook.com,www.bookforbook.com,api.bookforbook.com` |
+| `CORS_ALLOWED_ORIGINS` | `https://bookforbook.com,https://www.bookforbook.com` |
+| `FRONTEND_URL` | `https://bookforbook.com` |
+| `EMAIL_HOST` | `smtp.protonmail.ch` |
+| `EMAIL_PORT` | `587` |
+| `EMAIL_HOST_USER` | `info@bookforbook.com` |
+| `EMAIL_HOST_PASSWORD` | *(your Proton SMTP token)* |
+| `EMAIL_USE_TLS` | `True` |
+| `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
+
+> `DATABASE_URL` is set automatically by Railway when you add PostgreSQL. Do not set it manually.
+
+> The worker service shares these variables automatically if they are in the same project. Verify this in the worker's Variables tab.
+
+#### Step 5 — Run initial setup
+
+In the Railway dashboard, open a shell on the web service (**web service** > **Settings** > **Shell**) or use the Railway CLI:
 
 ```bash
-kill -HUP $(cat /tmp/bookforbook.pid)
+railway run python manage.py migrate
+railway run python manage.py createsuperuser
+railway run python manage.py collectstatic --noinput
 ```
 
-##### Step 3 — Deploy to Cloudflare Pages
+#### Step 6 — Add a custom domain
 
-1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
+1. In your web service's **Settings** > **Networking** > **Public Networking**
+2. Click **Generate Domain** to get a `*.up.railway.app` URL (for testing)
+3. Click **Add Custom Domain** and enter `api.bookforbook.com`
+4. Railway shows a CNAME target — add this in Cloudflare DNS:
 
-   > Do not choose **Workers** — that is a different product.
+| Type | Name | Content | Proxy status |
+|------|------|---------|--------------|
+| CNAME | `api` | *(Railway CNAME target)* | **DNS only** (grey cloud) |
+
+> Use **DNS only** (grey cloud) so Railway can provision its own TLS certificate. If you proxy through Cloudflare (orange cloud), Railway cannot verify domain ownership.
+
+#### Step 7 — Verify
+
+```bash
+# API should respond
+curl https://api.bookforbook.com/api/v1/browse/available/
+
+# Check the Railway-assigned domain too
+curl https://your-app.up.railway.app/api/v1/browse/available/
+```
+
+#### Deploying updates
+
+Every push to the main branch triggers an automatic build and deploy on Railway. No manual steps needed.
+
+To deploy manually: Railway dashboard > your service > **Deploy** > **Trigger Deploy**.
+
+### Cloudflare Pages — Frontend Deployment
+
+The frontend is a React PWA built with Vite. It is deployed separately on Cloudflare Pages (free tier).
+
+#### Step 1 — Deploy to Cloudflare Pages
+
+1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com) > **Workers & Pages** > **Create** > **Pages** > **Connect to Git**
+
+   > Do not choose **Workers** — that is a different product and will fail.
 
 2. Select the `bookforbook` repository
 3. Configure the build:
@@ -375,43 +271,27 @@ kill -HUP $(cat /tmp/bookforbook.pid)
    | **Build output directory** | `dist` |
    | **Root directory** | `frontend` |
 
-4. Add an environment variable under **Settings → Environment variables → Production**:
+4. Add an environment variable under **Settings > Environment variables > Production**:
 
    | Variable | Value |
    |----------|-------|
    | `VITE_API_URL` | `https://api.bookforbook.com/api/v1` |
 
-   > Note the `/api/v1` suffix — the frontend appends paths like `/browse/` directly to this value, so the full URL becomes `https://api.bookforbook.com/api/v1/browse/`.
+   > Note the `/api/v1` suffix — the frontend appends paths like `/browse/` directly to this value.
 
-5. Click **Save and Deploy**. Cloudflare builds the app and deploys it globally in ~2 minutes.
+5. Click **Save and Deploy**
 
-##### Step 4 — DNS configuration
+#### Step 2 — DNS configuration
 
 **Overview — what points where:**
 
 | Hostname | Destination | Why |
 |----------|-------------|-----|
-| `bookforbook.com` | Cloudflare Pages | Serves the React frontend |
-| `www.bookforbook.com` | Cloudflare Pages | Serves the React frontend |
-| `api.bookforbook.com` | SureSupport server | Serves the Django API |
+| `bookforbook.com` | Cloudflare Pages | React frontend |
+| `www.bookforbook.com` | Cloudflare Pages | React frontend |
+| `api.bookforbook.com` | Railway | Django API |
 
-Cloudflare manages all three DNS records. `bookforbook.com` and `www` are proxied through Cloudflare (CDN + DDoS protection). `api` bypasses Cloudflare's proxy and goes direct to SureSupport — this is required so Django sees real user IPs for logging and rate limiting.
-
----
-
-**4a — Find your SureSupport server IP**
-
-You need this before starting. SSH into the server and run:
-
-```bash
-curl -s ifconfig.me
-```
-
-Note the IP address — you'll enter it as the `api` DNS record shortly.
-
----
-
-**4b — Add your domain to Cloudflare**
+##### Add your domain to Cloudflare
 
 1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) and log in (create a free account if needed)
 2. Click **Add a domain**
@@ -421,8 +301,8 @@ Note the IP address — you'll enter it as the `api` DNS record shortly.
 6. Click **Continue to nameservers**
 7. Cloudflare shows you **two nameserver addresses** — they look like:
    ```
-   jobs.ns.cloudflare.com
-   lina.ns.cloudflare.com
+   aida.ns.cloudflare.com
+   bert.ns.cloudflare.com
    ```
    (yours will have different names — copy the exact values shown on screen)
 
@@ -455,42 +335,28 @@ Then create:
 |------|------|---------|--------------|
 | CNAME | `@` | `bookforbook.pages.dev` | **Proxied** (orange cloud) |
 | CNAME | `www` | `bookforbook.pages.dev` | **Proxied** (orange cloud) |
-| A | `api` | *(your SureSupport server IP from step 4a)* | **DNS only** (grey cloud) |
+| CNAME | `api` | *(Railway CNAME target)* | **DNS only** (grey cloud) |
 
-To set proxy status when creating a record: there is a toggle labelled **Proxy status** — orange cloud means proxied, grey cloud means DNS only. Make sure `api` is grey.
+##### Add custom domains to Cloudflare Pages
 
-> The `@` symbol means the root domain (`bookforbook.com` itself). Some DNS interfaces show it as `@`, some show the full domain name.
+1. In Cloudflare > **Workers & Pages** > your Pages project > **Custom domains**
+2. Add `bookforbook.com` and `www.bookforbook.com`
 
----
-
-**4e — Add custom domains to Cloudflare Pages**
-
-1. In Cloudflare dashboard → **Workers & Pages** → your Pages project → **Custom domains**
-2. Click **Set up a custom domain**
-3. Enter `bookforbook.com` → click **Continue** → **Activate domain**
-4. Repeat for `www.bookforbook.com`
-
-Because Cloudflare manages your DNS, it will verify and activate each domain automatically within a few minutes. SSL certificates are provisioned at the same time — no separate step needed.
-
----
-
-**4f — Verify everything is working**
+##### Verify
 
 ```bash
-# Frontend should load
+# Frontend
 curl -I https://bookforbook.com
 # Expected: HTTP 200
 
-# API should respond
-curl -I https://api.bookforbook.com/api/v1/browse/
-# Expected: HTTP 200, not a certificate error
+# API
+curl https://api.bookforbook.com/api/v1/browse/available/
+# Expected: JSON response
 ```
 
-##### Deploying updates
+#### Deploying updates
 
-Every push to the main branch triggers an automatic rebuild and deploy — no manual steps needed.
-
-To rebuild manually: Cloudflare Pages dashboard → **Deployments** → **Retry deployment**.
+Every push to the main branch triggers an automatic rebuild. To rebuild manually: Cloudflare Pages dashboard > **Deployments** > **Retry deployment**.
 
 ### Seed development data
 
@@ -548,7 +414,7 @@ pytest
 - **Continental USA only** — shipping addresses validated to continental US states
 - **Match capacity** — new users get 1 active match slot; grows to 10 with trading history
 - **Address privacy** — shipping addresses are encrypted at rest and revealed only to confirmed trade partners
-- **Exchange rings** — the system detects cycles of 3–5 users who can all trade with each other
+- **Exchange rings** — the system detects cycles of 3-5 users who can all trade with each other
 - **Inactivity** — books are auto-hidden after 3 months of inactivity and restored on next login
 
 ## Docs
