@@ -231,6 +231,7 @@ In Railway, go to your **web service** > **Variables** and add:
 In the Railway dashboard, open a shell on the web service (**web service** > **Settings** > **Shell**) or use the Railway CLI:
 
 ```bash
+railway run python manage.py makemigrations accounts
 railway run python manage.py migrate
 railway run python manage.py createsuperuser
 railway run python manage.py collectstatic --noinput
