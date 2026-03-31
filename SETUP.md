@@ -77,7 +77,6 @@ FIELD_ENCRYPTION_KEY=<generate with: python3 -c "from cryptography.fernet import
 ```bash
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python manage.py makemigrations
 python manage.py migrate
 python manage.py createsuperuser
 ```
@@ -85,6 +84,8 @@ python manage.py createsuperuser
 > **Python version:** Use Python 3.12 to match Railway. If you have multiple versions installed: `python3.12 -m venv .venv`
 >
 > **Order matters:** `migrate` must run before `runserver`. `createsuperuser` is needed to access `/admin/`.
+>
+> **No `makemigrations` needed on a fresh checkout** — migration files are committed to the repo. Only run `makemigrations` when you change a model.
 
 ### 4. Start the application (local dev)
 
@@ -231,7 +232,6 @@ In Railway, go to your **web service** > **Variables** and add:
 In the Railway dashboard, open a shell on the web service (**web service** > **Settings** > **Shell**) or use the Railway CLI:
 
 ```bash
-railway run python manage.py makemigrations accounts
 railway run python manage.py migrate
 railway run python manage.py createsuperuser
 railway run python manage.py collectstatic --noinput
