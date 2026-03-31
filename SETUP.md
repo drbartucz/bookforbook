@@ -22,7 +22,7 @@ Verified libraries and bookstores can receive book donations.
 | Frontend | React 18 (Vite) as PWA on Cloudflare Pages |
 | ISBN data | Open Library API |
 | Auth | JWT (djangorestframework-simplejwt) |
-| Email | SMTP2GO |
+| Email | Proton Mail (custom domain + SMTP submission) |
 | Hosting | Railway (API + worker), Cloudflare Pages (frontend) |
 
 ## Getting Started
@@ -103,44 +103,62 @@ BookForBook runs on two services:
 | API + worker | Railway | Django API (gunicorn) + Django-Q2 task worker |
 | Frontend | Cloudflare Pages | React PWA (static build, global CDN) |
 
-### Email — Inbound Forwarding (Cloudflare Email Routing)
+### Email — Proton Mail Setup
 
-Cloudflare Email Routing forwards mail sent to `info@bookforbook.com` to the destination address. This requires no code changes — it is configured entirely in the Cloudflare dashboard.
+Proton Mail handles both inbound email (`info@bookforbook.com` inbox) and outbound transactional email from Django (verification emails, password resets, notifications) via Proton's SMTP submission feature.
 
-1. In Cloudflare dashboard > **bookforbook.com** > **Email** > **Email Routing**
-2. Click **Get started** — Cloudflare adds the required MX records to your DNS automatically
-3. Go to **Routing rules** > **Create address**:
-   - **Custom address:** `info`
-   - **Action:** Send to an email
-   - **Destination:** `bookforbook.wfp8f@simplelogin.com`
-4. Click **Save**
-5. Cloudflare sends a verification email to `bookforbook.wfp8f@simplelogin.com` — click the link before forwarding activates
+#### Step 1 — Create a Proton Mail account and add the custom domain
 
-> **Note:** Enabling Email Routing adds Cloudflare's MX records to your domain. This takes over inbound mail delivery for `bookforbook.com`. Do not add other MX records alongside Cloudflare's — they will conflict.
+1. Sign up or log in at [proton.me](https://proton.me) (a paid plan is required for custom domains and SMTP submission)
+2. Go to **Settings** > **All settings** > **Domain names** > **Add domain**
+3. Enter `bookforbook.com` and follow the verification steps
+4. Proton will give you DNS records to add — add them all in Cloudflare DNS:
 
-> **SMTP2GO and Cloudflare Email Routing are independent.** SMTP2GO sends outbound email (from the Django app). Cloudflare Email Routing receives inbound email. They use different DNS record types and do not interfere with each other.
+   | Type | Purpose | Proxy status |
+   |------|---------|--------------|
+   | TXT | Domain ownership verification | DNS only |
+   | MX | Inbound mail delivery | DNS only |
+   | TXT | SPF | DNS only |
+   | CNAME | DKIM (×3) | DNS only |
+   | TXT | DMARC | DNS only |
 
----
+   > All email DNS records must be **DNS only** (grey cloud) — never proxied.
 
-### Email — SMTP2GO Setup
+   > **MX records conflict warning:** Adding Proton's MX records takes over all inbound mail for `bookforbook.com`. Remove any existing MX records first. Do not add Cloudflare Email Routing MX records alongside Proton's.
 
-SMTP2GO handles all transactional email (verification, password reset, notifications).
+5. Once Proton verifies the domain, create a mailbox address — e.g. `info@bookforbook.com`
 
-#### Step 1 — Create an SMTP2GO account
+#### Step 2 — Generate an SMTP token for Django
 
-1. Sign up at [smtp2go.com](https://www.smtp2go.com) (free tier: 1,000 emails/month)
-2. Go to **Settings** > **SMTP Users** and create an SMTP user
-3. Note the username and password — you'll set these as environment variables
+Proton Mail uses a dedicated SMTP token (not your login password) to authenticate outbound sending from third-party apps.
 
-#### Step 2 — Verify your sender domain
+1. Go to **Settings** > **All settings** > **Email** > **SMTP submission**
+2. Enable SMTP submission if not already enabled
+3. Click **Generate token**
+4. Note the token — **you cannot view it again after closing the dialog**
 
-1. In SMTP2GO, go to **Settings** > **Sender Domains**
-2. Add `bookforbook.com`
-3. SMTP2GO will give you DNS records to add (SPF, DKIM, DMARC)
-4. Add these records in Cloudflare DNS (they are TXT records — do not proxy them)
-5. Click **Verify** in SMTP2GO once the records propagate
+The SMTP settings for Django are:
 
-This ensures emails from `noreply@bookforbook.com` are not flagged as spam.
+| Setting | Value |
+|---------|-------|
+| Host | `smtp.protonmail.ch` |
+| Port | `587` |
+| Username | Your Proton Mail address (e.g. `info@bookforbook.com`) |
+| Password | The SMTP token generated above |
+| TLS | STARTTLS (enabled) |
+
+#### Step 3 — Set environment variables in Railway
+
+| Variable | Value |
+|----------|-------|
+| `EMAIL_HOST` | `smtp.protonmail.ch` |
+| `EMAIL_PORT` | `587` |
+| `EMAIL_HOST_USER` | `info@bookforbook.com` |
+| `EMAIL_HOST_PASSWORD` | *(your Proton SMTP token)* |
+| `EMAIL_USE_TLS` | `True` |
+| `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
+
+> Note: `DEFAULT_FROM_EMAIL` can be any address on your verified domain. If you want to send as `noreply@bookforbook.com`, add that as an additional address in Proton Mail settings.
 
 ### Railway — API Deployment
 
@@ -183,10 +201,10 @@ In Railway, go to your **web service** > **Variables** and add:
 | `ALLOWED_HOSTS` | `bookforbook.com,www.bookforbook.com,api.bookforbook.com` |
 | `CORS_ALLOWED_ORIGINS` | `https://bookforbook.com,https://www.bookforbook.com` |
 | `FRONTEND_URL` | `https://bookforbook.com` |
-| `EMAIL_HOST` | `mail.smtp2go.com` |
+| `EMAIL_HOST` | `smtp.protonmail.ch` |
 | `EMAIL_PORT` | `587` |
-| `EMAIL_HOST_USER` | *(your SMTP2GO username)* |
-| `EMAIL_HOST_PASSWORD` | *(your SMTP2GO password)* |
+| `EMAIL_HOST_USER` | `info@bookforbook.com` |
+| `EMAIL_HOST_PASSWORD` | *(your Proton SMTP token)* |
 | `EMAIL_USE_TLS` | `True` |
 | `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
 
