@@ -369,9 +369,10 @@ This cascades to their UserBooks, WishlistItems, and TradeProposal records. Rati
 After pushing new code, Railway deploys automatically. If migrations are needed:
 
 ```bash
-railway run python manage.py makemigrations
 railway run python manage.py migrate
 ```
+
+> **Do not run `makemigrations` on Railway.** Migration files are committed to the repo and generated locally. Only run `makemigrations` during local development when you change a model, then commit the resulting files.
 
 ### Collecting Static Files
 
