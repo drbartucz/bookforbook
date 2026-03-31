@@ -275,14 +275,43 @@ The frontend is a React PWA built with Vite. It is deployed separately on Cloudf
 
 ##### Add your domain to Cloudflare
 
-1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) > **Add a domain**
-2. Enter `bookforbook.com`, select **Free** plan
-3. Cloudflare shows two nameserver addresses — update these at your registrar (ICDSoft Account Panel > Hosting Resources > Domains > bookforbook.com > Nameservers)
-4. Wait for propagation (usually 5-30 minutes, up to 24 hours)
+1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) and log in (create a free account if needed)
+2. Click **Add a domain**
+3. Enter `bookforbook.com` and click **Continue**
+4. Select the **Free** plan and click **Continue**
+5. Cloudflare scans your existing DNS records and shows them. Review the list — it may have pre-populated some records from your current ICDSoft DNS. You can leave these for now; you'll adjust them in the next step.
+6. Click **Continue to nameservers**
+7. Cloudflare shows you **two nameserver addresses** — they look like:
+   ```
+   aida.ns.cloudflare.com
+   bert.ns.cloudflare.com
+   ```
+   (yours will have different names — copy the exact values shown on screen)
 
-##### Create DNS records
+---
 
-Delete any existing A, AAAA, or CNAME records named `@` or `www` first (they conflict with the new CNAMEs). Do not delete MX or TXT records.
+**4c — Update nameservers at ICDSoft**
+
+1. Log in to the **ICDSoft Account Panel** (not the hosting Control Panel — this is the billing/domain management panel at account.icdsoft.com)
+2. Go to **Hosting Resources** → **Domains**
+3. Click on **bookforbook.com**
+4. Find the **Nameservers** section
+5. Replace the existing nameservers with the two Cloudflare nameservers from the previous step
+6. Save
+
+Nameserver propagation typically takes 5–30 minutes but can take up to 24 hours. Cloudflare will email you when your domain is active. You can also check status in the Cloudflare dashboard — the domain will show **Active** when propagation is complete.
+
+---
+
+**4d — Create DNS records in Cloudflare**
+
+Once the domain is active, go to Cloudflare dashboard → **bookforbook.com** → **DNS** → **Records**.
+
+Cloudflare auto-imports your existing DNS records when you add the domain. You must delete the conflicting ones before adding the new records — Cloudflare will not let you add a CNAME if an A or AAAA record with the same name already exists.
+
+Delete any existing **A**, **AAAA**, or **CNAME** records named `@` or `www`. Do **not** delete MX or TXT records — those handle email and domain verification.
+
+Then create:
 
 | Type | Name | Content | Proxy status |
 |------|------|---------|--------------|
