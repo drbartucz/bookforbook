@@ -103,6 +103,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return f'{self.username} <{self.email}>'
 
+    def delete(self, *args, **kwargs):
+        # simplejwt uses SET_NULL on OutstandingToken, so clean up tokens manually
+        try:
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+            OutstandingToken.objects.filter(user=self).delete()
+        except Exception:
+            pass
+        super().delete(*args, **kwargs)
+
     @property
     def max_active_matches(self):
         """Compute match capacity based on rating count."""
