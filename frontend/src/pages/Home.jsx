@@ -77,7 +77,7 @@ export default function Home() {
         {!isAuthenticated && (
           <div className={styles.heroActions}>
             <Link to="/register" className="btn btn-primary btn-lg">
-              Get started free
+              Register
             </Link>
             <Link to="/login" className="btn btn-secondary btn-lg">
               Sign in
