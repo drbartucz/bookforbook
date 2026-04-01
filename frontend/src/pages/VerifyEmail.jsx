@@ -10,20 +10,19 @@ export default function VerifyEmail() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const token = searchParams.get('token');
-  const key = searchParams.get('key');
+  const uid = searchParams.get('uid');
 
   useEffect(() => {
-    const verificationKey = token || key;
-    if (!verificationKey) {
+    if (!uid || !token) {
       setStatus('error');
-      setErrorMsg('No verification token found in the URL.');
+      setErrorMsg('Invalid verification link — missing uid or token.');
       return;
     }
 
     let cancelled = false;
 
     authApi
-      .verifyEmail({ token: verificationKey, key: verificationKey })
+      .verifyEmail({ uid, token })
       .then(() => {
         if (!cancelled) setStatus('success');
       })
@@ -40,7 +39,7 @@ export default function VerifyEmail() {
     return () => {
       cancelled = true;
     };
-  }, [token, key]);
+  }, [uid, token]);
 
   return (
     <div className={styles.pageWrapper}>
