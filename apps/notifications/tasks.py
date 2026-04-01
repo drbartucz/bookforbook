@@ -10,10 +10,15 @@ logger = logging.getLogger(__name__)
 
 def send_verification_email(user_id: str, uid: str, token: str):
     """Send email verification link to a newly registered user."""
+    logger.info('send_verification_email: starting for user_id=%s', user_id)
     from apps.accounts.models import User
     user = User.objects.get(pk=user_id)
     from apps.notifications.email import send_verification_email as _send
-    _send(user, uid, token)
+    success = _send(user, uid, token)
+    if success:
+        logger.info('send_verification_email: sent to %s', user.email)
+    else:
+        logger.error('send_verification_email: failed for %s', user.email)
 
 
 def send_password_reset_email(user_id: str, uid: str, token: str):

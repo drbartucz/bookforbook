@@ -17,7 +17,7 @@ BookForBook is a book bartering platform where users in the continental USA trad
 | Task queue | Django-Q2 (PostgreSQL broker) |
 | Frontend | React 18 (Vite) as PWA |
 | ISBN enrichment | Open Library API (free, no key required) |
-| Notifications | Email via Proton Mail (custom domain + SMTP submission); optional SMS via Twilio |
+| Notifications | Inbound email via Proton Mail (custom domain, MX records); outbound transactional email via Resend (HTTP API); optional SMS via Twilio |
 | Search | PostgreSQL full-text search (upgrade to Meilisearch later if needed) |
 | File storage | S3-compatible (AWS S3, Backblaze B2, or local dev) |
 | Auth | JWT via `djangorestframework-simplejwt` |
