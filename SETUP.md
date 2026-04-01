@@ -225,7 +225,7 @@ In Railway, go to your **web service** > **Variables** and add:
 
 > `DATABASE_URL` is set automatically by Railway when you add PostgreSQL. Do not set it manually.
 
-> The worker service shares these variables automatically if they are in the same project. Verify this in the worker's Variables tab.
+> **Shared variables are not applied automatically.** After setting variables on the web service, go to the **worker service → Variables** and add the same variables manually. Both services need `SECRET_KEY`, `FIELD_ENCRYPTION_KEY`, `DATABASE_URL`, `DJANGO_SETTINGS_MODULE`, and any email/AWS variables.
 
 #### Step 5 — Run initial setup
 
