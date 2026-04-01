@@ -85,6 +85,21 @@ class TokenRefreshView(BaseTokenRefreshView):
     pass
 
 
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        try:
+            from rest_framework_simplejwt.tokens import RefreshToken
+            refresh_token = request.data.get('refresh')
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+        except Exception:
+            pass  # Already expired or invalid — treat as logged out
+        return Response({'detail': 'Logged out.'}, status=status.HTTP_200_OK)
+
+
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
 
