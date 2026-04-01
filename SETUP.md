@@ -229,34 +229,27 @@ In Railway, go to your **web service** > **Variables** and add:
 
 #### Step 5 — Run initial setup
 
-**Option A — Railway CLI (recommended):**
-
-Install the CLI and log in:
+Install the Railway CLI and log in:
 ```bash
 brew install railway
 railway login
 ```
 
-Then run setup commands (from your project directory):
+Open a shell **on the deployed service** (has access to the internal database):
 ```bash
-railway run python manage.py migrate
-railway run python manage.py createsuperuser
-railway run python manage.py collectstatic --noinput
+railway shell
 ```
 
-To open an interactive shell on the deployed service:
-```bash
-railway run bash
-```
-
-**Option B — Railway dashboard shell:**
-
-Go to your web service → **Deployments** tab → click the active deployment → click **"Railway Shell"** (top right). Then run:
+Then run:
 ```bash
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py collectstatic --noinput
 ```
+
+> **Why these three?** `migrate` creates the database tables. `createsuperuser` gives you access to `/admin/`. `collectstatic` copies Django admin's CSS/JS so the admin UI renders correctly.
+>
+> **Why not `railway run` from your Mac?** `railway run` injects env vars into a local shell but your Mac cannot reach `postgres.railway.internal` — only Railway's own servers can. `railway shell` connects you to a shell running inside Railway's network.
 
 #### Step 6 — Add a custom domain
 
