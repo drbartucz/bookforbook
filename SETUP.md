@@ -236,10 +236,11 @@ Then run from your local machine using that public URL:
 ```bash
 DATABASE_URL="<paste-public-url>" python manage.py migrate
 DATABASE_URL="<paste-public-url>" python manage.py createsuperuser
-DATABASE_URL="<paste-public-url>" python manage.py collectstatic --noinput
 ```
 
-> **Why these three?** `migrate` creates the database tables. `createsuperuser` gives you access to `/admin/`. `collectstatic` copies Django admin's CSS/JS so the admin UI renders correctly.
+> `migrate` creates the database tables. `createsuperuser` gives you access to `/admin/`.
+>
+> `collectstatic` runs automatically on every Railway deploy via `railway.toml` — you do not need to run it manually.
 >
 > **Why the public URL?** The internal URL (`postgres.railway.internal`) is only reachable from inside Railway's network. The public URL works from your Mac.
 
