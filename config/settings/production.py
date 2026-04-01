@@ -108,5 +108,10 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'django_q': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
