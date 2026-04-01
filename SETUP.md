@@ -229,27 +229,19 @@ In Railway, go to your **web service** > **Variables** and add:
 
 #### Step 5 — Run initial setup
 
-Install the Railway CLI and log in:
-```bash
-brew install railway
-railway login
-```
+Go to your **PostgreSQL service** in Railway → **"Connect"** tab → copy the **Public URL** (starts with `postgresql://postgres:...@roundhouse.proxy.rlwy.net:...`).
 
-Open a shell **on the deployed service** (has access to the internal database):
-```bash
-railway shell
-```
+Then run from your local machine using that public URL:
 
-Then run:
 ```bash
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py collectstatic --noinput
+DATABASE_URL="<paste-public-url>" python manage.py migrate
+DATABASE_URL="<paste-public-url>" python manage.py createsuperuser
+DATABASE_URL="<paste-public-url>" python manage.py collectstatic --noinput
 ```
 
 > **Why these three?** `migrate` creates the database tables. `createsuperuser` gives you access to `/admin/`. `collectstatic` copies Django admin's CSS/JS so the admin UI renders correctly.
 >
-> **Why not `railway run` from your Mac?** `railway run` injects env vars into a local shell but your Mac cannot reach `postgres.railway.internal` — only Railway's own servers can. `railway shell` connects you to a shell running inside Railway's network.
+> **Why the public URL?** The internal URL (`postgres.railway.internal`) is only reachable from inside Railway's network. The public URL works from your Mac.
 
 #### Step 6 — Add a custom domain
 
