@@ -229,12 +229,33 @@ In Railway, go to your **web service** > **Variables** and add:
 
 #### Step 5 — Run initial setup
 
-In the Railway dashboard, open a shell on the web service (**web service** > **Settings** > **Shell**) or use the Railway CLI:
+**Option A — Railway CLI (recommended):**
 
+Install the CLI and log in:
+```bash
+brew install railway
+railway login
+```
+
+Then run setup commands (from your project directory):
 ```bash
 railway run python manage.py migrate
 railway run python manage.py createsuperuser
 railway run python manage.py collectstatic --noinput
+```
+
+To open an interactive shell on the deployed service:
+```bash
+railway run bash
+```
+
+**Option B — Railway dashboard shell:**
+
+Go to your web service → **Deployments** tab → click the active deployment → click **"Railway Shell"** (top right). Then run:
+```bash
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py collectstatic --noinput
 ```
 
 #### Step 6 — Add a custom domain
