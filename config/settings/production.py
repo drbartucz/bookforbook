@@ -70,7 +70,7 @@ EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
 ANYMAIL = {
     'RESEND_API_KEY': config('RESEND_API_KEY', default=''),
 }
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@bookforbook.com')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Book for Book <noreply@bookforbook.com>')
 
 # Frontend URL (for email links)
 FRONTEND_URL = config('FRONTEND_URL', default='https://bookforbook.com')
