@@ -22,7 +22,8 @@ Verified libraries and bookstores can receive book donations.
 | Frontend | React 18 (Vite) as PWA on Cloudflare Pages |
 | ISBN data | Open Library API |
 | Auth | JWT (djangorestframework-simplejwt) |
-| Email | Proton Mail (custom domain + SMTP submission) |
+| Email (inbound) | Proton Mail (custom domain, MX records) |
+| Email (outbound) | Resend (HTTP API, no SMTP port restrictions) |
 | Hosting | Railway (API + worker), Cloudflare Pages (frontend) |
 
 ## Getting Started
@@ -118,16 +119,20 @@ BookForBook runs on two services:
 | API + worker | Railway | Django API (gunicorn) + Django-Q2 task worker |
 | Frontend | Cloudflare Pages | React PWA (static build, global CDN) |
 
-### Email — Proton Mail Setup
+### Email Setup
 
-Proton Mail handles both inbound email (`info@bookforbook.com` inbox) and outbound transactional email from Django (verification emails, password resets, notifications) via Proton's SMTP submission feature.
+Email is split between two services:
+- **Proton Mail** — inbound email only (`info@bookforbook.com` inbox, custom domain via MX records)
+- **Resend** — outbound transactional email from Django (verification, password reset, notifications) via HTTP API
 
-#### Step 1 — Create a Proton Mail account and add the custom domain
+> Railway blocks outbound SMTP (port 587), so Django cannot send email via Proton Mail SMTP directly. Resend uses HTTPS and has no port restrictions.
 
-1. Sign up or log in at [proton.me](https://proton.me) (a paid plan is required for custom domains and SMTP submission)
+#### Step 1 — Proton Mail (inbound only)
+
+1. Sign up or log in at [proton.me](https://proton.me) (a paid plan is required for custom domains)
 2. Go to **Settings** > **All settings** > **Domain names** > **Add domain**
 3. Enter `bookforbook.com` and follow the verification steps
-4. Proton will give you DNS records to add — add them all in Cloudflare DNS:
+4. Add all DNS records Proton provides in Cloudflare:
 
    | Type | Purpose | Proxy status |
    |------|---------|--------------|
@@ -139,41 +144,23 @@ Proton Mail handles both inbound email (`info@bookforbook.com` inbox) and outbou
 
    > All email DNS records must be **DNS only** (grey cloud) — never proxied.
 
-   > **MX records conflict warning:** Adding Proton's MX records takes over all inbound mail for `bookforbook.com`. Remove any existing MX records first. Do not add Cloudflare Email Routing MX records alongside Proton's.
+   > **MX records conflict warning:** Adding Proton's MX records takes over all inbound mail for `bookforbook.com`. Remove any existing MX records first.
 
-5. Once Proton verifies the domain, create a mailbox address — e.g. `info@bookforbook.com`
+5. Once Proton verifies the domain, create a mailbox — e.g. `info@bookforbook.com`
 
-#### Step 2 — Generate an SMTP token for Django
+#### Step 2 — Resend (outbound transactional email)
 
-Proton Mail uses a dedicated SMTP token (not your login password) to authenticate outbound sending from third-party apps.
-
-1. Go to **Settings** > **All settings** > **Email** > **SMTP submission**
-2. Enable SMTP submission if not already enabled
-3. Click **Generate token**
-4. Note the token — **you cannot view it again after closing the dialog**
-
-The SMTP settings for Django are:
-
-| Setting | Value |
-|---------|-------|
-| Host | `smtp.protonmail.ch` |
-| Port | `587` |
-| Username | Your Proton Mail address (e.g. `info@bookforbook.com`) |
-| Password | The SMTP token generated above |
-| TLS | STARTTLS (enabled) |
+1. Sign up at [resend.com](https://resend.com)
+2. Go to **Domains** > **Add Domain** > enter `bookforbook.com`
+3. Add the DNS records Resend provides in Cloudflare (these are separate from Proton's records — they coexist without conflict)
+4. Go to **API Keys** > **Create API Key** > copy the key (starts with `re_`)
 
 #### Step 3 — Set environment variables in Railway
 
 | Variable | Value |
 |----------|-------|
-| `EMAIL_HOST` | `smtp.protonmail.ch` |
-| `EMAIL_PORT` | `587` |
-| `EMAIL_HOST_USER` | `info@bookforbook.com` |
-| `EMAIL_HOST_PASSWORD` | *(your Proton SMTP token)* |
-| `EMAIL_USE_TLS` | `True` |
+| `RESEND_API_KEY` | *(your Resend API key)* |
 | `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
-
-> Note: `DEFAULT_FROM_EMAIL` can be any address on your verified domain. If you want to send as `noreply@bookforbook.com`, add that as an additional address in Proton Mail settings.
 
 ### Railway — API Deployment
 
@@ -216,11 +203,7 @@ In Railway, go to your **web service** > **Variables** and add:
 | `ALLOWED_HOSTS` | `bookforbook.com,www.bookforbook.com,api.bookforbook.com` |
 | `CORS_ALLOWED_ORIGINS` | `https://bookforbook.com,https://www.bookforbook.com` |
 | `FRONTEND_URL` | `https://bookforbook.com` |
-| `EMAIL_HOST` | `smtp.protonmail.ch` |
-| `EMAIL_PORT` | `587` |
-| `EMAIL_HOST_USER` | `info@bookforbook.com` |
-| `EMAIL_HOST_PASSWORD` | *(your Proton SMTP token)* |
-| `EMAIL_USE_TLS` | `True` |
+| `RESEND_API_KEY` | *(your Resend API key, starts with `re_`)* |
 | `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
 
 > `DATABASE_URL` is set automatically by Railway when you add PostgreSQL. Do not set it manually.
