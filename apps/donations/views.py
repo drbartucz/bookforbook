@@ -21,16 +21,10 @@ class DonationListCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        from django.db.models import Q
         user = request.user
         donations = Donation.objects.filter(
-            donor=user
-        ).union(
-            Donation.objects.filter(institution=user)
-        ).order_by('-created_at')
-        # Re-query to get with select_related
-        ids = list(donations.values_list('id', flat=True))
-        donations = Donation.objects.filter(
-            id__in=ids
+            Q(donor=user) | Q(institution=user)
         ).select_related(
             'donor', 'institution', 'user_book__book'
         ).order_by('-created_at')

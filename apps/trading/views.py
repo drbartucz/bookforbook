@@ -27,15 +27,9 @@ class ProposalListCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        from django.db.models import Q
         proposals = TradeProposal.objects.filter(
-            proposer=request.user
-        ).union(
-            TradeProposal.objects.filter(recipient=request.user)
-        ).order_by('-created_at')
-        # union queries can't be further filtered with select_related, so re-query
-        ids = list(proposals.values_list('id', flat=True))
-        proposals = TradeProposal.objects.filter(
-            id__in=ids
+            Q(proposer=request.user) | Q(recipient=request.user)
         ).select_related('proposer', 'recipient').prefetch_related(
             'items__user_book__book'
         ).order_by('-created_at')
