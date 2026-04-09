@@ -32,7 +32,7 @@ class TestISBNConversion:
         assert _validate_isbn10('0596007647') is True
 
     def test_validate_isbn10_invalid(self):
-        assert _validate_isbn10('0000000000') is False
+        assert _validate_isbn10('0201616220') is False
 
     def test_validate_isbn13_valid(self):
         assert _validate_isbn13('9780201616224') is True

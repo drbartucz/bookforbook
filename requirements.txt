@@ -16,4 +16,7 @@ gunicorn==23.0.0
 django-filter==24.3
 pytest==8.3.3
 pytest-django==4.9.0
+pytest-cov==6.0.0
+pytest-mock==3.14.0
 factory-boy==3.3.1
+responses==0.25.3
