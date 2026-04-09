@@ -170,7 +170,11 @@ Q_CLUSTER = {
 }
 
 # Encrypted model fields
-FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default='')
+FIELD_ENCRYPTION_KEY = config(
+    'FIELD_ENCRYPTION_KEY',
+    # Development/test fallback only. Override via environment in production.
+    default='NmzoBw3C4Rvblhs8AsAsnF-GYGVQatPZnEuvj_aZZUE=',
+)
 
 # Email settings (defaults match Proton Mail SMTP submission; overridden per environment)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
