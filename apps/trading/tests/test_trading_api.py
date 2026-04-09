@@ -1,6 +1,7 @@
 """
 Tests for trading API — trade proposals and trades.
 """
+
 import pytest
 from django.urls import reverse
 
@@ -16,29 +17,32 @@ pytestmark = pytest.mark.django_db
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _auth(api_client, user):
     """Obtain JWT and authenticate the client."""
     resp = api_client.post(
-        '/api/v1/auth/token/',
-        {'email': user.email, 'password': 'testpass123'},
-        format='json',
+        "/api/v1/auth/token/",
+        {"email": user.email, "password": "testpass123"},
+        format="json",
     )
     api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {resp.data["access"]}')
     return api_client
 
 
-def _make_proposal(proposer_client, proposer_book, recipient, recipient_book, message=''):
+def _make_proposal(
+    proposer_client, proposer_book, recipient, recipient_book, message=""
+):
     """Helper: POST to proposals endpoint."""
-    url = reverse('proposal-list-create')
+    url = reverse("proposal-list-create")
     return proposer_client.post(
         url,
         {
-            'recipient_id': str(recipient.id),
-            'proposer_book_id': str(proposer_book.id),
-            'recipient_book_id': str(recipient_book.id),
-            'message': message,
+            "recipient_id": str(recipient.id),
+            "proposer_book_id": str(proposer_book.id),
+            "recipient_book_id": str(recipient_book.id),
+            "message": message,
         },
-        format='json',
+        format="json",
     )
 
 
@@ -46,9 +50,10 @@ def _make_proposal(proposer_client, proposer_book, recipient, recipient_book, me
 # Proposal: list & create
 # ---------------------------------------------------------------------------
 
+
 class TestProposalListCreate:
     def test_unauthenticated_rejected(self, api_client):
-        url = reverse('proposal-list-create')
+        url = reverse("proposal-list-create")
         resp = api_client.get(url)
         assert resp.status_code == 401
 
@@ -62,10 +67,10 @@ class TestProposalListCreate:
         rbook = UserBookFactory(user=recipient, book=book2)
 
         client = _auth(api_client, proposer)
-        resp = _make_proposal(client, pbook, recipient, rbook, 'Hi!')
+        resp = _make_proposal(client, pbook, recipient, rbook, "Hi!")
         assert resp.status_code == 201
 
-        resp2 = client.get(reverse('proposal-list-create'))
+        resp2 = client.get(reverse("proposal-list-create"))
         assert resp2.status_code == 200
         assert len(resp2.data) == 1
 
@@ -79,9 +84,9 @@ class TestProposalListCreate:
         resp = _make_proposal(client, pbook, recipient, rbook)
 
         assert resp.status_code == 201
-        assert resp.data['status'] == 'pending'
-        assert resp.data['proposer']['id'] == str(proposer.id)
-        assert resp.data['recipient']['id'] == str(recipient.id)
+        assert resp.data["status"] == "pending"
+        assert resp.data["proposer"]["id"] == str(proposer.id)
+        assert resp.data["recipient"]["id"] == str(recipient.id)
 
     def test_propose_to_self_rejected(self, api_client):
         user = UserFactory()
@@ -89,22 +94,24 @@ class TestProposalListCreate:
         book2 = UserBookFactory(user=user, book=BookFactory())
 
         client = _auth(api_client, user)
-        url = reverse('proposal-list-create')
+        url = reverse("proposal-list-create")
         resp = client.post(
             url,
             {
-                'recipient_id': str(user.id),
-                'proposer_book_id': str(book1.id),
-                'recipient_book_id': str(book2.id),
+                "recipient_id": str(user.id),
+                "proposer_book_id": str(book1.id),
+                "recipient_book_id": str(book2.id),
             },
-            format='json',
+            format="json",
         )
         assert resp.status_code == 400
 
     def test_unavailable_book_rejected(self, api_client):
         proposer = UserFactory()
         recipient = UserFactory()
-        pbook = UserBookFactory(user=proposer, book=BookFactory(), status=UserBook.Status.RESERVED)
+        pbook = UserBookFactory(
+            user=proposer, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
         rbook = UserBookFactory(user=recipient, book=BookFactory())
 
         client = _auth(api_client, proposer)
@@ -115,6 +122,7 @@ class TestProposalListCreate:
 # ---------------------------------------------------------------------------
 # Proposal: accept
 # ---------------------------------------------------------------------------
+
 
 class TestProposalAccept:
     def test_recipient_accepts_creates_trade(self, api_client):
@@ -127,17 +135,17 @@ class TestProposalAccept:
         _auth(api_client, proposer)
         client = _auth(api_client, proposer)
         create_resp = _make_proposal(client, pbook, recipient, rbook)
-        proposal_id = create_resp.data['id']
+        proposal_id = create_resp.data["id"]
 
         # Accept as recipient
         client = _auth(api_client, recipient)
-        url = reverse('proposal-accept', kwargs={'pk': proposal_id})
-        resp = client.post(url, format='json')
+        url = reverse("proposal-accept", kwargs={"pk": proposal_id})
+        resp = client.post(url, format="json")
 
         assert resp.status_code == 200
-        assert 'trade' in resp.data
+        assert "trade" in resp.data
 
-        trade = Trade.objects.get(pk=resp.data['trade']['id'])
+        trade = Trade.objects.get(pk=resp.data["trade"]["id"])
         assert trade.status == Trade.Status.CONFIRMED
         assert trade.source_type == Trade.SourceType.PROPOSAL
 
@@ -155,16 +163,17 @@ class TestProposalAccept:
 
         client = _auth(api_client, proposer)
         create_resp = _make_proposal(client, pbook, recipient, rbook)
-        proposal_id = create_resp.data['id']
+        proposal_id = create_resp.data["id"]
 
-        url = reverse('proposal-accept', kwargs={'pk': proposal_id})
-        resp = client.post(url, format='json')
+        url = reverse("proposal-accept", kwargs={"pk": proposal_id})
+        resp = client.post(url, format="json")
         assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------
 # Proposal: decline
 # ---------------------------------------------------------------------------
+
 
 class TestProposalDecline:
     def test_recipient_declines(self, api_client):
@@ -175,11 +184,11 @@ class TestProposalDecline:
 
         client = _auth(api_client, proposer)
         create_resp = _make_proposal(client, pbook, recipient, rbook)
-        proposal_id = create_resp.data['id']
+        proposal_id = create_resp.data["id"]
 
         client = _auth(api_client, recipient)
-        url = reverse('proposal-decline', kwargs={'pk': proposal_id})
-        resp = client.post(url, format='json')
+        url = reverse("proposal-decline", kwargs={"pk": proposal_id})
+        resp = client.post(url, format="json")
 
         assert resp.status_code == 200
         proposal = TradeProposal.objects.get(pk=proposal_id)
@@ -193,10 +202,10 @@ class TestProposalDecline:
 
         client = _auth(api_client, proposer)
         create_resp = _make_proposal(client, pbook, recipient, rbook)
-        proposal_id = create_resp.data['id']
+        proposal_id = create_resp.data["id"]
 
-        url = reverse('proposal-decline', kwargs={'pk': proposal_id})
-        resp = client.post(url, format='json')
+        url = reverse("proposal-decline", kwargs={"pk": proposal_id})
+        resp = client.post(url, format="json")
         assert resp.status_code == 404
 
 
@@ -204,13 +213,18 @@ class TestProposalDecline:
 # Trade: list & detail
 # ---------------------------------------------------------------------------
 
+
 class TestTradeListDetail:
     def _create_confirmed_trade(self, proposer, recipient):
         """Create a trade with two shipments (helper)."""
         book1 = BookFactory()
         book2 = BookFactory()
-        pbook = UserBookFactory(user=proposer, book=book1, status=UserBook.Status.RESERVED)
-        rbook = UserBookFactory(user=recipient, book=book2, status=UserBook.Status.RESERVED)
+        pbook = UserBookFactory(
+            user=proposer, book=book1, status=UserBook.Status.RESERVED
+        )
+        rbook = UserBookFactory(
+            user=recipient, book=book2, status=UserBook.Status.RESERVED
+        )
 
         trade = Trade.objects.create(
             source_type=Trade.SourceType.PROPOSAL,
@@ -237,9 +251,9 @@ class TestTradeListDetail:
         self._create_confirmed_trade(b, c)
 
         client = _auth(api_client, a)
-        resp = client.get(reverse('trade-list'))
+        resp = client.get(reverse("trade-list"))
         assert resp.status_code == 200
-        ids = [t['id'] for t in resp.data]
+        ids = [t["id"] for t in resp.data]
         assert str(trade_ab.id) in ids
         assert len(ids) == 1
 
@@ -249,9 +263,9 @@ class TestTradeListDetail:
         trade = self._create_confirmed_trade(a, b)
 
         client = _auth(api_client, a)
-        resp = client.get(reverse('trade-detail', kwargs={'pk': trade.id}))
+        resp = client.get(reverse("trade-detail", kwargs={"pk": trade.id}))
         assert resp.status_code == 200
-        assert resp.data['id'] == str(trade.id)
+        assert resp.data["id"] == str(trade.id)
 
     def test_detail_non_party_gets_404(self, api_client):
         a = UserFactory()
@@ -260,7 +274,7 @@ class TestTradeListDetail:
         trade = self._create_confirmed_trade(a, b)
 
         client = _auth(api_client, outsider)
-        resp = client.get(reverse('trade-detail', kwargs={'pk': trade.id}))
+        resp = client.get(reverse("trade-detail", kwargs={"pk": trade.id}))
         assert resp.status_code == 404
 
 
@@ -268,14 +282,19 @@ class TestTradeListDetail:
 # Trade: mark shipped & mark received
 # ---------------------------------------------------------------------------
 
+
 class TestTradeShipping:
     def _setup_confirmed_trade(self):
         proposer = UserFactory()
         recipient = UserFactory()
         book1 = BookFactory()
         book2 = BookFactory()
-        pbook = UserBookFactory(user=proposer, book=book1, status=UserBook.Status.RESERVED)
-        rbook = UserBookFactory(user=recipient, book=book2, status=UserBook.Status.RESERVED)
+        pbook = UserBookFactory(
+            user=proposer, book=book1, status=UserBook.Status.RESERVED
+        )
+        rbook = UserBookFactory(
+            user=recipient, book=book2, status=UserBook.Status.RESERVED
+        )
 
         trade = Trade.objects.create(
             source_type=Trade.SourceType.PROPOSAL,
@@ -299,9 +318,9 @@ class TestTradeShipping:
         client = _auth(api_client, proposer)
 
         resp = client.post(
-            reverse('trade-mark-shipped', kwargs={'pk': trade.id}),
-            {'tracking_number': '1Z999', 'shipping_method': 'USPS'},
-            format='json',
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "1Z999", "shipping_method": "USPS"},
+            format="json",
         )
         assert resp.status_code == 200
 
@@ -316,16 +335,16 @@ class TestTradeShipping:
         # Proposer ships
         client = _auth(api_client, proposer)
         client.post(
-            reverse('trade-mark-shipped', kwargs={'pk': trade.id}),
-            {'tracking_number': '1Z999'},
-            format='json',
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "1Z999"},
+            format="json",
         )
 
         # Recipient marks received
         client = _auth(api_client, recipient)
         resp = client.post(
-            reverse('trade-mark-received', kwargs={'pk': trade.id}),
-            format='json',
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
         )
         assert resp.status_code == 200
 
@@ -337,12 +356,17 @@ class TestTradeShipping:
 # Trade: rate
 # ---------------------------------------------------------------------------
 
+
 class TestTradeRate:
     def _setup_shipping_trade(self):
         a = UserFactory()
         b = UserFactory()
-        book_a = UserBookFactory(user=a, book=BookFactory(), status=UserBook.Status.RESERVED)
-        book_b = UserBookFactory(user=b, book=BookFactory(), status=UserBook.Status.RESERVED)
+        book_a = UserBookFactory(
+            user=a, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
+        book_b = UserBookFactory(
+            user=b, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
 
         trade = Trade.objects.create(
             source_type=Trade.SourceType.PROPOSAL,
@@ -351,8 +375,12 @@ class TestTradeRate:
             ).pk,
             status=Trade.Status.SHIPPING,
         )
-        TradeShipment.objects.create(trade=trade, sender=a, receiver=b, user_book=book_a)
-        TradeShipment.objects.create(trade=trade, sender=b, receiver=a, user_book=book_b)
+        TradeShipment.objects.create(
+            trade=trade, sender=a, receiver=b, user_book=book_a
+        )
+        TradeShipment.objects.create(
+            trade=trade, sender=b, receiver=a, user_book=book_b
+        )
         return trade, a, b
 
     def test_rate_trade_success(self, api_client):
@@ -360,14 +388,14 @@ class TestTradeRate:
         client = _auth(api_client, a)
 
         resp = client.post(
-            reverse('trade-rate', kwargs={'pk': trade.id}),
+            reverse("trade-rate", kwargs={"pk": trade.id}),
             {
-                'rated_user_id': str(b.id),
-                'score': 5,
-                'comment': 'Great!',
-                'book_condition_accurate': True,
+                "rated_user_id": str(b.id),
+                "score": 5,
+                "comment": "Great!",
+                "book_condition_accurate": True,
             },
-            format='json',
+            format="json",
         )
         assert resp.status_code == 201
         b.refresh_from_db()
@@ -377,9 +405,17 @@ class TestTradeRate:
         trade, a, b = self._setup_shipping_trade()
         client = _auth(api_client, a)
 
-        payload = {'rated_user_id': str(b.id), 'score': 4, 'book_condition_accurate': True}
-        client.post(reverse('trade-rate', kwargs={'pk': trade.id}), payload, format='json')
-        resp2 = client.post(reverse('trade-rate', kwargs={'pk': trade.id}), payload, format='json')
+        payload = {
+            "rated_user_id": str(b.id),
+            "score": 4,
+            "book_condition_accurate": True,
+        }
+        client.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}), payload, format="json"
+        )
+        resp2 = client.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}), payload, format="json"
+        )
         assert resp2.status_code == 400
 
     def test_non_party_cannot_rate(self, api_client):
@@ -388,9 +424,9 @@ class TestTradeRate:
         client = _auth(api_client, outsider)
 
         resp = client.post(
-            reverse('trade-rate', kwargs={'pk': trade.id}),
-            {'rated_user_id': str(b.id), 'score': 3, 'book_condition_accurate': True},
-            format='json',
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {"rated_user_id": str(b.id), "score": 3, "book_condition_accurate": True},
+            format="json",
         )
         assert resp.status_code == 404
 
@@ -402,8 +438,8 @@ class TestTradeRate:
 
         client = _auth(api_client, a)
         resp = client.post(
-            reverse('trade-rate', kwargs={'pk': trade.id}),
-            {'rated_user_id': str(b.id), 'score': 4, 'book_condition_accurate': True},
-            format='json',
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {"rated_user_id": str(b.id), "score": 4, "book_condition_accurate": True},
+            format="json",
         )
         assert resp.status_code == 400

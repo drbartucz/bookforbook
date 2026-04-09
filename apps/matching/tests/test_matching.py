@@ -1,6 +1,7 @@
 """
 Tests for the direct match detection service and matching API.
 """
+
 import pytest
 
 from apps.inventory.models import UserBook
@@ -27,10 +28,10 @@ class TestDirectMatcherService:
         user_a = UserFactory()
         user_b = UserFactory()
 
-        ub_a = UserBookFactory(user=user_a, book=book_for_b, condition='good')
-        ub_b = UserBookFactory(user=user_b, book=book_for_a, condition='good')
-        WishlistItemFactory(user=user_b, book=book_for_b, min_condition='acceptable')
-        WishlistItemFactory(user=user_a, book=book_for_a, min_condition='acceptable')
+        ub_a = UserBookFactory(user=user_a, book=book_for_b, condition="good")
+        ub_b = UserBookFactory(user=user_b, book=book_for_a, condition="good")
+        WishlistItemFactory(user=user_b, book=book_for_b, min_condition="acceptable")
+        WishlistItemFactory(user=user_a, book=book_for_a, min_condition="acceptable")
         return user_a, user_b, ub_a, ub_b
 
     def test_direct_match_created(self, db):
@@ -46,11 +47,11 @@ class TestDirectMatcherService:
         user_a = UserFactory()
         user_b = UserFactory()
 
-        ub_a = UserBookFactory(user=user_a, book=book_for_b, condition='acceptable')
-        UserBookFactory(user=user_b, book=book_for_a, condition='good')
+        ub_a = UserBookFactory(user=user_a, book=book_for_b, condition="acceptable")
+        UserBookFactory(user=user_b, book=book_for_a, condition="good")
         # B wants book_for_b but requires 'very_good' — 'acceptable' doesn't satisfy
-        WishlistItemFactory(user=user_b, book=book_for_b, min_condition='very_good')
-        WishlistItemFactory(user=user_a, book=book_for_a, min_condition='acceptable')
+        WishlistItemFactory(user=user_b, book=book_for_b, min_condition="very_good")
+        WishlistItemFactory(user=user_a, book=book_for_a, min_condition="acceptable")
 
         matches = run_direct_matching(user_book=ub_a)
         assert len(matches) == 0
@@ -58,13 +59,13 @@ class TestDirectMatcherService:
     def test_no_match_for_institutional_user(self, db):
         book_for_b = BookFactory()
         book_for_a = BookFactory()
-        lib = UserFactory(account_type='library')
+        lib = UserFactory(account_type="library")
         user_a = UserFactory()
 
-        ub_a = UserBookFactory(user=lib, book=book_for_b, condition='good')
-        UserBookFactory(user=user_a, book=book_for_a, condition='good')
-        WishlistItemFactory(user=user_a, book=book_for_b, min_condition='acceptable')
-        WishlistItemFactory(user=lib, book=book_for_a, min_condition='acceptable')
+        ub_a = UserBookFactory(user=lib, book=book_for_b, condition="good")
+        UserBookFactory(user=user_a, book=book_for_a, condition="good")
+        WishlistItemFactory(user=user_a, book=book_for_b, min_condition="acceptable")
+        WishlistItemFactory(user=lib, book=book_for_a, min_condition="acceptable")
 
         matches = run_direct_matching(user_book=ub_a)
         assert len(matches) == 0
@@ -75,10 +76,15 @@ class TestDirectMatcherService:
         user_a = UserFactory()
         user_b = UserFactory()
 
-        ub_a = UserBookFactory(user=user_a, book=book_for_b, condition='good', status=UserBook.Status.RESERVED)
-        UserBookFactory(user=user_b, book=book_for_a, condition='good')
-        WishlistItemFactory(user=user_b, book=book_for_b, min_condition='acceptable')
-        WishlistItemFactory(user=user_a, book=book_for_a, min_condition='acceptable')
+        ub_a = UserBookFactory(
+            user=user_a,
+            book=book_for_b,
+            condition="good",
+            status=UserBook.Status.RESERVED,
+        )
+        UserBookFactory(user=user_b, book=book_for_a, condition="good")
+        WishlistItemFactory(user=user_b, book=book_for_b, min_condition="acceptable")
+        WishlistItemFactory(user=user_a, book=book_for_a, min_condition="acceptable")
 
         matches = run_direct_matching(user_book=ub_a)
         assert len(matches) == 0
@@ -89,17 +95,21 @@ class TestDirectMatcherService:
         user_a = UserFactory(rating_count=0)  # max_active_matches = 1
         user_b = UserFactory()
 
-        ub_a = UserBookFactory(user=user_a, book=book_for_b, condition='good')
-        ub_b = UserBookFactory(user=user_b, book=book_for_a, condition='good')
-        WishlistItemFactory(user=user_b, book=book_for_b, min_condition='acceptable')
-        WishlistItemFactory(user=user_a, book=book_for_a, min_condition='acceptable')
+        ub_a = UserBookFactory(user=user_a, book=book_for_b, condition="good")
+        ub_b = UserBookFactory(user=user_b, book=book_for_a, condition="good")
+        WishlistItemFactory(user=user_b, book=book_for_b, min_condition="acceptable")
+        WishlistItemFactory(user=user_a, book=book_for_a, min_condition="acceptable")
 
         # Create an existing match using up user_a's 1-slot capacity
         other_book = BookFactory()
         other_user = UserFactory()
-        other_ub = UserBookFactory(user=user_a, book=other_book, condition='good')
-        existing_match = Match.objects.create(match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING)
-        MatchLeg.objects.create(match=existing_match, sender=user_a, receiver=other_user, user_book=other_ub)
+        other_ub = UserBookFactory(user=user_a, book=other_book, condition="good")
+        existing_match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        MatchLeg.objects.create(
+            match=existing_match, sender=user_a, receiver=other_user, user_book=other_ub
+        )
 
         matches = run_direct_matching(user_book=ub_a)
         assert len(matches) == 0
@@ -115,7 +125,9 @@ class TestCountActiveMatches:
         other = UserFactory()
         book = BookFactory()
         ub = UserBookFactory(user=user, book=book)
-        match = Match.objects.create(match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING)
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
         MatchLeg.objects.create(match=match, sender=user, receiver=other, user_book=ub)
         assert count_active_matches_for_user(user) == 1
 
@@ -126,14 +138,20 @@ class TestMatchAPI:
         other = UserFactory()
         book_a = BookFactory()
         book_b = BookFactory()
-        ub_a = UserBookFactory(user=verified_user, book=book_a, condition='good')
-        ub_b = UserBookFactory(user=other, book=book_b, condition='good')
+        ub_a = UserBookFactory(user=verified_user, book=book_a, condition="good")
+        ub_b = UserBookFactory(user=other, book=book_b, condition="good")
 
-        match = Match.objects.create(match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING)
-        leg_a = MatchLeg.objects.create(match=match, sender=verified_user, receiver=other, user_book=ub_a)
-        leg_b = MatchLeg.objects.create(match=match, sender=other, receiver=verified_user, user_book=ub_b)
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        leg_a = MatchLeg.objects.create(
+            match=match, sender=verified_user, receiver=other, user_book=ub_a
+        )
+        leg_b = MatchLeg.objects.create(
+            match=match, sender=other, receiver=verified_user, user_book=ub_b
+        )
 
-        resp = auth_api_client.post(f'/api/v1/matches/{match.id}/accept/')
+        resp = auth_api_client.post(f"/api/v1/matches/{match.id}/accept/")
         assert resp.status_code == 200
         leg_a.refresh_from_db()
         assert leg_a.status == MatchLeg.Status.ACCEPTED
@@ -142,14 +160,20 @@ class TestMatchAPI:
         other = UserFactory()
         book_a = BookFactory()
         book_b = BookFactory()
-        ub_a = UserBookFactory(user=verified_user, book=book_a, condition='good')
-        ub_b = UserBookFactory(user=other, book=book_b, condition='good')
+        ub_a = UserBookFactory(user=verified_user, book=book_a, condition="good")
+        ub_b = UserBookFactory(user=other, book=book_b, condition="good")
 
-        match = Match.objects.create(match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING)
-        MatchLeg.objects.create(match=match, sender=verified_user, receiver=other, user_book=ub_a)
-        MatchLeg.objects.create(match=match, sender=other, receiver=verified_user, user_book=ub_b)
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        MatchLeg.objects.create(
+            match=match, sender=verified_user, receiver=other, user_book=ub_a
+        )
+        MatchLeg.objects.create(
+            match=match, sender=other, receiver=verified_user, user_book=ub_b
+        )
 
-        resp = auth_api_client.post(f'/api/v1/matches/{match.id}/decline/')
+        resp = auth_api_client.post(f"/api/v1/matches/{match.id}/decline/")
         assert resp.status_code == 200
         match.refresh_from_db()
         assert match.status == Match.Status.EXPIRED
@@ -159,10 +183,14 @@ class TestMatchAPI:
         user_y = UserFactory()
         book = BookFactory()
         ub = UserBookFactory(user=user_x, book=book)
-        match = Match.objects.create(match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING)
-        MatchLeg.objects.create(match=match, sender=user_x, receiver=user_y, user_book=ub)
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        MatchLeg.objects.create(
+            match=match, sender=user_x, receiver=user_y, user_book=ub
+        )
 
-        resp = auth_api_client.post(f'/api/v1/matches/{match.id}/accept/')
+        resp = auth_api_client.post(f"/api/v1/matches/{match.id}/accept/")
         assert resp.status_code in (403, 404)
 
     def test_list_only_includes_users_matches(self, auth_api_client, verified_user, db):
@@ -170,15 +198,20 @@ class TestMatchAPI:
         other_b = UserFactory()
         book = BookFactory()
         ub = UserBookFactory(user=other_a, book=book)
-        unrelated_match = Match.objects.create(match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING)
-        MatchLeg.objects.create(match=unrelated_match, sender=other_a, receiver=other_b, user_book=ub)
+        unrelated_match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        MatchLeg.objects.create(
+            match=unrelated_match, sender=other_a, receiver=other_b, user_book=ub
+        )
 
-        resp = auth_api_client.get('/api/v1/matches/')
+        resp = auth_api_client.get("/api/v1/matches/")
         assert resp.status_code == 200
         assert all(
             any(
-                leg['sender_id'] == str(verified_user.id) or leg['receiver_id'] == str(verified_user.id)
-                for leg in m['legs']
+                leg["sender_id"] == str(verified_user.id)
+                or leg["receiver_id"] == str(verified_user.id)
+                for leg in m["legs"]
             )
             for m in resp.data
         )
