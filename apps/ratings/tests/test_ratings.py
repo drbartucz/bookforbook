@@ -1,6 +1,7 @@
 """
 Tests for the ratings rolling average service and uniqueness constraint.
 """
+
 import pytest
 from django.db import IntegrityError
 
@@ -19,10 +20,15 @@ pytestmark = pytest.mark.django_db
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_trade(a, b):
     """Create a minimal confirmed trade between users a and b."""
-    book_a = UserBookFactory(user=a, book=BookFactory(), status=UserBook.Status.RESERVED)
-    book_b = UserBookFactory(user=b, book=BookFactory(), status=UserBook.Status.RESERVED)
+    book_a = UserBookFactory(
+        user=a, book=BookFactory(), status=UserBook.Status.RESERVED
+    )
+    book_b = UserBookFactory(
+        user=b, book=BookFactory(), status=UserBook.Status.RESERVED
+    )
     proposal = TradeProposal.objects.create(
         proposer=a, recipient=b, status=TradeProposal.Status.COMPLETED
     )
@@ -49,6 +55,7 @@ def _make_rating(trade, rater, rated, score):
 # ---------------------------------------------------------------------------
 # recompute_rating_average
 # ---------------------------------------------------------------------------
+
 
 class TestRecomputeRatingAverage:
     def test_no_ratings_gives_none_and_zero_count(self):
@@ -109,6 +116,7 @@ class TestRecomputeRatingAverage:
 # ---------------------------------------------------------------------------
 # Rating unique_together constraint
 # ---------------------------------------------------------------------------
+
 
 class TestRatingUnique:
     def test_cannot_rate_same_trade_twice(self):
