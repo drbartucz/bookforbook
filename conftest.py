@@ -1,7 +1,13 @@
 import pytest
 
 from apps.accounts.models import User
-from apps.tests.factories import BookFactory, UserBookFactory, UserFactory, WishlistItemFactory
+from apps.tests.factories import (
+    BookFactory,
+    UserBookFactory,
+    UserFactory,
+    WishlistItemFactory,
+)
+
 
 @pytest.fixture
 def api_client():
