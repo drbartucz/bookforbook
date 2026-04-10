@@ -4,6 +4,7 @@ Direct match detection service.
 A direct match: User A has a book User B wants, AND User B has a book User A wants.
 Both books must meet the minimum condition requirement.
 """
+
 import logging
 from typing import Optional
 
@@ -17,21 +18,30 @@ logger = logging.getLogger(__name__)
 
 def count_active_matches_for_user(user) -> int:
     """Count the number of active (pending/proposed) matches a user is involved in."""
-    match_count = MatchLeg.objects.filter(
-        sender=user,
-        match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
-    ).values('match').distinct().count()
+    match_count = (
+        MatchLeg.objects.filter(
+            sender=user,
+            match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+        )
+        .values("match")
+        .distinct()
+        .count()
+    )
 
     proposal_count = 0
     try:
         from apps.trading.models import TradeProposal
-        proposal_count = TradeProposal.objects.filter(
-            proposer=user,
-            status__in=['pending', 'accepted'],
-        ).count() + TradeProposal.objects.filter(
-            recipient=user,
-            status__in=['pending', 'accepted'],
-        ).count()
+
+        proposal_count = (
+            TradeProposal.objects.filter(
+                proposer=user,
+                status__in=["pending", "accepted"],
+            ).count()
+            + TradeProposal.objects.filter(
+                recipient=user,
+                status__in=["pending", "accepted"],
+            ).count()
+        )
     except Exception:
         pass
 
@@ -64,16 +74,18 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
 
     if user_book is not None:
         # Focused scan: find matches for this specific book
-        candidates = [user_book] if user_book.status == UserBook.Status.AVAILABLE else []
+        candidates = (
+            [user_book] if user_book.status == UserBook.Status.AVAILABLE else []
+        )
     else:
         # Full scan: all available books
         candidates = list(
             UserBook.objects.filter(
                 status=UserBook.Status.AVAILABLE,
-            ).select_related('user', 'book')
+            ).select_related("user", "book")
         )
 
-    logger.info('Running direct matching over %d candidate books', len(candidates))
+    logger.info("Running direct matching over %d candidate books", len(candidates))
 
     for book_a in candidates:
         user_a = book_a.user
@@ -91,12 +103,16 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
             continue
 
         # Find users who want book_a (condition met)
-        wishlist_entries = WishlistItem.objects.filter(
-            book=book_a.book,
-            is_active=True,
-            user__email_verified=True,
-            user__is_active=True,
-        ).select_related('user').exclude(user=user_a)
+        wishlist_entries = (
+            WishlistItem.objects.filter(
+                book=book_a.book,
+                is_active=True,
+                user__email_verified=True,
+                user__is_active=True,
+            )
+            .select_related("user")
+            .exclude(user=user_a)
+        )
 
         for wish_b in wishlist_entries:
             user_b = wish_b.user
@@ -131,16 +147,24 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
             if match:
                 created_matches.append(match)
                 logger.info(
-                    'Created direct match %s: %s ↔ %s',
-                    match.pk, user_a.username, user_b.username,
+                    "Created direct match %s: %s ↔ %s",
+                    match.pk,
+                    user_a.username,
+                    user_b.username,
                 )
 
                 # Notify asynchronously
                 try:
                     from django_q.tasks import async_task
-                    async_task('apps.notifications.tasks.send_match_notification', str(match.pk))
+
+                    async_task(
+                        "apps.notifications.tasks.send_match_notification",
+                        str(match.pk),
+                    )
                 except Exception:
-                    logger.exception('Failed to queue match notification for %s', match.pk)
+                    logger.exception(
+                        "Failed to queue match notification for %s", match.pk
+                    )
 
     return created_matches
 
@@ -153,7 +177,7 @@ def _find_book_for_trade(user_a, user_b) -> Optional[UserBook]:
     wishlist_a = WishlistItem.objects.filter(
         user=user_a,
         is_active=True,
-    ).values_list('book_id', 'min_condition')
+    ).values_list("book_id", "min_condition")
 
     for book_id, min_condition in wishlist_a:
         candidate = UserBook.objects.filter(
@@ -181,7 +205,9 @@ def _duplicate_match_exists(user_a, user_b, book_a: UserBook, book_b: UserBook) 
 
 
 @transaction.atomic
-def _create_direct_match(user_a, user_b, book_a: UserBook, book_b: UserBook) -> Optional[Match]:
+def _create_direct_match(
+    user_a, user_b, book_a: UserBook, book_b: UserBook
+) -> Optional[Match]:
     """Create a direct Match with two MatchLegs."""
     try:
         match = Match.objects.create(
@@ -206,5 +232,7 @@ def _create_direct_match(user_a, user_b, book_a: UserBook, book_b: UserBook) -> 
         )
         return match
     except Exception:
-        logger.exception('Failed to create direct match between %s and %s', user_a.pk, user_b.pk)
+        logger.exception(
+            "Failed to create direct match between %s and %s", user_a.pk, user_b.pk
+        )
         return None
