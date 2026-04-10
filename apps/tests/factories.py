@@ -74,9 +74,9 @@ class NotificationFactory(factory.django.DjangoModelFactory):
         model = Notification
 
     user = factory.SubFactory(UserFactory)
-    notification_type = 'new_match'
-    title = factory.Sequence(lambda n: f'Notification {n}')
-    body = 'A notification body.'
+    notification_type = "new_match"
+    title = factory.Sequence(lambda n: f"Notification {n}")
+    body = "A notification body."
     is_read = False
 
 
@@ -87,4 +87,4 @@ class TradeMessageFactory(factory.django.DjangoModelFactory):
     trade = factory.SubFactory(TradeFactory)
     sender = factory.SubFactory(UserFactory)
     message_type = TradeMessage.MessageType.GENERAL_NOTE
-    content = 'Hello, looking forward to this trade!'
+    content = "Hello, looking forward to this trade!"

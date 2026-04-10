@@ -9,6 +9,7 @@ Tests for the notifications app:
   - Tasks: send_verification_email, send_match_notification, send_inactivity_warning_1m,
            send_inactivity_warning_2m, send_books_delisted_notification, check_inactivity
 """
+
 import pytest
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
@@ -38,11 +39,12 @@ def auth_client(user):
 # Model
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.django_db
 class TestNotificationModel:
     def test_str_representation(self):
-        notif = NotificationFactory(notification_type='new_match', title='Test title')
-        assert 'new_match' in str(notif)
+        notif = NotificationFactory(notification_type="new_match", title="Test title")
+        assert "new_match" in str(notif)
         assert notif.user.username in str(notif)
 
     def test_defaults(self):
@@ -65,33 +67,34 @@ class TestNotificationModel:
 # GET /api/v1/notifications/
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.django_db
 class TestNotificationListView:
     def test_returns_own_notifications(self):
         user = UserFactory()
-        NotificationFactory(user=user, title='Mine')
-        NotificationFactory(user=UserFactory(), title='Others')
+        NotificationFactory(user=user, title="Mine")
+        NotificationFactory(user=UserFactory(), title="Others")
 
-        resp = auth_client(user).get('/api/v1/notifications/')
+        resp = auth_client(user).get("/api/v1/notifications/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 1
-        assert resp.data[0]['title'] == 'Mine'
+        assert resp.data[0]["title"] == "Mine"
 
     def test_unauthenticated_gets_401(self):
-        resp = APIClient().get('/api/v1/notifications/')
+        resp = APIClient().get("/api/v1/notifications/")
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_returns_at_most_50(self):
         user = UserFactory()
         NotificationFactory.create_batch(55, user=user)
 
-        resp = auth_client(user).get('/api/v1/notifications/')
+        resp = auth_client(user).get("/api/v1/notifications/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 50
 
     def test_empty_list_for_user_with_no_notifications(self):
         user = UserFactory()
-        resp = auth_client(user).get('/api/v1/notifications/')
+        resp = auth_client(user).get("/api/v1/notifications/")
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data == []
 
@@ -100,8 +103,8 @@ class TestNotificationListView:
         NotificationFactory(user=user, is_read=True)
         NotificationFactory(user=user, is_read=False)
 
-        resp = auth_client(user).get('/api/v1/notifications/')
-        read_flags = {n['is_read'] for n in resp.data}
+        resp = auth_client(user).get("/api/v1/notifications/")
+        read_flags = {n["is_read"] for n in resp.data}
         assert read_flags == {True, False}
 
 
@@ -109,13 +112,14 @@ class TestNotificationListView:
 # POST /api/v1/notifications/:id/read/
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.django_db
 class TestNotificationMarkReadView:
     def test_marks_unread_notification_as_read(self):
         user = UserFactory()
         notif = NotificationFactory(user=user, is_read=False)
 
-        resp = auth_client(user).post(f'/api/v1/notifications/{notif.pk}/read/')
+        resp = auth_client(user).post(f"/api/v1/notifications/{notif.pk}/read/")
         assert resp.status_code == status.HTTP_200_OK
         notif.refresh_from_db()
         assert notif.is_read is True
@@ -126,7 +130,7 @@ class TestNotificationMarkReadView:
         earlier = timezone.now() - timedelta(hours=1)
         notif = NotificationFactory(user=user, is_read=True, read_at=earlier)
 
-        auth_client(user).post(f'/api/v1/notifications/{notif.pk}/read/')
+        auth_client(user).post(f"/api/v1/notifications/{notif.pk}/read/")
         notif.refresh_from_db()
         # read_at should not have changed
         assert abs((notif.read_at - earlier).total_seconds()) < 1
@@ -136,14 +140,14 @@ class TestNotificationMarkReadView:
         attacker = UserFactory()
         notif = NotificationFactory(user=owner, is_read=False)
 
-        resp = auth_client(attacker).post(f'/api/v1/notifications/{notif.pk}/read/')
+        resp = auth_client(attacker).post(f"/api/v1/notifications/{notif.pk}/read/")
         assert resp.status_code == status.HTTP_404_NOT_FOUND
         notif.refresh_from_db()
         assert notif.is_read is False
 
     def test_unauthenticated_gets_401(self):
         notif = NotificationFactory()
-        resp = APIClient().post(f'/api/v1/notifications/{notif.pk}/read/')
+        resp = APIClient().post(f"/api/v1/notifications/{notif.pk}/read/")
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -151,15 +155,16 @@ class TestNotificationMarkReadView:
 # POST /api/v1/notifications/read-all/
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.django_db
 class TestNotificationMarkAllReadView:
     def test_marks_all_unread_as_read(self):
         user = UserFactory()
         NotificationFactory.create_batch(3, user=user, is_read=False)
 
-        resp = auth_client(user).post('/api/v1/notifications/read-all/')
+        resp = auth_client(user).post("/api/v1/notifications/read-all/")
         assert resp.status_code == status.HTTP_200_OK
-        assert '3' in resp.data['detail']
+        assert "3" in resp.data["detail"]
         assert Notification.objects.filter(user=user, is_read=False).count() == 0
 
     def test_does_not_affect_other_users_notifications(self):
@@ -167,7 +172,7 @@ class TestNotificationMarkAllReadView:
         other = UserFactory()
         NotificationFactory(user=other, is_read=False)
 
-        auth_client(user).post('/api/v1/notifications/read-all/')
+        auth_client(user).post("/api/v1/notifications/read-all/")
 
         assert Notification.objects.filter(user=other, is_read=False).count() == 1
 
@@ -175,9 +180,9 @@ class TestNotificationMarkAllReadView:
         user = UserFactory()
         NotificationFactory(user=user, is_read=True)
 
-        resp = auth_client(user).post('/api/v1/notifications/read-all/')
-        assert '0' in resp.data['detail']
+        resp = auth_client(user).post("/api/v1/notifications/read-all/")
+        assert "0" in resp.data["detail"]
 
     def test_unauthenticated_gets_401(self):
-        resp = APIClient().post('/api/v1/notifications/read-all/')
+        resp = APIClient().post("/api/v1/notifications/read-all/")
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
