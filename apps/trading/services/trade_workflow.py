@@ -1,6 +1,7 @@
 """
 Trade workflow service — handles creation and lifecycle of trades.
 """
+
 import logging
 
 from django.db import transaction
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @transaction.atomic
-def create_trade_from_match(match) -> 'Trade':
+def create_trade_from_match(match) -> "Trade":
     """
     Create a Trade and TradeShipments from a confirmed Match.
     Marks all involved UserBooks as 'reserved'.
@@ -24,7 +25,7 @@ def create_trade_from_match(match) -> 'Trade':
         status=Trade.Status.CONFIRMED,
     )
 
-    for leg in match.legs.select_related('sender', 'receiver', 'user_book').all():
+    for leg in match.legs.select_related("sender", "receiver", "user_book").all():
         TradeShipment.objects.create(
             trade=trade,
             sender=leg.sender,
@@ -39,25 +40,32 @@ def create_trade_from_match(match) -> 'Trade':
     # Notify all parties
     try:
         from django_q.tasks import async_task
-        async_task('apps.notifications.tasks.send_trade_confirmed_notification', str(trade.pk))
-    except Exception:
-        logger.exception('Failed to queue trade confirmed notification for trade %s', trade.pk)
 
-    logger.info('Created trade %s from match %s', trade.pk, match.pk)
+        async_task(
+            "apps.notifications.tasks.send_trade_confirmed_notification", str(trade.pk)
+        )
+    except Exception:
+        logger.exception(
+            "Failed to queue trade confirmed notification for trade %s", trade.pk
+        )
+
+    logger.info("Created trade %s from match %s", trade.pk, match.pk)
     return trade
 
 
 @transaction.atomic
-def create_trade_from_proposal(proposal) -> 'Trade':
+def create_trade_from_proposal(proposal) -> "Trade":
     """
     Create a Trade and TradeShipments from an accepted TradeProposal.
     """
     from apps.inventory.models import UserBook
     from apps.trading.models import Trade, TradeProposalItem, TradeShipment
 
-    items = list(proposal.items.select_related('user_book__user', 'user_book__book').all())
+    items = list(
+        proposal.items.select_related("user_book__user", "user_book__book").all()
+    )
     if len(items) != 2:
-        raise ValueError('Proposal is invalid: exactly two items are required.')
+        raise ValueError("Proposal is invalid: exactly two items are required.")
 
     directions = {item.direction for item in items}
     expected = {
@@ -65,12 +73,14 @@ def create_trade_from_proposal(proposal) -> 'Trade':
         TradeProposalItem.Direction.RECIPIENT_SENDS,
     }
     if directions != expected:
-        raise ValueError('Proposal is invalid: one item in each direction is required.')
+        raise ValueError("Proposal is invalid: one item in each direction is required.")
 
     for item in items:
         locked_book = UserBook.objects.select_for_update().get(pk=item.user_book_id)
         if locked_book.status != UserBook.Status.AVAILABLE:
-            raise ValueError('One or more books are no longer available for this proposal.')
+            raise ValueError(
+                "One or more books are no longer available for this proposal."
+            )
 
     trade = Trade.objects.create(
         source_type=Trade.SourceType.PROPOSAL,
@@ -98,11 +108,16 @@ def create_trade_from_proposal(proposal) -> 'Trade':
 
     try:
         from django_q.tasks import async_task
-        async_task('apps.notifications.tasks.send_trade_confirmed_notification', str(trade.pk))
-    except Exception:
-        logger.exception('Failed to queue trade confirmed notification for trade %s', trade.pk)
 
-    logger.info('Created trade %s from proposal %s', trade.pk, proposal.pk)
+        async_task(
+            "apps.notifications.tasks.send_trade_confirmed_notification", str(trade.pk)
+        )
+    except Exception:
+        logger.exception(
+            "Failed to queue trade confirmed notification for trade %s", trade.pk
+        )
+
+    logger.info("Created trade %s from proposal %s", trade.pk, proposal.pk)
     return trade
 
 
@@ -123,7 +138,7 @@ def reveal_addresses(trade, requesting_user) -> dict:
         return {}
 
     # Get all parties in this trade
-    shipments = trade.shipments.select_related('sender', 'receiver').all()
+    shipments = trade.shipments.select_related("sender", "receiver").all()
     parties = set()
     for s in shipments:
         parties.add(s.sender)
@@ -138,13 +153,13 @@ def reveal_addresses(trade, requesting_user) -> dict:
         if party == requesting_user:
             continue
         addresses[str(party.id)] = {
-            'username': party.username,
-            'full_name': party.full_name,
-            'address_line_1': party.address_line_1,
-            'address_line_2': party.address_line_2,
-            'city': party.city,
-            'state': party.state,
-            'zip_code': party.zip_code,
+            "username": party.username,
+            "full_name": party.full_name,
+            "address_line_1": party.address_line_1,
+            "address_line_2": party.address_line_2,
+            "city": party.city,
+            "state": party.state,
+            "zip_code": party.zip_code,
         }
     return addresses
 
@@ -157,7 +172,9 @@ def mark_shipped(shipment, tracking: str, method: str):
     shipment.shipping_method = method
     shipment.shipped_at = timezone.now()
     shipment.status = TradeShipment.Status.SHIPPED
-    shipment.save(update_fields=['tracking_number', 'shipping_method', 'shipped_at', 'status'])
+    shipment.save(
+        update_fields=["tracking_number", "shipping_method", "shipped_at", "status"]
+    )
 
     # Update trade status
     trade = shipment.trade
@@ -166,20 +183,25 @@ def mark_shipped(shipment, tracking: str, method: str):
 
     if any_shipped and trade.status == Trade.Status.CONFIRMED:
         trade.status = Trade.Status.SHIPPING
-        trade.save(update_fields=['status'])
+        trade.save(update_fields=["status"])
 
     # Notify receiver
     try:
         from apps.notifications.models import Notification
+
         Notification.objects.create(
             user=shipment.receiver,
-            notification_type='shipment_sent',
-            title='Your book is on its way!',
-            body=f'{shipment.sender.username} has shipped {shipment.user_book.book.title}.',
-            metadata={'trade_id': str(trade.pk), 'tracking_number': tracking, 'method': method},
+            notification_type="shipment_sent",
+            title="Your book is on its way!",
+            body=f"{shipment.sender.username} has shipped {shipment.user_book.book.title}.",
+            metadata={
+                "trade_id": str(trade.pk),
+                "tracking_number": tracking,
+                "method": method,
+            },
         )
     except Exception:
-        logger.exception('Failed to create shipment notification')
+        logger.exception("Failed to create shipment notification")
 
 
 def mark_received(shipment):
@@ -188,7 +210,7 @@ def mark_received(shipment):
 
     shipment.received_at = timezone.now()
     shipment.status = TradeShipment.Status.RECEIVED
-    shipment.save(update_fields=['received_at', 'status'])
+    shipment.save(update_fields=["received_at", "status"])
 
     check_trade_completion(shipment.trade)
 
@@ -205,17 +227,23 @@ def check_trade_completion(trade):
     trade.refresh_from_db()
     all_shipments = list(trade.shipments.all())
 
-    received_count = sum(1 for s in all_shipments if s.status == TradeShipment.Status.RECEIVED)
+    received_count = sum(
+        1 for s in all_shipments if s.status == TradeShipment.Status.RECEIVED
+    )
     total_count = len(all_shipments)
 
-    if received_count == 1 and total_count > 1 and trade.status == Trade.Status.SHIPPING:
+    if (
+        received_count == 1
+        and total_count > 1
+        and trade.status == Trade.Status.SHIPPING
+    ):
         trade.status = Trade.Status.ONE_RECEIVED
-        trade.save(update_fields=['status'])
+        trade.save(update_fields=["status"])
 
     elif received_count == total_count:
         trade.status = Trade.Status.COMPLETED
         trade.completed_at = timezone.now()
-        trade.save(update_fields=['status', 'completed_at'])
+        trade.save(update_fields=["status", "completed_at"])
 
         # Mark all books as traded
         book_ids = [s.user_book_id for s in all_shipments]
@@ -229,18 +257,22 @@ def check_trade_completion(trade):
 
         from apps.accounts.models import User
         from django.db.models import F
-        User.objects.filter(pk__in=user_ids).update(total_trades=F('total_trades') + 1)
+
+        User.objects.filter(pk__in=user_ids).update(total_trades=F("total_trades") + 1)
 
         # Notify all parties
         try:
             from apps.notifications.models import Notification
+
             for uid in user_ids:
                 Notification.objects.create(
                     user_id=uid,
-                    notification_type='trade_completed',
-                    title='Trade completed!',
-                    body='Your trade has been completed. Please leave a rating.',
-                    metadata={'trade_id': str(trade.pk)},
+                    notification_type="trade_completed",
+                    title="Trade completed!",
+                    body="Your trade has been completed. Please leave a rating.",
+                    metadata={"trade_id": str(trade.pk)},
                 )
         except Exception:
-            logger.exception('Failed to create trade completion notifications for trade %s', trade.pk)
+            logger.exception(
+                "Failed to create trade completion notifications for trade %s", trade.pk
+            )
