@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import axios from 'axios';
 
 import apiClient from './api';
 
@@ -41,5 +42,112 @@ describe('api client request interceptor', () => {
     });
 
     expect(requestHeaders.Authorization).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Response interceptor: 401 refresh / retry
+// ---------------------------------------------------------------------------
+
+describe('api client response interceptor', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('clears tokens and fires auth:logout event when no refresh token on 401', async () => {
+    localStorage.setItem('accessToken', 'old-access');
+    // No refreshToken set
+
+    const logoutHandler = vi.fn();
+    window.addEventListener('auth:logout', logoutHandler);
+
+    let callCount = 0;
+    try {
+      await apiClient.get('/protected/', {
+        adapter: async (config) => {
+          if (callCount++ === 0) {
+            // Simulate a 401
+            const err = new Error('Unauthorized');
+            err.config = config;
+            err.response = { status: 401, data: 'Unauthorized', config };
+            throw err;
+          }
+          return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
+        },
+      });
+    } catch {
+      // expected to throw
+    }
+
+    expect(logoutHandler).toHaveBeenCalledOnce();
+    expect(localStorage.getItem('accessToken')).toBeNull();
+    window.removeEventListener('auth:logout', logoutHandler);
+  });
+
+  it('retries original request with new token after successful refresh', async () => {
+    localStorage.setItem('accessToken', 'old-access');
+    localStorage.setItem('refreshToken', 'valid-refresh');
+
+    // Spy on axios.post (used for refresh call)
+    const postSpy = vi.spyOn(axios, 'post').mockResolvedValueOnce({
+      data: { access: 'new-access' },
+    });
+
+    let callCount = 0;
+    const result = await apiClient.get('/protected/', {
+      adapter: async (config) => {
+        callCount++;
+        if (callCount === 1) {
+          // First call → 401
+          const err = new Error('Unauthorized');
+          err.config = { ...config, _retry: false };
+          err.response = { status: 401, data: 'Unauthorized', config };
+          throw err;
+        }
+        // Second call (retry) → success
+        return { data: { ok: true }, status: 200, statusText: 'OK', headers: {}, config };
+      },
+    });
+
+    expect(result.data).toEqual({ ok: true });
+    expect(localStorage.getItem('accessToken')).toBe('new-access');
+    postSpy.mockRestore();
+  });
+
+  it('fires auth:logout and rejects when refresh call fails', async () => {
+    localStorage.setItem('accessToken', 'old-access');
+    localStorage.setItem('refreshToken', 'expired-refresh');
+
+    const postSpy = vi.spyOn(axios, 'post').mockRejectedValueOnce(new Error('Refresh failed'));
+
+    const logoutHandler = vi.fn();
+    window.addEventListener('auth:logout', logoutHandler);
+
+    let callCount = 0;
+    await expect(
+      apiClient.get('/protected/', {
+        adapter: async (config) => {
+          if (callCount++ === 0) {
+            const err = new Error('Unauthorized');
+            err.config = { ...config, _retry: false };
+            err.response = { status: 401, data: 'Unauthorized', config };
+            throw err;
+          }
+          return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
+        },
+      })
+    ).rejects.toThrow();
+
+    expect(logoutHandler).toHaveBeenCalledOnce();
+    expect(localStorage.getItem('accessToken')).toBeNull();
+    expect(localStorage.getItem('refreshToken')).toBeNull();
+
+    window.removeEventListener('auth:logout', logoutHandler);
+    postSpy.mockRestore();
   });
 });
