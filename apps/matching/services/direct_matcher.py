@@ -27,10 +27,10 @@ def count_active_matches_for_user(user) -> int:
         from apps.trading.models import TradeProposal
         proposal_count = TradeProposal.objects.filter(
             proposer=user,
-            status__in=['pending', 'countered', 'accepted'],
+            status__in=['pending', 'accepted'],
         ).count() + TradeProposal.objects.filter(
             recipient=user,
-            status__in=['pending', 'countered', 'accepted'],
+            status__in=['pending', 'accepted'],
         ).count()
     except Exception:
         pass

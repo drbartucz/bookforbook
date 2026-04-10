@@ -55,13 +55,30 @@ def create_trade_from_proposal(proposal) -> 'Trade':
     from apps.inventory.models import UserBook
     from apps.trading.models import Trade, TradeProposalItem, TradeShipment
 
+    items = list(proposal.items.select_related('user_book__user', 'user_book__book').all())
+    if len(items) != 2:
+        raise ValueError('Proposal is invalid: exactly two items are required.')
+
+    directions = {item.direction for item in items}
+    expected = {
+        TradeProposalItem.Direction.PROPOSER_SENDS,
+        TradeProposalItem.Direction.RECIPIENT_SENDS,
+    }
+    if directions != expected:
+        raise ValueError('Proposal is invalid: one item in each direction is required.')
+
+    for item in items:
+        locked_book = UserBook.objects.select_for_update().get(pk=item.user_book_id)
+        if locked_book.status != UserBook.Status.AVAILABLE:
+            raise ValueError('One or more books are no longer available for this proposal.')
+
     trade = Trade.objects.create(
         source_type=Trade.SourceType.PROPOSAL,
         source_id=proposal.pk,
         status=Trade.Status.CONFIRMED,
     )
 
-    for item in proposal.items.select_related('user_book__user', 'user_book__book').all():
+    for item in items:
         if item.direction == TradeProposalItem.Direction.PROPOSER_SENDS:
             sender = proposal.proposer
             receiver = proposal.recipient

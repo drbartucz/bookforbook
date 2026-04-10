@@ -98,6 +98,12 @@ class ProposalAcceptView(APIView):
             status=TradeProposal.Status.PENDING,
         )
 
+        if proposal.expires_at and proposal.expires_at < timezone.now():
+            return Response(
+                {"detail": "This proposal has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         with transaction.atomic():
             proposal.status = TradeProposal.Status.ACCEPTED
             proposal.save(update_fields=["status"])
@@ -117,6 +123,11 @@ class ProposalAcceptView(APIView):
                             trade, context={"request": request}
                         ).data,
                     }
+                )
+            except ValueError as exc:
+                return Response(
+                    {"detail": str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             except Exception:
                 logger.exception("Failed to create trade from proposal %s", proposal.pk)
@@ -138,6 +149,13 @@ class ProposalDeclineView(APIView):
             recipient=request.user,
             status=TradeProposal.Status.PENDING,
         )
+
+        if proposal.expires_at and proposal.expires_at < timezone.now():
+            return Response(
+                {"detail": "This proposal has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         proposal.status = TradeProposal.Status.DECLINED
         proposal.save(update_fields=["status"])
 
@@ -172,6 +190,13 @@ class ProposalCounterView(APIView):
             recipient=request.user,
             status__in=[TradeProposal.Status.PENDING, TradeProposal.Status.COUNTERED],
         )
+
+        if original.expires_at and original.expires_at < timezone.now():
+            return Response(
+                {"detail": "This proposal has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Mark original as countered
         original.status = TradeProposal.Status.COUNTERED
         original.save(update_fields=["status"])
