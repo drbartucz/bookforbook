@@ -3,7 +3,9 @@ Tests for trading API — trade proposals and trades.
 """
 
 import pytest
+from datetime import timedelta
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.inventory.models import UserBook
 from apps.tests.factories import BookFactory, UserBookFactory, UserFactory
@@ -169,6 +171,47 @@ class TestProposalAccept:
         resp = client.post(url, format="json")
         assert resp.status_code == 404
 
+    def test_accept_expired_proposal_rejected(self, api_client):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+        TradeProposal.objects.filter(pk=proposal_id).update(
+            expires_at=timezone.now() - timedelta(minutes=1)
+        )
+
+        client = _auth(api_client, recipient)
+        url = reverse("proposal-accept", kwargs={"pk": proposal_id})
+        resp = client.post(url, format="json")
+
+        assert resp.status_code == 400
+        assert "expired" in resp.data["detail"].lower()
+
+    def test_accept_rejected_if_item_book_no_longer_available(self, api_client):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+
+        pbook.status = UserBook.Status.RESERVED
+        pbook.save(update_fields=["status"])
+
+        client = _auth(api_client, recipient)
+        url = reverse("proposal-accept", kwargs={"pk": proposal_id})
+        resp = client.post(url, format="json")
+
+        assert resp.status_code == 400
+        assert "no longer available" in resp.data["detail"].lower()
+        assert Trade.objects.count() == 0
+
 
 # ---------------------------------------------------------------------------
 # Proposal: decline
@@ -207,6 +250,110 @@ class TestProposalDecline:
         url = reverse("proposal-decline", kwargs={"pk": proposal_id})
         resp = client.post(url, format="json")
         assert resp.status_code == 404
+
+    def test_decline_expired_proposal_rejected(self, api_client):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+        TradeProposal.objects.filter(pk=proposal_id).update(
+            expires_at=timezone.now() - timedelta(minutes=1)
+        )
+
+        client = _auth(api_client, recipient)
+        url = reverse("proposal-decline", kwargs={"pk": proposal_id})
+        resp = client.post(url, format="json")
+        assert resp.status_code == 400
+        assert "expired" in resp.data["detail"].lower()
+
+
+class TestProposalCounter:
+    def test_recipient_can_counter_and_original_becomes_countered(self, api_client):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook, "original")
+        proposal_id = create_resp.data["id"]
+
+        new_recipient_book = UserBookFactory(user=recipient, book=BookFactory())
+        new_proposer_book = UserBookFactory(user=proposer, book=BookFactory())
+
+        client = _auth(api_client, recipient)
+        resp = client.post(
+            reverse("proposal-counter", kwargs={"pk": proposal_id}),
+            {
+                "proposer_book_id": str(new_recipient_book.id),
+                "recipient_book_id": str(new_proposer_book.id),
+                "message": "counter offer",
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 201
+        original = TradeProposal.objects.get(pk=proposal_id)
+        assert original.status == TradeProposal.Status.COUNTERED
+
+        counter = TradeProposal.objects.get(pk=resp.data["id"])
+        assert counter.proposer_id == recipient.id
+        assert counter.recipient_id == proposer.id
+        assert counter.status == TradeProposal.Status.PENDING
+        assert counter.items.count() == 2
+
+    def test_proposer_cannot_counter_own_proposal(self, api_client):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+
+        resp = client.post(
+            reverse("proposal-counter", kwargs={"pk": proposal_id}),
+            {
+                "proposer_book_id": str(pbook.id),
+                "recipient_book_id": str(rbook.id),
+            },
+            format="json",
+        )
+        assert resp.status_code == 404
+
+    def test_counter_expired_proposal_rejected(self, api_client):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+        TradeProposal.objects.filter(pk=proposal_id).update(
+            expires_at=timezone.now() - timedelta(minutes=1)
+        )
+
+        counter_sender_book = UserBookFactory(user=recipient, book=BookFactory())
+        counter_recipient_book = UserBookFactory(user=proposer, book=BookFactory())
+
+        client = _auth(api_client, recipient)
+        resp = client.post(
+            reverse("proposal-counter", kwargs={"pk": proposal_id}),
+            {
+                "proposer_book_id": str(counter_sender_book.id),
+                "recipient_book_id": str(counter_recipient_book.id),
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 400
+        assert "expired" in resp.data["detail"].lower()
 
 
 # ---------------------------------------------------------------------------
