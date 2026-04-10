@@ -12,24 +12,24 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 export function createTestQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, gcTime: 0 },
-      mutations: { retry: false },
-    },
-  });
+    return new QueryClient({
+        defaultOptions: {
+            queries: { retry: false, gcTime: 0 },
+            mutations: { retry: false },
+        },
+    });
 }
 
 export function renderWithProviders(ui, { route = '/', queryClient, ...renderOptions } = {}) {
-  const client = queryClient ?? createTestQueryClient();
+    const client = queryClient ?? createTestQueryClient();
 
-  function Wrapper({ children }) {
-    return (
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
-      </QueryClientProvider>
-    );
-  }
+    function Wrapper({ children }) {
+        return (
+            <QueryClientProvider client={client}>
+                <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+            </QueryClientProvider>
+        );
+    }
 
-  return { ...render(ui, { wrapper: Wrapper, ...renderOptions }), queryClient: client };
+    return { ...render(ui, { wrapper: Wrapper, ...renderOptions }), queryClient: client };
 }
