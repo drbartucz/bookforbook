@@ -41,4 +41,34 @@ describe('authStore', () => {
     expect(localStorage.getItem('accessToken')).toBeNull();
     expect(localStorage.getItem('refreshToken')).toBeNull();
   });
+
+  it('updateUser replaces user object without touching tokens', () => {
+    const tokens = { access: 'tok', refresh: 'ref' };
+    useAuthStore.getState().login(tokens, { id: 'u1', username: 'alice' });
+
+    useAuthStore.getState().updateUser({ id: 'u1', username: 'alice-updated' });
+
+    expect(useAuthStore.getState().user.username).toBe('alice-updated');
+    expect(useAuthStore.getState().accessToken).toBe('tok');
+  });
+
+  it('updateAccessToken persists new token to localStorage', () => {
+    useAuthStore.getState().login(
+      { access: 'old-access', refresh: 'ref' },
+      { id: 'u1', username: 'alice' }
+    );
+
+    useAuthStore.getState().updateAccessToken('new-access');
+
+    expect(useAuthStore.getState().accessToken).toBe('new-access');
+    expect(localStorage.getItem('accessToken')).toBe('new-access');
+    // refresh and user unchanged
+    expect(useAuthStore.getState().refreshToken).toBe('ref');
+  });
+
+  it('login with null user is allowed', () => {
+    useAuthStore.getState().login({ access: 'tok', refresh: 'ref' }, null);
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().accessToken).toBe('tok');
+  });
 });
