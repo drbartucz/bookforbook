@@ -1,8 +1,13 @@
+import uuid
+
 import factory
 
 from apps.accounts.models import User
 from apps.books.models import Book
 from apps.inventory.models import ConditionChoices, UserBook, WishlistItem
+from apps.messaging.models import TradeMessage
+from apps.notifications.models import Notification
+from apps.trading.models import Trade, TradeShipment
 
 
 class UserFactory(factory.django.DjangoModelFactory):
@@ -42,3 +47,44 @@ class WishlistItemFactory(factory.django.DjangoModelFactory):
     book = factory.SubFactory(BookFactory)
     min_condition = ConditionChoices.ACCEPTABLE
     is_active = True
+
+
+class TradeFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Trade
+
+    source_type = Trade.SourceType.PROPOSAL
+    source_id = factory.LazyFunction(uuid.uuid4)
+    status = Trade.Status.CONFIRMED
+
+
+class TradeShipmentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = TradeShipment
+
+    trade = factory.SubFactory(TradeFactory)
+    sender = factory.SubFactory(UserFactory)
+    receiver = factory.SubFactory(UserFactory)
+    user_book = factory.SubFactory(UserBookFactory)
+    status = TradeShipment.Status.PENDING
+
+
+class NotificationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Notification
+
+    user = factory.SubFactory(UserFactory)
+    notification_type = 'new_match'
+    title = factory.Sequence(lambda n: f'Notification {n}')
+    body = 'A notification body.'
+    is_read = False
+
+
+class TradeMessageFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = TradeMessage
+
+    trade = factory.SubFactory(TradeFactory)
+    sender = factory.SubFactory(UserFactory)
+    message_type = TradeMessage.MessageType.GENERAL_NOTE
+    content = 'Hello, looking forward to this trade!'
