@@ -288,6 +288,14 @@ class TradeMarkShippedView(APIView):
         serializer = MarkShippedSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Verify user is a party; outsiders should not know the trade exists.
+        is_party = (
+            trade.shipments.filter(sender=request.user).exists()
+            or trade.shipments.filter(receiver=request.user).exists()
+        )
+        if not is_party:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
         # Find the sender's shipment
         try:
             shipment = trade.shipments.get(
@@ -316,6 +324,14 @@ class TradeMarkReceivedView(APIView):
 
     def post(self, request, pk):
         trade = get_object_or_404(Trade, pk=pk)
+
+        # Verify user is a party; outsiders should not know the trade exists.
+        is_party = (
+            trade.shipments.filter(sender=request.user).exists()
+            or trade.shipments.filter(receiver=request.user).exists()
+        )
+        if not is_party:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # Find the receiver's shipment
         try:

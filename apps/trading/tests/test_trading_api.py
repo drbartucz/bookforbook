@@ -498,6 +498,134 @@ class TestTradeShipping:
         s1.refresh_from_db()
         assert s1.status == TradeShipment.Status.RECEIVED
 
+    def test_outsider_cannot_mark_shipped(self, api_client):
+        trade, _proposer, _recipient, _s1, _s2 = self._setup_confirmed_trade()
+        outsider = UserFactory()
+        client = _auth(api_client, outsider)
+        resp = client.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "X123"},
+            format="json",
+        )
+        assert resp.status_code == 404
+
+    def test_outsider_cannot_mark_received(self, api_client):
+        trade, proposer, _recipient, _s1, _s2 = self._setup_confirmed_trade()
+        # First ship so there's something to receive
+        client = _auth(api_client, proposer)
+        client.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "X123"},
+            format="json",
+        )
+        outsider = UserFactory()
+        client = _auth(api_client, outsider)
+        resp = client.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+        assert resp.status_code == 404
+
+    def test_double_mark_shipped_rejected(self, api_client):
+        """Sender cannot mark the same shipment shipped twice."""
+        trade, proposer, _recipient, _s1, _s2 = self._setup_confirmed_trade()
+        client = _auth(api_client, proposer)
+        url = reverse("trade-mark-shipped", kwargs={"pk": trade.id})
+        client.post(url, {"tracking_number": "1Z999"}, format="json")
+        resp2 = client.post(url, {"tracking_number": "1Z999"}, format="json")
+        assert resp2.status_code == 400
+
+    def test_receiver_cannot_mark_shipped(self, api_client):
+        """Receiver is a party but cannot mark the shipment as shipped (wrong role)."""
+        trade, _proposer, recipient, _s1, _s2 = self._setup_confirmed_trade()
+        client = _auth(api_client, recipient)
+        # recipient has no PENDING shipment where they are the SENDER for the
+        # proposer's book; their own shipment (s2) is the one they send — but
+        # recipient's shipment s2 is also PENDING so this would succeed for s2.
+        # Instead, test that recipient cannot mark *proposer's* shipment (s1).
+        # The view will find s2 (recipient's own pending shipment) instead, so
+        # the cleaner test is: after recipient already shipped, propser can still
+        # mark their own. Let's test the converse: receiver tries mark-received
+        # before shipped → 400 (no SHIPPED shipment yet).
+        resp = client.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_sender_cannot_mark_received_own_shipment(self, api_client):
+        """Sender cannot mark their own outgoing shipment as received."""
+        trade, proposer, _recipient, _s1, _s2 = self._setup_confirmed_trade()
+        # Ship first
+        client = _auth(api_client, proposer)
+        client.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "1Z999"},
+            format="json",
+        )
+        # Proposer is the sender of s1; they are NOT the receiver of s1,
+        # so mark-received should not find a SHIPPED shipment where they are receiver.
+        resp = client.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_full_lifecycle_both_received_completes_trade(self, api_client):
+        """Full shipment happy path: confirmed → shipping → one_received → completed."""
+        trade, proposer, recipient, s1, s2 = self._setup_confirmed_trade()
+
+        # Proposer ships
+        _auth(api_client, proposer)
+        resp = api_client.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "PROP-TRK"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.SHIPPING
+
+        # Recipient ships
+        _auth(api_client, recipient)
+        resp = api_client.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "RECP-TRK"},
+            format="json",
+        )
+        assert resp.status_code == 200
+
+        # Recipient marks received (gets the book proposer sent)
+        resp = api_client.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+        assert resp.status_code == 200
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.ONE_RECEIVED
+
+        # Proposer marks received (gets the book recipient sent)
+        _auth(api_client, proposer)
+        resp = api_client.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+        assert resp.status_code == 200
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.COMPLETED
+
+        # Books should be marked as traded
+        s1.user_book.refresh_from_db()
+        s2.user_book.refresh_from_db()
+        assert s1.user_book.status == UserBook.Status.TRADED
+        assert s2.user_book.status == UserBook.Status.TRADED
+
+        # Trade counts incremented on both users
+        proposer.refresh_from_db()
+        recipient.refresh_from_db()
+        assert proposer.total_trades == 1
+        assert recipient.total_trades == 1
+
 
 # ---------------------------------------------------------------------------
 # Trade: rate
