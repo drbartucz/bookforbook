@@ -177,37 +177,37 @@ export default function Wishlist() {
         <ErrorMessage error={error} onRetry={refetch} />
       ) : items.length === 0 ? (
         <div className={styles.empty}>
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1, minWidth: '150px' }}>
-                        <label className="form-label">Sort by</label>
-                        <select
-                          className="form-input"
-                          value={sortBy}
-                          onChange={(e) => {
-                            setSortBy(e.target.value);
-                            setPage(1);
-                          }}
-                        >
-                          <option value="created_at">Date Added</option>
-                          <option value="title">Title</option>
-                          <option value="author">Author</option>
-                        </select>
-                      </div>
-                      <div style={{ flex: 1, minWidth: '150px' }}>
-                        <label className="form-label">Order</label>
-                        <select
-                          className="form-input"
-                          value={sortOrder}
-                          onChange={(e) => {
-                            setSortOrder(e.target.value);
-                            setPage(1);
-                          }}
-                        >
-                          <option value="desc">Descending</option>
-                          <option value="asc">Ascending</option>
-                        </select>
-                      </div>
-                    </div>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Sort by</label>
+              <select
+                className="form-input"
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="created_at">Date Added</option>
+                <option value="title">Title</option>
+                <option value="author">Author</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Order</label>
+              <select
+                className="form-input"
+                value={sortOrder}
+                onChange={(e) => {
+                  setSortOrder(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+          </div>
           <p className={styles.emptyTitle}>Your wishlist is empty</p>
           <p className={styles.emptySubtitle}>
             Add books you want to receive. When someone in your area has one to trade, you&apos;ll be matched automatically.
@@ -224,37 +224,37 @@ export default function Wishlist() {
         </div>
       ) : (
         <>
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1, minWidth: '150px' }}>
-                        <label className="form-label">Sort by</label>
-                        <select
-                          className="form-input"
-                          value={sortBy}
-                          onChange={(e) => {
-                            setSortBy(e.target.value);
-                            setPage(1);
-                          }}
-                        >
-                          <option value="created_at">Date Added</option>
-                          <option value="title">Title</option>
-                          <option value="author">Author</option>
-                        </select>
-                      </div>
-                      <div style={{ flex: 1, minWidth: '150px' }}>
-                        <label className="form-label">Order</label>
-                        <select
-                          className="form-input"
-                          value={sortOrder}
-                          onChange={(e) => {
-                            setSortOrder(e.target.value);
-                            setPage(1);
-                          }}
-                        >
-                          <option value="desc">Descending</option>
-                          <option value="asc">Ascending</option>
-                        </select>
-                      </div>
-                    </div>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Sort by</label>
+              <select
+                className="form-input"
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="created_at">Date Added</option>
+                <option value="title">Title</option>
+                <option value="author">Author</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Order</label>
+              <select
+                className="form-input"
+                value={sortOrder}
+                onChange={(e) => {
+                  setSortOrder(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+          </div>
           <div className={styles.wishlistGrid}>
             {items.map((item) => {
               const book = item.book ?? item;
