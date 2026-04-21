@@ -29,10 +29,10 @@ class TestMyBooksView:
         resp = auth_api_client.get(self.url)
         assert resp.status_code == status.HTTP_200_OK
         # Response should be paginated with 'results' and 'count'
-        assert 'results' in resp.data
-        assert 'count' in resp.data
-        assert len(resp.data['results']) == 1
-        assert resp.data['count'] == 1
+        assert "results" in resp.data
+        assert "count" in resp.data
+        assert len(resp.data["results"]) == 1
+        assert resp.data["count"] == 1
 
     def test_add_book(self, auth_api_client, book):
         from unittest.mock import patch
@@ -70,18 +70,18 @@ class TestMyBooksView:
                 },
             )
         assert add_resp.status_code == status.HTTP_201_CREATED
-        
+
         # Now list the books
         list_resp = auth_api_client.get(self.url)
         assert list_resp.status_code == status.HTTP_200_OK
-        assert list_resp.data['count'] == 1
-        assert len(list_resp.data['results']) == 1
-        
+        assert list_resp.data["count"] == 1
+        assert len(list_resp.data["results"]) == 1
+
         # Verify the item has the correct data
-        item = list_resp.data['results'][0]
-        assert item['book']['isbn_13'] == book.isbn_13
-        assert item['condition'] == 'good'
-        assert item['status'] == 'available'
+        item = list_resp.data["results"][0]
+        assert item["book"]["isbn_13"] == book.isbn_13
+        assert item["condition"] == "good"
+        assert item["status"] == "available"
 
     def test_add_book_invalid_condition(self, auth_api_client, book):
         from unittest.mock import patch
@@ -106,8 +106,8 @@ class TestMyBooksView:
         UserBookFactory(user=verified_user, book=book, status=UserBook.Status.REMOVED)
         resp = auth_api_client.get(self.url)
         assert resp.status_code == status.HTTP_200_OK
-        assert resp.data['count'] == 0
-        assert len(resp.data['results']) == 0
+        assert resp.data["count"] == 0
+        assert len(resp.data["results"]) == 0
 
     def test_patch_condition(self, auth_api_client, user_book):
         resp = auth_api_client.patch(
@@ -152,10 +152,10 @@ class TestWishlistView:
         resp = auth_api_client.get(self.url)
         assert resp.status_code == status.HTTP_200_OK
         # Response should be paginated with 'results' and 'count'
-        assert 'results' in resp.data
-        assert 'count' in resp.data
-        assert len(resp.data['results']) == 1
-        assert resp.data['count'] == 1
+        assert "results" in resp.data
+        assert "count" in resp.data
+        assert len(resp.data["results"]) == 1
+        assert resp.data["count"] == 1
 
     def test_add_wishlist_item(self, auth_api_client, book):
         from unittest.mock import patch
@@ -192,18 +192,18 @@ class TestWishlistView:
                 },
             )
         assert add_resp.status_code == status.HTTP_201_CREATED
-        
+
         # Now list the wishlist
         list_resp = auth_api_client.get(self.url)
         assert list_resp.status_code == status.HTTP_200_OK
-        assert list_resp.data['count'] == 1
-        assert len(list_resp.data['results']) == 1
-        
+        assert list_resp.data["count"] == 1
+        assert len(list_resp.data["results"]) == 1
+
         # Verify the item has the correct data
-        item = list_resp.data['results'][0]
-        assert item['book']['isbn_13'] == book.isbn_13
-        assert item['min_condition'] == 'good'
-        assert item['is_active'] is True
+        item = list_resp.data["results"][0]
+        assert item["book"]["isbn_13"] == book.isbn_13
+        assert item["min_condition"] == "good"
+        assert item["is_active"] is True
 
     def test_duplicate_wishlist_item_rejected(self, auth_api_client, wishlist_item):
         from unittest.mock import patch
