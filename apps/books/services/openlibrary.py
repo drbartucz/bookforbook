@@ -17,6 +17,25 @@ OPEN_LIBRARY_WORKS_URL = "https://openlibrary.org{key}.json"
 REQUEST_TIMEOUT = 10  # seconds
 
 
+def _response_json_object(resp: requests.Response, context: str) -> dict | None:
+    """Return a JSON object payload or None for malformed/unexpected responses."""
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        logger.warning("Open Library %s returned invalid JSON: %s", context, exc)
+        return None
+
+    if not isinstance(payload, dict):
+        logger.warning(
+            "Open Library %s returned %s instead of an object",
+            context,
+            type(payload).__name__,
+        )
+        return None
+
+    return payload
+
+
 def get_or_create_book(isbn: str):
     """
     Normalize ISBN to ISBN-13, check the local cache (Book table),
@@ -140,12 +159,15 @@ def fetch_from_open_library(isbn_13: str) -> dict:
             timeout=REQUEST_TIMEOUT,
         )
         if resp.status_code == 200:
-            raw = resp.json()
-            data = _parse_isbn_response(raw, isbn_13)
-            # If we got works key, try to enrich with work data
-            if raw.get("works"):
-                work_key = raw["works"][0]["key"]
-                data.update(_fetch_work_data(work_key))
+            raw = _response_json_object(resp, f"ISBN lookup for {isbn_13}")
+            if raw:
+                data = _parse_isbn_response(raw, isbn_13)
+                # If we got works key, try to enrich with work data
+                works = raw.get("works")
+                if isinstance(works, list) and works:
+                    first_work = works[0]
+                    if isinstance(first_work, dict) and first_work.get("key"):
+                        data.update(_fetch_work_data(first_work["key"]))
     except requests.RequestException as e:
         logger.warning("Open Library ISBN request failed for %s: %s", isbn_13, e)
 
@@ -158,8 +180,9 @@ def fetch_from_open_library(isbn_13: str) -> dict:
                 timeout=REQUEST_TIMEOUT,
             )
             if resp.status_code == 200:
-                results = resp.json().get("docs", [])
-                if results:
+                payload = _response_json_object(resp, f"search fallback for {isbn_13}")
+                results = payload.get("docs", []) if payload else []
+                if results and isinstance(results[0], dict):
                     data.update(_parse_search_result(results[0], isbn_13))
         except requests.RequestException as e:
             logger.warning("Open Library search fallback failed for %s: %s", isbn_13, e)
@@ -255,15 +278,16 @@ def _fetch_work_data(work_key: str) -> dict:
             timeout=REQUEST_TIMEOUT,
         )
         if resp.status_code == 200:
-            raw = resp.json()
-            desc = raw.get("description")
-            if isinstance(desc, dict):
-                data["description"] = desc.get("value", "")
-            elif isinstance(desc, str):
-                data["description"] = desc
-            subjects = raw.get("subjects", [])
-            if subjects:
-                data["subjects"] = subjects[:20]
+            raw = _response_json_object(resp, f"work lookup for {work_key}")
+            if raw:
+                desc = raw.get("description")
+                if isinstance(desc, dict):
+                    data["description"] = desc.get("value", "")
+                elif isinstance(desc, str):
+                    data["description"] = desc
+                subjects = raw.get("subjects", [])
+                if subjects:
+                    data["subjects"] = subjects[:20]
     except requests.RequestException as e:
         logger.debug("Work data fetch failed for %s: %s", work_key, e)
     return data
@@ -277,7 +301,9 @@ def _fetch_author_name(author_key: str) -> str | None:
             timeout=REQUEST_TIMEOUT,
         )
         if resp.status_code == 200:
-            return resp.json().get("name")
+            raw = _response_json_object(resp, f"author lookup for {author_key}")
+            if raw:
+                return raw.get("name")
     except requests.RequestException:
         pass
     return None
