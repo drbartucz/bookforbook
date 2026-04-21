@@ -2,6 +2,7 @@ import logging
 
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -41,8 +42,12 @@ class MyBooksView(APIView):
         ).select_related('book').exclude(
             status=UserBook.Status.REMOVED
         ).order_by('-created_at')
-        serializer = UserBookSerializer(queryset, many=True)
-        return Response(serializer.data)
+        
+        # Apply pagination
+        paginator = PageNumberPagination()
+        paginated = paginator.paginate_queryset(queryset, request)
+        serializer = UserBookSerializer(paginated, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = UserBookCreateSerializer(data=request.data, context={'request': request})
@@ -95,8 +100,12 @@ class WishlistView(APIView):
         queryset = WishlistItem.objects.filter(
             user=request.user
         ).select_related('book').order_by('-created_at')
-        serializer = WishlistItemSerializer(queryset, many=True)
-        return Response(serializer.data)
+        
+        # Apply pagination
+        paginator = PageNumberPagination()
+        paginated = paginator.paginate_queryset(queryset, request)
+        serializer = WishlistItemSerializer(paginated, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = WishlistItemCreateSerializer(data=request.data, context={'request': request})

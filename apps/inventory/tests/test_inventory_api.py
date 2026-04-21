@@ -28,7 +28,11 @@ class TestMyBooksView:
     def test_list_user_books(self, auth_api_client, user_book):
         resp = auth_api_client.get(self.url)
         assert resp.status_code == status.HTTP_200_OK
-        assert len(resp.data) == 1
+        # Response should be paginated with 'results' and 'count'
+        assert 'results' in resp.data
+        assert 'count' in resp.data
+        assert len(resp.data['results']) == 1
+        assert resp.data['count'] == 1
 
     def test_add_book(self, auth_api_client, book):
         from unittest.mock import patch
@@ -47,6 +51,37 @@ class TestMyBooksView:
             )
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data["condition"] == "good"
+
+    def test_add_book_and_appears_in_list(self, auth_api_client, book):
+        """Test the full flow: add a book to have-list and verify it appears in the list."""
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ):
+            # Add the book
+            add_resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book.isbn_13,
+                    "condition": "good",
+                },
+            )
+        assert add_resp.status_code == status.HTTP_201_CREATED
+        
+        # Now list the books
+        list_resp = auth_api_client.get(self.url)
+        assert list_resp.status_code == status.HTTP_200_OK
+        assert list_resp.data['count'] == 1
+        assert len(list_resp.data['results']) == 1
+        
+        # Verify the item has the correct data
+        item = list_resp.data['results'][0]
+        assert item['book']['isbn_13'] == book.isbn_13
+        assert item['condition'] == 'good'
+        assert item['status'] == 'available'
 
     def test_add_book_invalid_condition(self, auth_api_client, book):
         from unittest.mock import patch
@@ -71,7 +106,8 @@ class TestMyBooksView:
         UserBookFactory(user=verified_user, book=book, status=UserBook.Status.REMOVED)
         resp = auth_api_client.get(self.url)
         assert resp.status_code == status.HTTP_200_OK
-        assert len(resp.data) == 0
+        assert resp.data['count'] == 0
+        assert len(resp.data['results']) == 0
 
     def test_patch_condition(self, auth_api_client, user_book):
         resp = auth_api_client.patch(
@@ -112,10 +148,14 @@ class TestWishlistView:
         resp = client.post(self.url, {})
         assert resp.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_list_wishlist(self, auth_api_client, wishlist_item):
+    def test_list_wishlist_paginated(self, auth_api_client, wishlist_item):
         resp = auth_api_client.get(self.url)
         assert resp.status_code == status.HTTP_200_OK
-        assert len(resp.data) == 1
+        # Response should be paginated with 'results' and 'count'
+        assert 'results' in resp.data
+        assert 'count' in resp.data
+        assert len(resp.data['results']) == 1
+        assert resp.data['count'] == 1
 
     def test_add_wishlist_item(self, auth_api_client, book):
         from unittest.mock import patch
@@ -133,6 +173,37 @@ class TestWishlistView:
                 },
             )
         assert resp.status_code == status.HTTP_201_CREATED
+
+    def test_add_wishlist_item_and_appears_in_list(self, auth_api_client, book):
+        """Test the full flow: add an item to wishlist and verify it appears in the list."""
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ):
+            # Add the book to wishlist
+            add_resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book.isbn_13,
+                    "min_condition": "good",
+                },
+            )
+        assert add_resp.status_code == status.HTTP_201_CREATED
+        
+        # Now list the wishlist
+        list_resp = auth_api_client.get(self.url)
+        assert list_resp.status_code == status.HTTP_200_OK
+        assert list_resp.data['count'] == 1
+        assert len(list_resp.data['results']) == 1
+        
+        # Verify the item has the correct data
+        item = list_resp.data['results'][0]
+        assert item['book']['isbn_13'] == book.isbn_13
+        assert item['min_condition'] == 'good'
+        assert item['is_active'] is True
 
     def test_duplicate_wishlist_item_rejected(self, auth_api_client, wishlist_item):
         from unittest.mock import patch
