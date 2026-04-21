@@ -22,10 +22,10 @@ class Book(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Book'
-        verbose_name_plural = 'Books'
-        ordering = ['title']
+        verbose_name = "Book"
+        verbose_name_plural = "Books"
+        ordering = ["title"]
 
     def __str__(self):
-        authors_str = ', '.join(self.authors[:2]) if self.authors else 'Unknown'
-        return f'{self.title} by {authors_str} (ISBN-13: {self.isbn_13})'
+        authors_str = ", ".join(self.authors[:2]) if self.authors else "Unknown"
+        return f"{self.title} by {authors_str} (ISBN-13: {self.isbn_13})"
