@@ -32,7 +32,9 @@ class Book(models.Model):
         elif isinstance(self.authors, str):
             authors_str = self.authors
         elif isinstance(self.authors, dict):
-            authors_str = ", ".join(str(v) for v in list(self.authors.values())[:2]) or "Unknown"
+            authors_str = (
+                ", ".join(str(v) for v in list(self.authors.values())[:2]) or "Unknown"
+            )
         else:
             authors_str = "Unknown"
         return f"{self.title} by {authors_str} (ISBN-13: {self.isbn_13})"

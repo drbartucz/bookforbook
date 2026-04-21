@@ -24,7 +24,9 @@ def test_books_admin_changelist_renders_for_superuser(client):
 
 @pytest.mark.django_db
 def test_books_admin_search_renders_for_superuser(client):
-    BookFactory(title="Django Admin Search Book", authors=["Tester"], isbn_13="9780000001235")
+    BookFactory(
+        title="Django Admin Search Book", authors=["Tester"], isbn_13="9780000001235"
+    )
 
     superuser = get_user_model().objects.create_superuser(
         email="admin2@example.com",
