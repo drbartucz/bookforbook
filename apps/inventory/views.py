@@ -157,10 +157,7 @@ class WishlistView(APIView):
     permission_classes = [EmailVerifiedPermission]
 
     def get(self, request):
-        queryset = (
-            WishlistItem.objects.filter(user=request.user)
-            .select_related("book")
-        )
+        queryset = WishlistItem.objects.filter(user=request.user).select_related("book")
 
         sort_by = request.query_params.get("sort_by", "created_at")
         sort_order = request.query_params.get("sort_order", "desc")

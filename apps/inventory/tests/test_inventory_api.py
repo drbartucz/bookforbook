@@ -178,7 +178,9 @@ class TestMyBooksView:
         assert resp.data["results"][1]["book"]["title"] == "B Book"
 
         # Sort descending by last name
-        resp = auth_api_client.get(self.url, {"sort_by": "author", "sort_order": "desc"})
+        resp = auth_api_client.get(
+            self.url, {"sort_by": "author", "sort_order": "desc"}
+        )
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data["results"]) == 2
         assert resp.data["results"][0]["book"]["title"] == "B Book"
@@ -344,7 +346,9 @@ class TestWishlistView:
         assert resp.data["results"][0]["book"]["title"] == "A Wish"
         assert resp.data["results"][1]["book"]["title"] == "B Wish"
 
-        resp = auth_api_client.get(self.url, {"sort_by": "author", "sort_order": "desc"})
+        resp = auth_api_client.get(
+            self.url, {"sort_by": "author", "sort_order": "desc"}
+        )
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data["results"]) == 2
         assert resp.data["results"][0]["book"]["title"] == "B Wish"
