@@ -10,12 +10,9 @@ import styles from './Wishlist.module.css';
 
 const PAGE_SIZE = 20;
 
-// Helper function to derive format from page count
-function getFormat(pageCount) {
-  if (!pageCount) return 'Unknown';
-  if (pageCount < 150) return 'Short';
-  if (pageCount <= 500) return 'Regular';
-  return 'Long';
+// Helper function to normalize bibliographic format for display.
+function getFormatLabel(formatValue) {
+  return formatValue?.trim() || 'Unknown';
 }
 
 // Helper function to show primary author
@@ -268,7 +265,7 @@ export default function Wishlist() {
                     <p className={styles.author}>{getPrimaryAuthor(book.authors)}</p>
                     <div className={styles.details}>
                       <span className={styles.detailItem}>
-                        <strong>Format:</strong> {getFormat(book.page_count)}
+                        <strong>Format:</strong> {getFormatLabel(book.physical_format)}
                       </span>
                       <span className={styles.detailItem}>
                         <strong>ISBN:</strong> {book.isbn_13}

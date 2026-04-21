@@ -9,7 +9,7 @@ class BookSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'isbn_13', 'isbn_10', 'title', 'authors',
             'publisher', 'publish_year', 'cover_image_url',
-            'cover_image_cached', 'page_count', 'subjects',
+            'cover_image_cached', 'page_count', 'physical_format', 'subjects',
             'description', 'open_library_key', 'created_at', 'updated_at',
         ]
         read_only_fields = fields

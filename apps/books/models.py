@@ -14,6 +14,7 @@ class Book(models.Model):
     cover_image_url = models.URLField(null=True, blank=True, max_length=500)
     cover_image_cached = models.CharField(max_length=500, null=True, blank=True)
     page_count = models.PositiveIntegerField(null=True, blank=True)
+    physical_format = models.CharField(max_length=100, null=True, blank=True)
     subjects = models.JSONField(default=list)
     description = models.TextField(null=True, blank=True)
     open_library_key = models.CharField(max_length=100, null=True, blank=True)
