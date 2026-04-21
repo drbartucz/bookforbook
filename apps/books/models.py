@@ -14,6 +14,7 @@ class Book(models.Model):
     cover_image_url = models.URLField(null=True, blank=True, max_length=500)
     cover_image_cached = models.CharField(max_length=500, null=True, blank=True)
     page_count = models.PositiveIntegerField(null=True, blank=True)
+    physical_format = models.CharField(max_length=100, null=True, blank=True)
     subjects = models.JSONField(default=list)
     description = models.TextField(null=True, blank=True)
     open_library_key = models.CharField(max_length=100, null=True, blank=True)
@@ -21,10 +22,19 @@ class Book(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Book'
-        verbose_name_plural = 'Books'
-        ordering = ['title']
+        verbose_name = "Book"
+        verbose_name_plural = "Books"
+        ordering = ["title"]
 
     def __str__(self):
-        authors_str = ', '.join(self.authors[:2]) if self.authors else 'Unknown'
-        return f'{self.title} by {authors_str} (ISBN-13: {self.isbn_13})'
+        if isinstance(self.authors, list):
+            authors_str = ", ".join(str(author) for author in self.authors[:2])
+        elif isinstance(self.authors, str):
+            authors_str = self.authors
+        elif isinstance(self.authors, dict):
+            authors_str = (
+                ", ".join(str(v) for v in list(self.authors.values())[:2]) or "Unknown"
+            )
+        else:
+            authors_str = "Unknown"
+        return f"{self.title} by {authors_str} (ISBN-13: {self.isbn_13})"

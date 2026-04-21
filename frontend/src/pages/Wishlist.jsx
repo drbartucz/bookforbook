@@ -10,6 +10,23 @@ import styles from './Wishlist.module.css';
 
 const PAGE_SIZE = 20;
 
+// Helper function to normalize bibliographic format for display.
+function getFormatLabel(formatValue) {
+  return formatValue?.trim() || 'Unknown';
+}
+
+// Helper function to show primary author
+function getPrimaryAuthor(authors) {
+  if (!authors || authors.length === 0) return 'Unknown Author';
+  return authors[0];
+}
+
+// Helper to format date
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 const CONDITION_OPTIONS = [
   { value: 'any', label: 'Any condition' },
   ...Object.entries(CONDITION_CONFIG).map(([value, { label }]) => ({ value, label })),
@@ -23,10 +40,12 @@ export default function Wishlist() {
   const [foundBook, setFoundBook] = useState(null);
   const [minCondition, setMinCondition] = useState('any');
   const [addError, setAddError] = useState(null);
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['wishlist', page],
-    queryFn: () => wishlistApi.list({ page, page_size: PAGE_SIZE }).then((r) => r.data),
+    queryKey: ['wishlist', page, sortBy, sortOrder],
+    queryFn: () => wishlistApi.list({ page, page_size: PAGE_SIZE, sort_by: sortBy, sort_order: sortOrder }).then((r) => r.data),
   });
 
   const addMutation = useMutation({
@@ -155,6 +174,37 @@ export default function Wishlist() {
         <ErrorMessage error={error} onRetry={refetch} />
       ) : items.length === 0 ? (
         <div className={styles.empty}>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Sort by</label>
+              <select
+                className="form-input"
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="created_at">Date Added</option>
+                <option value="title">Title</option>
+                <option value="author">Author</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Order</label>
+              <select
+                className="form-input"
+                value={sortOrder}
+                onChange={(e) => {
+                  setSortOrder(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+          </div>
           <p className={styles.emptyTitle}>Your wishlist is empty</p>
           <p className={styles.emptySubtitle}>
             Add books you want to receive. When someone in your area has one to trade, you&apos;ll be matched automatically.
@@ -171,6 +221,37 @@ export default function Wishlist() {
         </div>
       ) : (
         <>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Sort by</label>
+              <select
+                className="form-input"
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="created_at">Date Added</option>
+                <option value="title">Title</option>
+                <option value="author">Author</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Order</label>
+              <select
+                className="form-input"
+                value={sortOrder}
+                onChange={(e) => {
+                  setSortOrder(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+          </div>
           <div className={styles.wishlistGrid}>
             {items.map((item) => {
               const book = item.book ?? item;
@@ -181,8 +262,18 @@ export default function Wishlist() {
                   )}
                   <div className={styles.info}>
                     <p className={styles.title}>{book.title}</p>
-                    {book.author && <p className={styles.author}>{book.author}</p>}
-                    {book.isbn && <p className={styles.isbn}>ISBN: {book.isbn}</p>}
+                    <p className={styles.author}>{getPrimaryAuthor(book.authors)}</p>
+                    <div className={styles.details}>
+                      <span className={styles.detailItem}>
+                        <strong>Format:</strong> {getFormatLabel(book.physical_format)}
+                      </span>
+                      <span className={styles.detailItem}>
+                        <strong>ISBN:</strong> {book.isbn_13}
+                      </span>
+                      <span className={styles.detailItem}>
+                        <strong>Added:</strong> {formatDate(item.created_at)}
+                      </span>
+                    </div>
                     <div className={styles.meta}>
                       {item.min_condition && item.min_condition !== 'any' ? (
                         <span className="text-sm text-gray">

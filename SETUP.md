@@ -84,6 +84,8 @@ python manage.py createsuperuser
 
 > **Python version:** Use Python 3.12 to match Railway. If you have multiple versions installed: `python3.12 -m venv .venv`
 >
+> **Important:** Do not run this project on Python 3.14 with the current Django pin. It can cause Django admin template failures (500 errors) on pages like `/admin/books/book/`.
+>
 > **Order matters:** `migrate` must run before `runserver`. `createsuperuser` is needed to access `/admin/`.
 >
 > **No `makemigrations` needed on a fresh checkout** — migration files are committed to the repo. Only run `makemigrations` when you change a model.
@@ -197,6 +199,7 @@ In Railway, go to your **web service** > **Variables** and add:
 
 | Variable | Value |
 |----------|-------|
+| `NIXPACKS_PYTHON_VERSION` | `3.12` |
 | `DJANGO_SETTINGS_MODULE` | `config.settings.production` |
 | `SECRET_KEY` | *(generate a secure key)* |
 | `FIELD_ENCRYPTION_KEY` | *(generate with Fernet)* |
@@ -207,6 +210,8 @@ In Railway, go to your **web service** > **Variables** and add:
 | `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
 
 > `DATABASE_URL` is set automatically by Railway when you add PostgreSQL. Do not set it manually.
+
+> Set `NIXPACKS_PYTHON_VERSION=3.12` on both web and worker services to prevent Railway from selecting Python 3.14.
 
 > **Shared variables are not applied automatically.** After setting variables on the web service, go to the **worker service → Variables** and add the same variables manually. Both services need `SECRET_KEY`, `FIELD_ENCRYPTION_KEY`, `DATABASE_URL`, `DJANGO_SETTINGS_MODULE`, and any email/AWS variables.
 

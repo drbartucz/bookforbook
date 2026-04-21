@@ -7,10 +7,22 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = [
-            'id', 'isbn_13', 'isbn_10', 'title', 'authors',
-            'publisher', 'publish_year', 'cover_image_url',
-            'cover_image_cached', 'page_count', 'subjects',
-            'description', 'open_library_key', 'created_at', 'updated_at',
+            "id",
+            "isbn_13",
+            "isbn_10",
+            "title",
+            "authors",
+            "publisher",
+            "publish_year",
+            "cover_image_url",
+            "cover_image_cached",
+            "page_count",
+            "physical_format",
+            "subjects",
+            "description",
+            "open_library_key",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = fields
 
@@ -20,9 +32,10 @@ class BookLookupSerializer(serializers.Serializer):
 
     def validate_isbn(self, value):
         from .services.openlibrary import normalize_isbn
+
         normalized = normalize_isbn(value)
         if not normalized:
             raise serializers.ValidationError(
-                'Invalid ISBN. Please enter a valid 10 or 13-digit ISBN.'
+                "Invalid ISBN. Please enter a valid 10 or 13-digit ISBN."
             )
         return value

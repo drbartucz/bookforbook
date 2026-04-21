@@ -61,7 +61,6 @@ describe('api client response interceptor', () => {
 
   it('clears tokens and fires auth:logout event when no refresh token on 401', async () => {
     localStorage.setItem('accessToken', 'old-access');
-    // No refreshToken set
 
     const logoutHandler = vi.fn();
     window.addEventListener('auth:logout', logoutHandler);
@@ -71,7 +70,6 @@ describe('api client response interceptor', () => {
       await apiClient.get('/protected/', {
         adapter: async (config) => {
           if (callCount++ === 0) {
-            // Simulate a 401
             const err = new Error('Unauthorized');
             err.config = config;
             err.response = { status: 401, data: 'Unauthorized', config };
@@ -93,7 +91,6 @@ describe('api client response interceptor', () => {
     localStorage.setItem('accessToken', 'old-access');
     localStorage.setItem('refreshToken', 'valid-refresh');
 
-    // Spy on axios.post (used for refresh call)
     const postSpy = vi.spyOn(axios, 'post').mockResolvedValueOnce({
       data: { access: 'new-access' },
     });
@@ -103,13 +100,11 @@ describe('api client response interceptor', () => {
       adapter: async (config) => {
         callCount++;
         if (callCount === 1) {
-          // First call → 401
           const err = new Error('Unauthorized');
           err.config = { ...config, _retry: false };
           err.response = { status: 401, data: 'Unauthorized', config };
           throw err;
         }
-        // Second call (retry) → success
         return { data: { ok: true }, status: 200, statusText: 'OK', headers: {}, config };
       },
     });
@@ -120,7 +115,6 @@ describe('api client response interceptor', () => {
   });
 
   it('lookupISBN sends a POST request with isbn in the body', async () => {
-    let capturedConfig = null;
     const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
       data: { id: 'abc', isbn_13: '9780141036144', title: 'Nineteen Eighty-Four' },
     });
