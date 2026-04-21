@@ -21,6 +21,26 @@ const STATUS_CONFIG = {
   reserved: { label: 'Reserved', cls: 'badge-blue' },
 };
 
+// Helper function to derive format from page count
+function getFormat(pageCount) {
+  if (!pageCount) return 'Unknown';
+  if (pageCount < 150) return 'Short';
+  if (pageCount <= 500) return 'Regular';
+  return 'Long';
+}
+
+// Helper function to show primary author
+function getPrimaryAuthor(authors) {
+  if (!authors || authors.length === 0) return 'Unknown Author';
+  return authors[0];
+}
+
+// Helper to format date
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export default function MyBooks() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -31,10 +51,12 @@ export default function MyBooks() {
   const [addError, setAddError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editCondition, setEditCondition] = useState('');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['myBooks', page],
-    queryFn: () => myBooksApi.list({ page, page_size: PAGE_SIZE }).then((r) => r.data),
+    queryKey: ['myBooks', page, sortBy, sortOrder],
+    queryFn: () => myBooksApi.list({ page, page_size: PAGE_SIZE, sort_by: sortBy, sort_order: sortOrder }).then((r) => r.data),
   });
 
   const addMutation = useMutation({
@@ -173,6 +195,38 @@ export default function MyBooks() {
         <ErrorMessage error={error} onRetry={refetch} />
       ) : books.length === 0 ? (
         <div className={styles.empty}>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Sort by</label>
+              <select
+                className="form-input"
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="created_at">Date Added</option>
+                <option value="title">Title</option>
+                <option value="author">Author</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label className="form-label">Order</label>
+              <select
+                className="form-input"
+                value={sortOrder}
+                onChange={(e) => {
+                  setSortOrder(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+          </div>
+
           <p className={styles.emptyTitle}>No books yet</p>
           <p className={styles.emptySubtitle}>
             Add books you own and want to trade. Use the ISBN lookup to find them quickly.
@@ -189,6 +243,37 @@ export default function MyBooks() {
         </div>
       ) : (
         <>
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: '150px' }}>
+                        <label className="form-label">Sort by</label>
+                        <select
+                          className="form-input"
+                          value={sortBy}
+                          onChange={(e) => {
+                            setSortBy(e.target.value);
+                            setPage(1);
+                          }}
+                        >
+                          <option value="created_at">Date Added</option>
+                          <option value="title">Title</option>
+                          <option value="author">Author</option>
+                        </select>
+                      </div>
+                      <div style={{ flex: 1, minWidth: '150px' }}>
+                        <label className="form-label">Order</label>
+                        <select
+                          className="form-input"
+                          value={sortOrder}
+                          onChange={(e) => {
+                            setSortOrder(e.target.value);
+                            setPage(1);
+                          }}
+                        >
+                          <option value="desc">Descending</option>
+                          <option value="asc">Ascending</option>
+                        </select>
+                      </div>
+                    </div>
           <div className={styles.bookList}>
             {books.map((item) => {
               const book = item.book ?? item;
@@ -206,10 +291,18 @@ export default function MyBooks() {
                   )}
                   <div className={styles.bookInfo}>
                     <p className={styles.bookTitle}>{book.title}</p>
-                    {book.author && <p className={styles.bookAuthor}>{book.author}</p>}
-                    {book.isbn && (
-                      <p className={styles.bookIsbn}>ISBN: {book.isbn}</p>
-                    )}
+                    <p className={styles.bookAuthor}>{getPrimaryAuthor(book.authors)}</p>
+                    <div className={styles.bookDetails}>
+                      <span className={styles.detailItem}>
+                        <strong>Format:</strong> {getFormat(book.page_count)}
+                      </span>
+                      <span className={styles.detailItem}>
+                        <strong>ISBN:</strong> {book.isbn_13}
+                      </span>
+                      <span className={styles.detailItem}>
+                        <strong>Added:</strong> {formatDate(item.created_at)}
+                      </span>
+                    </div>
                     <div className={styles.bookMeta}>
                       <ConditionBadge condition={item.condition} />
                       <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>

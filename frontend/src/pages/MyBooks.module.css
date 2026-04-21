@@ -78,6 +78,20 @@
   font-family: var(--font-mono);
 }
 
+.bookDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+  font-size: 0.8rem;
+  color: var(--color-gray-600);
+}
+
+.detailItem {
+  display: flex;
+  gap: 0.25rem;
+}
+
 .bookMeta {
   display: flex;
   align-items: center;
