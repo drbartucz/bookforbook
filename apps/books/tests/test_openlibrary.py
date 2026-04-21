@@ -8,6 +8,9 @@ from apps.books.services.openlibrary import (
     isbn10_to_isbn13,
     isbn13_to_isbn10,
     normalize_isbn,
+    _normalize_physical_format,
+    _parse_isbn_response,
+    _parse_search_result,
     _validate_isbn10,
     _validate_isbn13,
 )
@@ -61,3 +64,28 @@ class TestISBNConversion:
     def test_normalize_empty_isbn(self):
         result = normalize_isbn("")
         assert result is None
+
+
+class TestOpenLibraryFormatParsing:
+    def test_normalize_physical_format_list(self):
+        assert _normalize_physical_format(["Paperback"]) == "Paperback"
+
+    def test_normalize_physical_format_dict(self):
+        assert _normalize_physical_format({"name": "Hardcover"}) == "Hardcover"
+
+    def test_parse_isbn_response_extracts_physical_format(self):
+        raw = {
+            "title": "Example",
+            "physical_format": "Mass Market Paperback",
+            "authors": [],
+        }
+        parsed = _parse_isbn_response(raw, "9780201616224")
+        assert parsed["physical_format"] == "Mass Market Paperback"
+
+    def test_parse_search_result_extracts_physical_format(self):
+        doc = {
+            "title": "Example",
+            "format": ["Hardcover"],
+        }
+        parsed = _parse_search_result(doc, "9780201616224")
+        assert parsed["physical_format"] == "Hardcover"

@@ -21,12 +21,9 @@ const STATUS_CONFIG = {
   reserved: { label: 'Reserved', cls: 'badge-blue' },
 };
 
-// Helper function to derive format from page count
-function getFormat(pageCount) {
-  if (!pageCount) return 'Unknown';
-  if (pageCount < 150) return 'Short';
-  if (pageCount <= 500) return 'Regular';
-  return 'Long';
+// Helper function to normalize bibliographic format for display.
+function getFormatLabel(formatValue) {
+  return formatValue?.trim() || 'Unknown';
 }
 
 // Helper function to show primary author
@@ -294,7 +291,7 @@ export default function MyBooks() {
                     <p className={styles.bookAuthor}>{getPrimaryAuthor(book.authors)}</p>
                     <div className={styles.bookDetails}>
                       <span className={styles.detailItem}>
-                        <strong>Format:</strong> {getFormat(book.page_count)}
+                        <strong>Format:</strong> {getFormatLabel(book.physical_format)}
                       </span>
                       <span className={styles.detailItem}>
                         <strong>ISBN:</strong> {book.isbn_13}

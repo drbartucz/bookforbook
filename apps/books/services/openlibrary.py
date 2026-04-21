@@ -46,6 +46,7 @@ def get_or_create_book(isbn: str):
         publish_year=data.get('publish_year'),
         cover_image_url=data.get('cover_image_url'),
         page_count=data.get('page_count'),
+        physical_format=data.get('physical_format'),
         subjects=data.get('subjects', []),
         description=data.get('description'),
         open_library_key=data.get('open_library_key'),
@@ -196,6 +197,7 @@ def _parse_isbn_response(raw: dict, isbn_13: str) -> dict:
 
     data['publisher'] = raw.get('publishers', [None])[0] if raw.get('publishers') else None
     data['page_count'] = raw.get('number_of_pages')
+    data['physical_format'] = _normalize_physical_format(raw.get('physical_format') or raw.get('format'))
 
     # Publish year
     publish_date = raw.get('publish_date', '')
@@ -224,9 +226,24 @@ def _parse_search_result(doc: dict, isbn_13: str) -> dict:
     data['publisher'] = doc.get('publisher', [None])[0] if doc.get('publisher') else None
     data['publish_year'] = doc.get('first_publish_year')
     data['page_count'] = doc.get('number_of_pages_median')
+    data['physical_format'] = _normalize_physical_format(doc.get('format'))
     subjects = doc.get('subject', [])
     data['subjects'] = subjects[:20] if subjects else []
     return data
+
+
+def _normalize_physical_format(value) -> str | None:
+    """Normalize Open Library format values to a compact display string."""
+    if not value:
+        return None
+    if isinstance(value, list):
+        value = value[0] if value else None
+    if isinstance(value, dict):
+        value = value.get('name') or value.get('value')
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _fetch_work_data(work_key: str) -> dict:
