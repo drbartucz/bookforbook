@@ -27,5 +27,12 @@ class Book(models.Model):
         ordering = ["title"]
 
     def __str__(self):
-        authors_str = ", ".join(self.authors[:2]) if self.authors else "Unknown"
+        if isinstance(self.authors, list):
+            authors_str = ", ".join(str(author) for author in self.authors[:2])
+        elif isinstance(self.authors, str):
+            authors_str = self.authors
+        elif isinstance(self.authors, dict):
+            authors_str = ", ".join(str(v) for v in list(self.authors.values())[:2]) or "Unknown"
+        else:
+            authors_str = "Unknown"
         return f"{self.title} by {authors_str} (ISBN-13: {self.isbn_13})"
