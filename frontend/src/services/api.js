@@ -114,7 +114,7 @@ export const users = {
 
 // ── Books ─────────────────────────────────────────────────────────────────────
 export const books = {
-  lookupISBN: (isbn) => apiClient.get(`/books/lookup/`, { params: { isbn } }),
+  lookupISBN: (isbn) => apiClient.post(`/books/lookup/`, { isbn }),
   searchBooks: (params) => apiClient.get('/books/search/', { params }),
   getBook: (bookId) => apiClient.get(`/books/${bookId}/`),
 };
