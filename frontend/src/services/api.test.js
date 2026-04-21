@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
 
-import apiClient from './api';
+import apiClient, { books } from './api';
 
 describe('api client request interceptor', () => {
   it('attaches authorization header when access token exists', async () => {
@@ -116,6 +116,18 @@ describe('api client response interceptor', () => {
 
     expect(result.data).toEqual({ ok: true });
     expect(localStorage.getItem('accessToken')).toBe('new-access');
+    postSpy.mockRestore();
+  });
+
+  it('lookupISBN sends a POST request with isbn in the body', async () => {
+    let capturedConfig = null;
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      data: { id: 'abc', isbn_13: '9780141036144', title: 'Nineteen Eighty-Four' },
+    });
+
+    await books.lookupISBN('9780141036144');
+
+    expect(postSpy).toHaveBeenCalledWith('/books/lookup/', { isbn: '9780141036144' });
     postSpy.mockRestore();
   });
 
