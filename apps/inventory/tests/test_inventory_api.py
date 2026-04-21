@@ -135,6 +135,73 @@ class TestMyBooksView:
         resp = auth_api_client.get(f"{self.url}{other_book.id}/")
         assert resp.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_sort_by_title(self, auth_api_client, verified_user, book):
+        """Test sorting books by title."""
+        from apps.tests.factories import BookFactory
+
+        book_a = BookFactory(title="Alpha Book")
+        book_b = BookFactory(title="Beta Book")
+
+        UserBookFactory(user=verified_user, book=book_a)
+        UserBookFactory(user=verified_user, book=book_b)
+
+        # Sort ascending (A to Z)
+        resp = auth_api_client.get(self.url, {"sort_by": "title", "sort_order": "asc"})
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        assert resp.data["results"][0]["book"]["title"] == "Alpha Book"
+        assert resp.data["results"][1]["book"]["title"] == "Beta Book"
+
+        # Sort descending (Z to A)
+        resp = auth_api_client.get(self.url, {"sort_by": "title", "sort_order": "desc"})
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        assert resp.data["results"][0]["book"]["title"] == "Beta Book"
+        assert resp.data["results"][1]["book"]["title"] == "Alpha Book"
+
+    def test_sort_by_author(self, auth_api_client, verified_user):
+        """Test sorting books by author last name."""
+        from apps.tests.factories import BookFactory
+
+        # Last names are Adams and Brown, regardless of first-name ordering.
+        book_a = BookFactory(title="A Book", authors=["Zoe Adams"])
+        book_b = BookFactory(title="B Book", authors=["Amy Brown"])
+
+        UserBookFactory(user=verified_user, book=book_a)
+        UserBookFactory(user=verified_user, book=book_b)
+
+        # Sort ascending by last name
+        resp = auth_api_client.get(self.url, {"sort_by": "author", "sort_order": "asc"})
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        assert resp.data["results"][0]["book"]["title"] == "A Book"
+        assert resp.data["results"][1]["book"]["title"] == "B Book"
+
+        # Sort descending by last name
+        resp = auth_api_client.get(self.url, {"sort_by": "author", "sort_order": "desc"})
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        assert resp.data["results"][0]["book"]["title"] == "B Book"
+        assert resp.data["results"][1]["book"]["title"] == "A Book"
+
+    def test_sort_by_date_added(self, auth_api_client, verified_user, book):
+        """Test sorting books by date added (default)."""
+        from apps.tests.factories import BookFactory
+
+        book_a = BookFactory(title="Old Book")
+        book_b = BookFactory(title="New Book")
+
+        old = UserBookFactory(user=verified_user, book=book_a)
+        new = UserBookFactory(user=verified_user, book=book_b)
+
+        # Sort descending (newest first, the default)
+        resp = auth_api_client.get(self.url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        # Since 'new' was created after 'old', it should appear first
+        assert resp.data["results"][0]["id"] == str(new.id)
+        assert resp.data["results"][1]["id"] == str(old.id)
+
 
 @pytest.mark.django_db
 class TestWishlistView:
@@ -235,6 +302,70 @@ class TestWishlistView:
             f"{self.url}{wishlist_item.id}/", {"min_condition": "very_good"}
         )
         assert resp.status_code == status.HTTP_200_OK
+
+    def test_sort_wishlist_by_title(self, auth_api_client, verified_user):
+        """Test sorting wishlist items by title."""
+        from apps.tests.factories import BookFactory
+
+        book_a = BookFactory(title="Alpha Book")
+        book_b = BookFactory(title="Beta Book")
+
+        WishlistItemFactory(user=verified_user, book=book_a)
+        WishlistItemFactory(user=verified_user, book=book_b)
+
+        # Sort ascending (A to Z)
+        resp = auth_api_client.get(self.url, {"sort_by": "title", "sort_order": "asc"})
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        assert resp.data["results"][0]["book"]["title"] == "Alpha Book"
+        assert resp.data["results"][1]["book"]["title"] == "Beta Book"
+
+        # Sort descending (Z to A)
+        resp = auth_api_client.get(self.url, {"sort_by": "title", "sort_order": "desc"})
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        assert resp.data["results"][0]["book"]["title"] == "Beta Book"
+        assert resp.data["results"][1]["book"]["title"] == "Alpha Book"
+
+    def test_sort_wishlist_by_author_last_name(self, auth_api_client, verified_user):
+        """Test sorting wishlist items by author last name."""
+        from apps.tests.factories import BookFactory
+
+        # Last names are Adams and Brown, regardless of first-name ordering.
+        book_a = BookFactory(title="A Wish", authors=["Zoe Adams"])
+        book_b = BookFactory(title="B Wish", authors=["Amy Brown"])
+
+        WishlistItemFactory(user=verified_user, book=book_a)
+        WishlistItemFactory(user=verified_user, book=book_b)
+
+        resp = auth_api_client.get(self.url, {"sort_by": "author", "sort_order": "asc"})
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        assert resp.data["results"][0]["book"]["title"] == "A Wish"
+        assert resp.data["results"][1]["book"]["title"] == "B Wish"
+
+        resp = auth_api_client.get(self.url, {"sort_by": "author", "sort_order": "desc"})
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        assert resp.data["results"][0]["book"]["title"] == "B Wish"
+        assert resp.data["results"][1]["book"]["title"] == "A Wish"
+
+    def test_sort_wishlist_by_date_added(self, auth_api_client, verified_user):
+        """Test sorting wishlist items by date added (default)."""
+        from apps.tests.factories import BookFactory
+
+        book_a = BookFactory(title="Old Book")
+        book_b = BookFactory(title="New Book")
+
+        old = WishlistItemFactory(user=verified_user, book=book_a)
+        new = WishlistItemFactory(user=verified_user, book=book_b)
+
+        # Sort descending (newest first, the default)
+        resp = auth_api_client.get(self.url)
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data["results"]) == 2
+        assert resp.data["results"][0]["id"] == str(new.id)
+        assert resp.data["results"][1]["id"] == str(old.id)
 
 
 @pytest.mark.django_db

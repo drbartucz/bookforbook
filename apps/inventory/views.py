@@ -21,6 +21,45 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+def _primary_author(authors) -> str:
+    if not authors:
+        return ""
+    if isinstance(authors, list):
+        return str(authors[0]) if authors else ""
+    return str(authors)
+
+
+def _author_last_name(author: str) -> str:
+    parts = author.strip().split()
+    return parts[-1].lower() if parts else ""
+
+
+def apply_book_sorting(queryset, sort_by: str, sort_order: str):
+    """Apply supported sorting for inventory lists."""
+    is_desc = sort_order == "desc"
+
+    if sort_by == "title":
+        ordering = "-book__title" if is_desc else "book__title"
+        return queryset.order_by(ordering)
+
+    if sort_by == "author":
+        # Use Python-side sorting for cross-database compatibility (SQLite/Postgres).
+        sorted_items = sorted(
+            list(queryset),
+            key=lambda item: (
+                _author_last_name(_primary_author(item.book.authors)),
+                _primary_author(item.book.authors).lower(),
+                item.book.title.lower() if item.book.title else "",
+            ),
+            reverse=is_desc,
+        )
+        return sorted_items
+
+    # Default: date added
+    ordering = "-created_at" if is_desc else "created_at"
+    return queryset.order_by(ordering)
+
+
 class EmailVerifiedPermission(permissions.BasePermission):
     """Require that the user has verified their email."""
 
@@ -42,8 +81,11 @@ class MyBooksView(APIView):
             UserBook.objects.filter(user=request.user)
             .select_related("book")
             .exclude(status=UserBook.Status.REMOVED)
-            .order_by("-created_at")
         )
+
+        sort_by = request.query_params.get("sort_by", "created_at")
+        sort_order = request.query_params.get("sort_order", "desc")
+        queryset = apply_book_sorting(queryset, sort_by, sort_order)
 
         # Apply pagination
         paginator = PageNumberPagination()
@@ -118,8 +160,11 @@ class WishlistView(APIView):
         queryset = (
             WishlistItem.objects.filter(user=request.user)
             .select_related("book")
-            .order_by("-created_at")
         )
+
+        sort_by = request.query_params.get("sort_by", "created_at")
+        sort_order = request.query_params.get("sort_order", "desc")
+        queryset = apply_book_sorting(queryset, sort_by, sort_order)
 
         # Apply pagination
         paginator = PageNumberPagination()

@@ -77,6 +77,20 @@
   color: var(--color-gray-500);
 }
 
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+  font-size: 0.8rem;
+  color: var(--color-gray-600);
+}
+
+.detailItem {
+  display: flex;
+  gap: 0.25rem;
+}
+
 .isbn {
   font-size: 0.75rem;
   color: var(--color-gray-400);
