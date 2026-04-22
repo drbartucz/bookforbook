@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { wishlist as wishlistApi } from '../services/api.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
@@ -110,6 +110,21 @@ export default function Wishlist() {
     setShowEditionPrompt(Boolean(book));
   }
 
+  useEffect(() => {
+    if (!showEditionPrompt) {
+      return undefined;
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setShowEditionPrompt(false);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showEditionPrompt]);
+
   function handleAddSubmit(e) {
     e.preventDefault();
     if (!isbn.trim()) {
@@ -220,7 +235,16 @@ export default function Wishlist() {
           )}
 
           {showEditionPrompt && foundBook && (
-            <div className={styles.modalOverlay} role="presentation">
+            <div
+              className={styles.modalOverlay}
+              role="presentation"
+              data-testid="edition-preference-overlay"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) {
+                  setShowEditionPrompt(false);
+                }
+              }}
+            >
               <div className={styles.modalCard} role="dialog" aria-modal="true" aria-labelledby="editionPromptTitle">
                 <h3 id="editionPromptTitle" className={styles.modalTitle}>Would you also accept other editions?</h3>
                 <p className={styles.modalSubtitle}>

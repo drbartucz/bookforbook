@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -119,5 +119,39 @@ describe('Wishlist page', () => {
                 format_preferences: ['hardcover', 'paperback'],
             })
         );
+    });
+
+    it('closes edition popup on overlay click and Escape key', async () => {
+        wishlist.list.mockResolvedValue({
+            data: { count: 0, results: [] },
+        });
+
+        renderWithProviders(<Wishlist />);
+
+        await userEvent.click(await screen.findByRole('button', { name: '+ Add to Wishlist' }));
+        await userEvent.type(screen.getByLabelText('ISBN'), '9780393081084');
+        await userEvent.click(screen.getByRole('button', { name: 'Mock Lookup' }));
+
+        expect(
+            screen.getByRole('heading', { name: 'Would you also accept other editions?' })
+        ).toBeInTheDocument();
+
+        await userEvent.click(screen.getByTestId('edition-preference-overlay'));
+
+        expect(
+            screen.queryByRole('heading', { name: 'Would you also accept other editions?' })
+        ).not.toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Edit edition preferences' }));
+
+        expect(
+            screen.getByRole('heading', { name: 'Would you also accept other editions?' })
+        ).toBeInTheDocument();
+
+        fireEvent.keyDown(window, { key: 'Escape' });
+
+        expect(
+            screen.queryByRole('heading', { name: 'Would you also accept other editions?' })
+        ).not.toBeInTheDocument();
     });
 });
