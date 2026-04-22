@@ -230,8 +230,14 @@ class TestBuildTradeGraph:
         assert str(b.pk) in neighbors_of_a
 
     def test_exact_preference_does_not_create_related_edge(self):
-        wanted = BookFactory(title="Patterns of Enterprise Application Architecture", authors=["Martin Fowler"])
-        related = BookFactory(title="Patterns of Enterprise Application Architecture", authors=["Martin Fowler"])
+        wanted = BookFactory(
+            title="Patterns of Enterprise Application Architecture",
+            authors=["Martin Fowler"],
+        )
+        related = BookFactory(
+            title="Patterns of Enterprise Application Architecture",
+            authors=["Martin Fowler"],
+        )
         a = UserFactory()
         b = UserFactory()
 
