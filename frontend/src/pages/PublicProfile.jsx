@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import { format } from 'date-fns';
+import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './PublicProfile.module.css';
 
 export default function PublicProfile() {
@@ -154,12 +155,12 @@ export default function PublicProfile() {
                   const book = item.book ?? item;
                   return (
                     <div key={item.id ?? i} className={styles.wantedItem}>
-                      {book.cover_url && (
-                        <img src={book.cover_url} alt={book.title} className={styles.wantedCover} />
+                      {getBookCoverUrl(book) && (
+                        <img src={getBookCoverUrl(book)} alt={book.title} className={styles.wantedCover} />
                       )}
                       <div className={styles.wantedInfo}>
                         <p className={styles.wantedTitle}>{book.title}</p>
-                        {book.author && <p className={styles.wantedAuthor}>{book.author}</p>}
+                        {getBookPrimaryAuthor(book) && <p className={styles.wantedAuthor}>{getBookPrimaryAuthor(book)}</p>}
                         {item.min_condition && (
                           <span>
                             Min: <ConditionBadge condition={item.min_condition} />

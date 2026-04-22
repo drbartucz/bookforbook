@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { books as booksApi } from '../../services/api.js';
-import ConditionBadge from './ConditionBadge.jsx';
+import {
+  getBookCoverUrl,
+  getBookPrimaryAuthor,
+  getBookPublishYear,
+} from '../../utils/book.js';
 import styles from './ISBNInput.module.css';
 
 /**
@@ -26,6 +30,9 @@ export default function ISBNInput({
   const [localBook, setLocalBook] = useState(null);
 
   const displayBook = foundBook ?? localBook;
+  const previewAuthor = getBookPrimaryAuthor(displayBook);
+  const previewYear = getBookPublishYear(displayBook);
+  const previewCover = getBookCoverUrl(displayBook);
 
   async function handleLookup() {
     const isbn = value.trim().replace(/-/g, '');
@@ -116,20 +123,20 @@ export default function ISBNInput({
 
       {displayBook && (
         <div className={styles.bookPreview}>
-          {displayBook.cover_url && (
+          {previewCover && (
             <img
-              src={displayBook.cover_url}
+              src={previewCover}
               alt="Book cover"
               className={styles.previewCover}
             />
           )}
           <div className={styles.previewInfo}>
             <p className={styles.previewTitle}>{displayBook.title}</p>
-            {displayBook.author && (
-              <p className={styles.previewAuthor}>{displayBook.author}</p>
+            {previewAuthor && (
+              <p className={styles.previewAuthor}>{previewAuthor}</p>
             )}
-            {displayBook.published_year && (
-              <p className={styles.previewMeta}>{displayBook.published_year}</p>
+            {previewYear && (
+              <p className={styles.previewMeta}>{previewYear}</p>
             )}
           </div>
           <span className="badge badge-green" style={{ alignSelf: 'flex-start', flexShrink: 0 }}>

@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import Pagination from '../components/common/Pagination.jsx';
+import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './Proposals.module.css';
 
 const PAGE_SIZE = 15;
@@ -170,12 +171,12 @@ export default function Proposals() {
                       <p className={styles.bookLabel}>Offered</p>
                       {offeredBook && (
                         <div className={styles.bookInfo}>
-                          {offeredBook.cover_url && (
-                            <img src={offeredBook.cover_url} alt={offeredBook.title} className={styles.bookCover} />
+                          {getBookCoverUrl(offeredBook) && (
+                            <img src={getBookCoverUrl(offeredBook)} alt={offeredBook.title} className={styles.bookCover} />
                           )}
                           <div>
                             <p className={styles.bookTitle}>{offeredBook.title}</p>
-                            {offeredBook.author && <p className={styles.bookAuthor}>{offeredBook.author}</p>}
+                            {getBookPrimaryAuthor(offeredBook) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(offeredBook)}</p>}
                             {proposal.offered_book?.condition && (
                               <ConditionBadge condition={proposal.offered_book.condition} />
                             )}
@@ -190,12 +191,12 @@ export default function Proposals() {
                       <p className={styles.bookLabel}>Requested</p>
                       {requestedBook && (
                         <div className={styles.bookInfo}>
-                          {requestedBook.cover_url && (
-                            <img src={requestedBook.cover_url} alt={requestedBook.title} className={styles.bookCover} />
+                          {getBookCoverUrl(requestedBook) && (
+                            <img src={getBookCoverUrl(requestedBook)} alt={requestedBook.title} className={styles.bookCover} />
                           )}
                           <div>
                             <p className={styles.bookTitle}>{requestedBook.title}</p>
-                            {requestedBook.author && <p className={styles.bookAuthor}>{requestedBook.author}</p>}
+                            {getBookPrimaryAuthor(requestedBook) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(requestedBook)}</p>}
                             {proposal.requested_book?.condition && (
                               <ConditionBadge condition={proposal.requested_book.condition} />
                             )}

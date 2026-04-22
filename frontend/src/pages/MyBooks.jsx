@@ -6,6 +6,7 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
 import ISBNInput from '../components/common/ISBNInput.jsx';
 import Pagination from '../components/common/Pagination.jsx';
+import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './MyBooks.module.css';
 
 const PAGE_SIZE = 20;
@@ -24,12 +25,6 @@ const STATUS_CONFIG = {
 // Helper function to normalize bibliographic format for display.
 function getFormatLabel(formatValue) {
   return formatValue?.trim() || 'Unknown';
-}
-
-// Helper function to show primary author
-function getPrimaryAuthor(authors) {
-  if (!authors || authors.length === 0) return 'Unknown Author';
-  return authors[0];
 }
 
 // Helper to format date
@@ -279,16 +274,16 @@ export default function MyBooks() {
 
               return (
                 <div key={item.id} className={`card ${styles.bookItem}`}>
-                  {book.cover_url && (
+                  {getBookCoverUrl(book) && (
                     <img
-                      src={book.cover_url}
+                      src={getBookCoverUrl(book)}
                       alt={book.title}
                       className={styles.bookCover}
                     />
                   )}
                   <div className={styles.bookInfo}>
                     <p className={styles.bookTitle}>{book.title}</p>
-                    <p className={styles.bookAuthor}>{getPrimaryAuthor(book.authors)}</p>
+                    <p className={styles.bookAuthor}>{getBookPrimaryAuthor(book) ?? 'Unknown Author'}</p>
                     <div className={styles.bookDetails}>
                       <span className={styles.detailItem}>
                         <strong>Format:</strong> {getFormatLabel(book.physical_format)}

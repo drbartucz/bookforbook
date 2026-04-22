@@ -14,6 +14,14 @@ const book = {
     cover_url: 'https://example.com/cover.jpg',
 };
 
+const apiBook = {
+    title: 'The Left Hand of Darkness',
+    authors: ['Ursula K. Le Guin'],
+    isbn_13: '9780441478125',
+    condition: 'good',
+    cover_image_url: 'https://example.com/lefthand.jpg',
+};
+
 describe('BookCard', () => {
     it('renders null when book is not provided', () => {
         const { container } = wrap(<BookCard book={null} />);
@@ -44,6 +52,17 @@ describe('BookCard', () => {
     it('renders condition badge', () => {
         wrap(<BookCard book={book} />);
         expect(screen.getByText('Very Good')).toBeInTheDocument();
+    });
+
+    it('renders current API field names', () => {
+        wrap(<BookCard book={apiBook} />);
+        expect(screen.getByText('The Left Hand of Darkness')).toBeInTheDocument();
+        expect(screen.getByText('Ursula K. Le Guin')).toBeInTheDocument();
+        expect(screen.getByText(/9780441478125/)).toBeInTheDocument();
+        expect(screen.getByAltText('Cover of The Left Hand of Darkness')).toHaveAttribute(
+            'src',
+            'https://example.com/lefthand.jpg'
+        );
     });
 
     it('renders owner link when owner is provided', () => {

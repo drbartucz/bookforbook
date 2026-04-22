@@ -6,6 +6,7 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import { format } from 'date-fns';
+import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './Donations.module.css';
 
 const PAGE_SIZE = 15;
@@ -122,12 +123,12 @@ export default function Donations() {
                   <div className={styles.donationBody}>
                     {book ? (
                       <div className={styles.bookInfo}>
-                        {book.cover_url && (
-                          <img src={book.cover_url} alt={book.title} className={styles.bookCover} />
+                        {getBookCoverUrl(book) && (
+                          <img src={getBookCoverUrl(book)} alt={book.title} className={styles.bookCover} />
                         )}
                         <div>
                           <p className={styles.bookTitle}>{book.title}</p>
-                          {book.author && <p className={styles.bookAuthor}>{book.author}</p>}
+                          {getBookPrimaryAuthor(book) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(book)}</p>}
                           {donation.book?.condition && (
                             <ConditionBadge condition={donation.book.condition} />
                           )}

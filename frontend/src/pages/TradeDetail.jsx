@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import { format } from 'date-fns';
+import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './TradeDetail.module.css';
 
 const MESSAGE_TYPES = [
@@ -428,11 +429,11 @@ function BookSummary({ label, book, condition, shipped, shippedAt, trackingNumbe
       <p className={styles.bookSummaryLabel}>{label}</p>
       {book ? (
         <>
-          {book.cover_url && (
-            <img src={book.cover_url} alt={book.title} className={styles.bookSummaryCover} />
+          {getBookCoverUrl(book) && (
+            <img src={getBookCoverUrl(book)} alt={book.title} className={styles.bookSummaryCover} />
           )}
           <p className={styles.bookSummaryTitle}>{book.title}</p>
-          {book.author && <p className={styles.bookSummaryAuthor}>{book.author}</p>}
+          {getBookPrimaryAuthor(book) && <p className={styles.bookSummaryAuthor}>{getBookPrimaryAuthor(book)}</p>}
           {condition && <ConditionBadge condition={condition} />}
         </>
       ) : (

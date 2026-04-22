@@ -49,7 +49,11 @@ def get_or_create_book(isbn: str):
 
     # Check cache first
     try:
-        return Book.objects.get(isbn_13=isbn_13)
+        book = Book.objects.get(isbn_13=isbn_13)
+        if _book_needs_enrichment(book):
+            enriched = fetch_from_open_library(isbn_13)
+            _update_book_from_data(book, enriched)
+        return book
     except Book.DoesNotExist:
         pass
 
@@ -72,6 +76,51 @@ def get_or_create_book(isbn: str):
         open_library_key=data.get("open_library_key"),
     )
     return book
+
+
+def _book_needs_enrichment(book) -> bool:
+    """Return True when cached book metadata is incomplete enough to re-fetch."""
+    return not book.authors or not book.physical_format
+
+
+def _update_book_from_data(book, data: dict) -> None:
+    """Persist only missing book metadata from normalized Open Library data."""
+    updated_fields = []
+
+    if not book.title and data.get("title"):
+        book.title = data["title"]
+        updated_fields.append("title")
+    if not book.authors and data.get("authors"):
+        book.authors = data["authors"]
+        updated_fields.append("authors")
+    if not book.publisher and data.get("publisher"):
+        book.publisher = data["publisher"]
+        updated_fields.append("publisher")
+    if not book.publish_year and data.get("publish_year"):
+        book.publish_year = data["publish_year"]
+        updated_fields.append("publish_year")
+    if not book.cover_image_url and data.get("cover_image_url"):
+        book.cover_image_url = data["cover_image_url"]
+        updated_fields.append("cover_image_url")
+    if not book.page_count and data.get("page_count"):
+        book.page_count = data["page_count"]
+        updated_fields.append("page_count")
+    if not book.physical_format and data.get("physical_format"):
+        book.physical_format = data["physical_format"]
+        updated_fields.append("physical_format")
+    if not book.subjects and data.get("subjects"):
+        book.subjects = data["subjects"]
+        updated_fields.append("subjects")
+    if not book.description and data.get("description"):
+        book.description = data["description"]
+        updated_fields.append("description")
+    if not book.open_library_key and data.get("open_library_key"):
+        book.open_library_key = data["open_library_key"]
+        updated_fields.append("open_library_key")
+
+    if updated_fields:
+        updated_fields.append("updated_at")
+        book.save(update_fields=updated_fields)
 
 
 def normalize_isbn(isbn: str) -> str | None:
@@ -171,27 +220,54 @@ def fetch_from_open_library(isbn_13: str) -> dict:
     except requests.RequestException as e:
         logger.warning("Open Library ISBN request failed for %s: %s", isbn_13, e)
 
-    if not data.get("title"):
-        # Fallback: search API
-        try:
-            resp = requests.get(
-                OPEN_LIBRARY_SEARCH_URL,
-                params={"isbn": isbn_13, "limit": 1},
-                timeout=REQUEST_TIMEOUT,
-            )
-            if resp.status_code == 200:
-                payload = _response_json_object(resp, f"search fallback for {isbn_13}")
-                results = payload.get("docs", []) if payload else []
-                if results and isinstance(results[0], dict):
-                    data.update(_parse_search_result(results[0], isbn_13))
-        except requests.RequestException as e:
-            logger.warning("Open Library search fallback failed for %s: %s", isbn_13, e)
+    if (
+        not data.get("title")
+        or not data.get("authors")
+        or not data.get("physical_format")
+    ):
+        search_data = _fetch_search_data(isbn_13)
+        if search_data:
+            data = _merge_book_data(data, search_data)
+
+            edition_key = search_data.get("edition_key")
+            if edition_key and not data.get("physical_format"):
+                data = _merge_book_data(data, _fetch_edition_data(edition_key))
 
     # Always set the cover URL (may not exist, but that's okay)
     if not data.get("cover_image_url"):
         data["cover_image_url"] = OPEN_LIBRARY_COVER_URL.format(isbn=isbn_13)
 
     return data
+
+
+def _fetch_search_data(isbn_13: str) -> dict:
+    """Fetch and normalize the first Open Library search result for an ISBN."""
+    try:
+        resp = requests.get(
+            OPEN_LIBRARY_SEARCH_URL,
+            params={"isbn": isbn_13, "limit": 1},
+            timeout=REQUEST_TIMEOUT,
+        )
+        if resp.status_code == 200:
+            payload = _response_json_object(resp, f"search fallback for {isbn_13}")
+            results = payload.get("docs", []) if payload else []
+            if results and isinstance(results[0], dict):
+                return _parse_search_result(results[0], isbn_13)
+    except requests.RequestException as e:
+        logger.warning("Open Library search fallback failed for %s: %s", isbn_13, e)
+    return {}
+
+
+def _merge_book_data(primary: dict, fallback: dict) -> dict:
+    """Fill missing normalized fields in primary from fallback data."""
+    merged = dict(primary)
+    for key, value in fallback.items():
+        if merged.get(key):
+            continue
+        if value in (None, "", []):
+            continue
+        merged[key] = value
+    return merged
 
 
 def _parse_isbn_response(raw: dict, isbn_13: str) -> dict:
@@ -250,6 +326,9 @@ def _parse_search_result(doc: dict, isbn_13: str) -> dict:
     data["publish_year"] = doc.get("first_publish_year")
     data["page_count"] = doc.get("number_of_pages_median")
     data["physical_format"] = _normalize_physical_format(doc.get("format"))
+    data["edition_key"] = doc.get("cover_edition_key") or (
+        doc.get("edition_key", [None])[0] if doc.get("edition_key") else None
+    )
     subjects = doc.get("subject", [])
     data["subjects"] = subjects[:20] if subjects else []
     return data
@@ -290,6 +369,35 @@ def _fetch_work_data(work_key: str) -> dict:
                     data["subjects"] = subjects[:20]
     except requests.RequestException as e:
         logger.debug("Work data fetch failed for %s: %s", work_key, e)
+    return data
+
+
+def _fetch_edition_data(edition_key: str) -> dict:
+    """Fetch additional metadata from an Open Library edition record."""
+    data = {}
+    try:
+        resp = requests.get(
+            OPEN_LIBRARY_WORKS_URL.format(key=f"/books/{edition_key}"),
+            timeout=REQUEST_TIMEOUT,
+        )
+        if resp.status_code == 200:
+            raw = _response_json_object(resp, f"edition lookup for {edition_key}")
+            if raw:
+                data["physical_format"] = _normalize_physical_format(
+                    raw.get("physical_format") or raw.get("format")
+                )
+                authors = []
+                for author_ref in raw.get("authors", []):
+                    if isinstance(author_ref, dict) and "key" in author_ref:
+                        name = _fetch_author_name(author_ref["key"])
+                        if name:
+                            authors.append(name)
+                    elif isinstance(author_ref, dict) and "name" in author_ref:
+                        authors.append(author_ref["name"])
+                if authors:
+                    data["authors"] = authors
+    except requests.RequestException as e:
+        logger.debug("Edition data fetch failed for %s: %s", edition_key, e)
     return data
 
 
