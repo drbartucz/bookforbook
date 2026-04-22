@@ -27,6 +27,26 @@ const CONDITION_OPTIONS = [
   ...Object.entries(CONDITION_CONFIG).map(([value, { label }]) => ({ value, label })),
 ];
 
+const EDITION_PREFERENCE_OPTIONS = [
+  { value: 'exact', label: 'Exact edition only' },
+  { value: 'same_language', label: 'Same work, same language' },
+  { value: 'any_language', label: 'Same work, any language/translation' },
+  { value: 'custom', label: 'Custom rules' },
+];
+
+const FORMAT_OPTIONS = [
+  { value: 'hardcover', label: 'Hardcover' },
+  { value: 'paperback', label: 'Paperback' },
+  { value: 'mass_market', label: 'Mass Market' },
+  { value: 'large_print', label: 'Large Print' },
+  { value: 'audiobook', label: 'Audiobook' },
+];
+
+function getEditionPreferenceLabel(preference) {
+  const found = EDITION_PREFERENCE_OPTIONS.find((opt) => opt.value === preference);
+  return found?.label ?? 'Same work, same language';
+}
+
 export default function Wishlist() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -34,6 +54,10 @@ export default function Wishlist() {
   const [isbn, setIsbn] = useState('');
   const [foundBook, setFoundBook] = useState(null);
   const [minCondition, setMinCondition] = useState('any');
+  const [editionPreference, setEditionPreference] = useState('same_language');
+  const [allowTranslations, setAllowTranslations] = useState(false);
+  const [excludeAbridged, setExcludeAbridged] = useState(true);
+  const [formatPreferences, setFormatPreferences] = useState([]);
   const [addError, setAddError] = useState(null);
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
@@ -51,6 +75,10 @@ export default function Wishlist() {
       setIsbn('');
       setFoundBook(null);
       setMinCondition('any');
+      setEditionPreference('same_language');
+      setAllowTranslations(false);
+      setExcludeAbridged(true);
+      setFormatPreferences([]);
       setAddError(null);
     },
     onError: (err) => {
@@ -90,7 +118,24 @@ export default function Wishlist() {
     if (minCondition && minCondition !== 'any') {
       payload.min_condition = minCondition;
     }
+    payload.edition_preference = editionPreference;
+
+    if (editionPreference === 'custom') {
+      payload.allow_translations = allowTranslations;
+      payload.exclude_abridged = excludeAbridged;
+      payload.format_preferences = formatPreferences;
+    }
+
     addMutation.mutate(payload);
+  }
+
+  function toggleFormatPreference(formatValue) {
+    setFormatPreferences((current) => {
+      if (current.includes(formatValue)) {
+        return current.filter((value) => value !== formatValue);
+      }
+      return [...current, formatValue];
+    });
   }
 
   function handleRemove(id) {
@@ -151,6 +196,70 @@ export default function Wishlist() {
               You&apos;ll only be matched with books meeting this condition or better.
             </p>
           </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="editionPreference">
+              Match flexibility
+            </label>
+            <select
+              id="editionPreference"
+              className="form-input"
+              value={editionPreference}
+              onChange={(e) => setEditionPreference(e.target.value)}
+            >
+              {EDITION_PREFERENCE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="form-hint">
+              Choose whether to match only this ISBN or other editions of the same work.
+            </p>
+          </div>
+
+          {editionPreference === 'custom' && (
+            <div className="form-group">
+              <label className="form-label">Custom edition rules</label>
+              <div style={{ display: 'grid', gap: '0.5rem' }}>
+                <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={allowTranslations}
+                    onChange={(e) => setAllowTranslations(e.target.checked)}
+                  />
+                  Include translations
+                </label>
+                <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={excludeAbridged}
+                    onChange={(e) => setExcludeAbridged(e.target.checked)}
+                  />
+                  Exclude abridged versions
+                </label>
+              </div>
+
+              <div style={{ marginTop: '0.75rem' }}>
+                <p className="form-label" style={{ marginBottom: '0.5rem' }}>Allowed formats</p>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {FORMAT_OPTIONS.map((format) => {
+                    const active = formatPreferences.includes(format.value);
+                    return (
+                      <button
+                        key={format.value}
+                        type="button"
+                        className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => toggleFormatPreference(format.value)}
+                      >
+                        {format.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -276,6 +385,12 @@ export default function Wishlist() {
                         </span>
                       ) : (
                         <span className="badge badge-gray">Any condition</span>
+                      )}
+                      <span className="badge badge-gray">
+                        {getEditionPreferenceLabel(item.edition_preference)}
+                      </span>
+                      {item.edition_preference === 'custom' && item.allow_translations && (
+                        <span className="badge badge-gray">Includes translations</span>
                       )}
                       <span className={`badge ${item.is_active ? 'badge-green' : 'badge-gray'}`}>
                         {item.is_active ? 'Active' : 'Paused'}

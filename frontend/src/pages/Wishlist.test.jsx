@@ -1,9 +1,36 @@
 import React from 'react';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
 import { renderWithProviders } from '../test/renderWithProviders.jsx';
 import Wishlist from './Wishlist.jsx';
+
+vi.mock('../components/common/ISBNInput.jsx', () => ({
+    default: function MockISBNInput({ value, onChange, onBookFound }) {
+        return (
+            <div>
+                <input
+                    aria-label="ISBN"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                />
+                <button
+                    type="button"
+                    onClick={() =>
+                        onBookFound({
+                            id: 'book-lookup-1',
+                            title: 'Lookup Book',
+                            isbn_13: value,
+                        })
+                    }
+                >
+                    Mock Lookup
+                </button>
+            </div>
+        );
+    },
+}));
 
 vi.mock('../services/api.js', () => ({
     wishlist: {
@@ -53,6 +80,40 @@ describe('Wishlist page', () => {
         expect(screen.getByAltText('Kindred')).toHaveAttribute(
             'src',
             'https://example.com/kindred.jpg'
+        );
+    });
+
+    it('submits custom edition preferences when adding a wishlist item', async () => {
+        wishlist.list.mockResolvedValue({
+            data: { count: 0, results: [] },
+        });
+        wishlist.add.mockResolvedValue({ data: {} });
+
+        renderWithProviders(<Wishlist />);
+
+        await userEvent.click(await screen.findByRole('button', { name: '+ Add to Wishlist' }));
+
+        await userEvent.type(screen.getByLabelText('ISBN'), '9780393081084');
+        await userEvent.click(screen.getByRole('button', { name: 'Mock Lookup' }));
+
+        await userEvent.selectOptions(
+            screen.getByLabelText('Match flexibility'),
+            'custom'
+        );
+        await userEvent.click(screen.getByLabelText('Include translations'));
+        await userEvent.click(screen.getByRole('button', { name: 'Hardcover' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Paperback' }));
+
+        await userEvent.click(screen.getByRole('button', { name: 'Add to Wishlist' }));
+
+        expect(wishlist.add).toHaveBeenCalledWith(
+            expect.objectContaining({
+                isbn: '9780393081084',
+                edition_preference: 'custom',
+                allow_translations: true,
+                exclude_abridged: true,
+                format_preferences: ['hardcover', 'paperback'],
+            })
         );
     });
 });

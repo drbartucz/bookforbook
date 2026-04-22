@@ -72,6 +72,12 @@ class UserBook(models.Model):
 
 
 class WishlistItem(models.Model):
+    class EditionPreference(models.TextChoices):
+        EXACT = 'exact', 'Exact edition only'
+        SAME_LANGUAGE = 'same_language', 'Same work, same language'
+        ANY_LANGUAGE = 'any_language', 'Same work, any language'
+        CUSTOM = 'custom', 'Custom rules'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -88,6 +94,14 @@ class WishlistItem(models.Model):
         choices=ConditionChoices.choices,
         default=ConditionChoices.ACCEPTABLE,
     )
+    edition_preference = models.CharField(
+        max_length=20,
+        choices=EditionPreference.choices,
+        default=EditionPreference.SAME_LANGUAGE,
+    )
+    allow_translations = models.BooleanField(default=False)
+    exclude_abridged = models.BooleanField(default=True)
+    format_preferences = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

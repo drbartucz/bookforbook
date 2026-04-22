@@ -63,7 +63,8 @@ class WishlistItemSerializer(serializers.ModelSerializer):
         model = WishlistItem
         fields = [
             'id', 'user_id', 'book', 'min_condition',
-            'is_active', 'created_at', 'updated_at',
+            'edition_preference', 'allow_translations', 'exclude_abridged',
+            'format_preferences', 'is_active', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'user_id', 'book', 'created_at', 'updated_at']
 
@@ -73,6 +74,17 @@ class WishlistItemCreateSerializer(serializers.Serializer):
     min_condition = serializers.ChoiceField(
         choices=ConditionChoices.choices,
         default=ConditionChoices.ACCEPTABLE,
+    )
+    edition_preference = serializers.ChoiceField(
+        choices=WishlistItem.EditionPreference.choices,
+        default=WishlistItem.EditionPreference.SAME_LANGUAGE,
+    )
+    allow_translations = serializers.BooleanField(required=False, default=False)
+    exclude_abridged = serializers.BooleanField(required=False, default=True)
+    format_preferences = serializers.ListField(
+        child=serializers.CharField(max_length=30),
+        required=False,
+        default=list,
     )
 
     def validate_isbn(self, value):
@@ -87,6 +99,23 @@ class WishlistItemCreateSerializer(serializers.Serializer):
         isbn = attrs['isbn']
         book = get_or_create_book(isbn)
         user = self.context['request'].user
+
+        allowed_formats = {'hardcover', 'paperback', 'mass_market', 'large_print', 'audiobook'}
+        format_preferences = attrs.get('format_preferences', [])
+        invalid_formats = [fmt for fmt in format_preferences if fmt not in allowed_formats]
+        if invalid_formats:
+            raise serializers.ValidationError(
+                {'format_preferences': f'Unsupported format(s): {", ".join(invalid_formats)}'}
+            )
+
+        preference = attrs.get('edition_preference', WishlistItem.EditionPreference.SAME_LANGUAGE)
+        if preference == WishlistItem.EditionPreference.EXACT:
+            attrs['allow_translations'] = False
+            attrs['format_preferences'] = []
+        elif preference == WishlistItem.EditionPreference.SAME_LANGUAGE:
+            attrs['allow_translations'] = False
+        elif preference == WishlistItem.EditionPreference.ANY_LANGUAGE:
+            attrs['allow_translations'] = True
 
         if WishlistItem.objects.filter(user=user, book=book).exists():
             raise serializers.ValidationError(
@@ -104,4 +133,32 @@ class WishlistItemCreateSerializer(serializers.Serializer):
 class WishlistItemUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = WishlistItem
-        fields = ['min_condition', 'is_active']
+        fields = [
+            'min_condition',
+            'edition_preference',
+            'allow_translations',
+            'exclude_abridged',
+            'format_preferences',
+            'is_active',
+        ]
+
+    def validate(self, attrs):
+        allowed_formats = {'hardcover', 'paperback', 'mass_market', 'large_print', 'audiobook'}
+        format_preferences = attrs.get('format_preferences')
+        if format_preferences is not None:
+            invalid_formats = [fmt for fmt in format_preferences if fmt not in allowed_formats]
+            if invalid_formats:
+                raise serializers.ValidationError(
+                    {'format_preferences': f'Unsupported format(s): {", ".join(invalid_formats)}'}
+                )
+
+        preference = attrs.get('edition_preference')
+        if preference == WishlistItem.EditionPreference.EXACT:
+            attrs['allow_translations'] = False
+            attrs['format_preferences'] = []
+        elif preference == WishlistItem.EditionPreference.SAME_LANGUAGE:
+            attrs['allow_translations'] = False
+        elif preference == WishlistItem.EditionPreference.ANY_LANGUAGE:
+            attrs['allow_translations'] = True
+
+        return attrs
