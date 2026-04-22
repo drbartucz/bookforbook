@@ -114,6 +114,96 @@ class TestDirectMatcherService:
         matches = run_direct_matching(user_book=ub_a)
         assert len(matches) == 0
 
+    def test_exact_preference_blocks_related_edition(self, db):
+        wanted_by_b = BookFactory(title="The Pragmatic Programmer", authors=["Andrew Hunt"])
+        related_from_a = BookFactory(title="The Pragmatic Programmer", authors=["Andrew Hunt"])
+        wanted_by_a = BookFactory()
+        user_a = UserFactory()
+        user_b = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=related_from_a, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a, condition="good")
+        WishlistItemFactory(
+            user=user_b,
+            book=wanted_by_b,
+            min_condition="acceptable",
+            edition_preference="exact",
+        )
+        WishlistItemFactory(user=user_a, book=wanted_by_a, min_condition="acceptable")
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 0
+
+    def test_same_language_preference_allows_related_edition(self, db):
+        wanted_by_b = BookFactory(title="Refactoring", authors=["Martin Fowler"])
+        related_from_a = BookFactory(title="Refactoring", authors=["Martin Fowler"])
+        wanted_by_a = BookFactory()
+        user_a = UserFactory()
+        user_b = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=related_from_a, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a, condition="good")
+        WishlistItemFactory(
+            user=user_b,
+            book=wanted_by_b,
+            min_condition="acceptable",
+            edition_preference="same_language",
+        )
+        WishlistItemFactory(user=user_a, book=wanted_by_a, min_condition="acceptable")
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 1
+
+    def test_custom_format_preference_filters_related_edition(self, db):
+        wanted_by_b = BookFactory(title="Clean Code", authors=["Robert C. Martin"])
+        paperback_from_a = BookFactory(
+            title="Clean Code",
+            authors=["Robert C. Martin"],
+            physical_format="Paperback",
+        )
+        wanted_by_a = BookFactory()
+        user_a = UserFactory()
+        user_b = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=paperback_from_a, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a, condition="good")
+        WishlistItemFactory(
+            user=user_b,
+            book=wanted_by_b,
+            min_condition="acceptable",
+            edition_preference="custom",
+            format_preferences=["hardcover"],
+        )
+        WishlistItemFactory(user=user_a, book=wanted_by_a, min_condition="acceptable")
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 0
+
+    def test_exclude_abridged_blocks_related_edition(self, db):
+        wanted_by_b = BookFactory(title="War and Peace", authors=["Leo Tolstoy"])
+        abridged_from_a = BookFactory(
+            title="War and Peace",
+            authors=["Leo Tolstoy"],
+            description="Abridged edition for students",
+        )
+        wanted_by_a = BookFactory()
+        user_a = UserFactory()
+        user_b = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=abridged_from_a, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a, condition="good")
+        WishlistItemFactory(
+            user=user_b,
+            book=wanted_by_b,
+            min_condition="acceptable",
+            edition_preference="same_language",
+            exclude_abridged=True,
+        )
+        WishlistItemFactory(user=user_a, book=wanted_by_a, min_condition="acceptable")
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 0
+
 
 @pytest.mark.django_db
 class TestCountActiveMatches:

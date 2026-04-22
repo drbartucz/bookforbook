@@ -15,6 +15,7 @@ from apps.matching.services.direct_matcher import (
     _active_match_exists_for_user_book,
     user_at_match_limit,
 )
+from apps.matching.services.preference_filters import wishlist_allows_book
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +37,12 @@ def _build_trade_graph() -> tuple[dict, dict]:
         user__email_verified=True,
         user__is_active=True,
         user__account_type='individual',
-    ).select_related('user', 'book').values(
-        'id', 'user_id', 'book_id', 'min_condition',
-    )
+    ).select_related('user', 'book')
 
-    # Build a set of (book_id, min_condition) per user
-    wants: dict[str, list[tuple]] = defaultdict(list)
+    # Build a per-user list of active wishlist items.
+    wants: dict[str, list[WishlistItem]] = defaultdict(list)
     for w in wishlist_items:
-        wants[str(w['user_id'])].append((str(w['book_id']), w['min_condition']))
+        wants[str(w.user_id)].append(w)
 
     # Fetch all available books for individual users
     available_books = UserBook.objects.filter(
@@ -65,12 +64,14 @@ def _build_trade_graph() -> tuple[dict, dict]:
         for ub in books:
             if _active_match_exists_for_user_book(ub.pk):
                 continue
-            book_id = str(ub.book_id)
             for receiver_id, receiver_wants in wants.items():
                 if receiver_id == sender_id:
                     continue
-                for wanted_book_id, min_condition in receiver_wants:
-                    if wanted_book_id == book_id and condition_meets_minimum(ub.condition, min_condition):
+                for wish in receiver_wants:
+                    if (
+                        wishlist_allows_book(wish, ub.book)
+                        and condition_meets_minimum(ub.condition, wish.min_condition)
+                    ):
                         graph[sender_id].append((receiver_id, str(ub.pk)))
                         break
 
