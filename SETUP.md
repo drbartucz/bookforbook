@@ -73,6 +73,23 @@ DATABASE_URL=postgresql://bookforbook:bookforbook@localhost:5432/bookforbook
 FIELD_ENCRYPTION_KEY=<generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
 ```
 
+If you want USPS address verification enabled locally, also set:
+
+```
+USPS_CLIENT_ID=<your USPS Consumer Key>
+USPS_CLIENT_SECRET=<your USPS Consumer Secret>
+USPS_OAUTH_BASE_URL=https://apis.usps.com/oauth2/v3
+USPS_ADDRESSES_BASE_URL=https://apis.usps.com/addresses/v3
+USPS_API_TIMEOUT=8
+```
+
+For USPS TEM testing, use:
+
+```
+USPS_OAUTH_BASE_URL=https://apis-tem.usps.com/oauth2/v3
+USPS_ADDRESSES_BASE_URL=https://apis-tem.usps.com/addresses/v3
+```
+
 ### 3. Install dependencies, migrate, and create superuser
 
 ```bash
@@ -98,6 +115,22 @@ python manage.py runserver
 
 # Terminal 2 — Django-Q2 task worker (optional locally, required in production)
 python manage.py qcluster
+```
+
+### USPS smoke test
+
+Once USPS credentials are configured, verify the integration from the command line:
+
+```bash
+# OAuth only
+python manage.py smoke_test_usps --token-only
+
+# OAuth + live address verification
+python manage.py smoke_test_usps \
+   --street-address="1600 Pennsylvania Ave NW" \
+   --city="Washington" \
+   --state="DC" \
+   --zip-code="20500"
 ```
 
 ### 5. Frontend (local dev)
@@ -208,6 +241,10 @@ In Railway, go to your **web service** > **Variables** and add:
 | `FRONTEND_URL` | `https://bookforbook.com` |
 | `RESEND_API_KEY` | *(your Resend API key, starts with `re_`)* |
 | `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
+| `USPS_CLIENT_ID` | *(your USPS Consumer Key)* |
+| `USPS_CLIENT_SECRET` | *(your USPS Consumer Secret)* |
+| `USPS_OAUTH_BASE_URL` | `https://apis.usps.com/oauth2/v3` |
+| `USPS_ADDRESSES_BASE_URL` | `https://apis.usps.com/addresses/v3` |
 
 > `DATABASE_URL` is set automatically by Railway when you add PostgreSQL. Do not set it manually.
 

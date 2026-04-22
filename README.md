@@ -92,7 +92,7 @@ POST /api/v1/auth/verify-email/
 **3. Log in**
 
 ```
-POST /api/v1/auth/login/
+POST /api/v1/auth/token/
 {
   "email": "you@example.com",
   "password": "yourpassword"
@@ -105,15 +105,24 @@ Returns `access` and `refresh` JWT tokens. Include the access token in all subse
 Authorization: Bearer <access_token>
 ```
 
-**4. Complete your profile**
+**4. Add and verify your address (recommended early, required before accepting a match or proposal)**
 
-Add your shipping address — this is required before any trade can be confirmed. Your address is encrypted and only revealed to confirmed trade partners.
+You can list books and build your want list without an address on file.
+
+After your **first** offer listing or want listing, the app may show a prompt asking:
+
+`Would you like to add your address now?`
+
+If you choose to add it, the backend verifies the address with USPS and stores the standardized result. Your address is encrypted at rest and only revealed to confirmed trade partners.
+
+You can also verify it directly by API:
 
 ```
-PATCH /api/v1/users/me/
+POST /api/v1/users/me/address/verify/
 {
   "full_name": "Jane Smith",
   "address_line_1": "123 Main St",
+  "address_line_2": "Apt 2",
   "city": "Portland",
   "state": "OR",
   "zip_code": "97201"
@@ -158,6 +167,8 @@ DELETE /api/v1/my-books/{id}/
 
 You can list multiple copies of the same ISBN — each is tracked separately.
 
+If this is your first listing and you do not already have an address on file, the app will offer to verify your address with USPS. You can skip that prompt and continue listing books.
+
 ---
 
 ### Building Your Want List
@@ -166,11 +177,32 @@ You can list multiple copies of the same ISBN — each is tracked separately.
 POST /api/v1/wishlist/
 {
   "isbn": "9780743273565",
-  "min_condition": "good"
+  "min_condition": "good",
+  "edition_preference": "same_language"
 }
 ```
 
 `min_condition` sets the lowest condition you'll accept. The system will only match you with books that meet this threshold.
+
+After the ISBN is found, you can also choose whether to accept other editions of the same work:
+- `exact` — only this exact ISBN
+- `same_language` — same work, same language
+- `any_language` — same work, including translations
+- `custom` — custom rules for translations, abridged editions, and formats
+
+Example custom edition preferences:
+
+```
+POST /api/v1/wishlist/
+{
+  "isbn": "9780743273565",
+  "min_condition": "good",
+  "edition_preference": "custom",
+  "allow_translations": true,
+  "exclude_abridged": true,
+  "format_preferences": ["hardcover", "paperback"]
+}
+```
 
 **View your want list:**
 ```
@@ -201,6 +233,15 @@ The matching engine runs automatically every 6 hours and whenever you add a new 
 3. Review the match details — who you're trading with, which book you're giving, which you're getting
 4. **Accept:** `POST /api/v1/matches/{id}/accept/`
 5. **Decline:** `POST /api/v1/matches/{id}/decline/`
+
+Before you can accept a match, you must have a USPS-verified shipping address on file. Otherwise the API returns a `409 Conflict` with:
+
+```json
+{
+  "detail": "You need a USPS-verified shipping address before accepting a match.",
+  "code": "address_verification_required"
+}
+```
 
 A match only proceeds if **all** parties accept. If anyone declines, the match is cancelled and the books return to available status.
 
@@ -240,6 +281,8 @@ POST /api/v1/proposals/
 ```
 
 Proposals are always 1-for-1. The recipient can accept, decline, or counter-offer. You can counter their counter-offer. A trade is created when one party accepts.
+
+Accepting a proposal also requires a USPS-verified address on file first.
 
 **View your proposals:**
 ```

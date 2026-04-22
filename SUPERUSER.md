@@ -105,6 +105,22 @@ If a user did not receive their verification email:
 3. Check **Email verified** and set **Email verified at** to the current time
 4. Save
 
+### Address Verification Status
+
+Users can list books without an address on file, but they must have a USPS-verified address before accepting a match or trade proposal.
+
+Relevant user fields in admin:
+- `full_name`
+- `address_line_1`
+- `address_line_2`
+- `city`
+- `state`
+- `zip_code`
+- `address_verification_status`
+- `address_verified_at`
+
+If a user is blocked from accepting a match or proposal, check these fields first.
+
 ---
 
 ### Suspending or Deactivating a User
@@ -216,6 +232,24 @@ railway run python manage.py run_periodic_tasks --task=auto_close
 # All tasks at once
 railway run python manage.py run_periodic_tasks --task=all
 ```
+
+### USPS Smoke Test
+
+To verify USPS OAuth credentials and live address standardization from production or a Railway shell:
+
+```bash
+# Token only
+railway run python manage.py smoke_test_usps --token-only
+
+# Token + live address test
+railway run python manage.py smoke_test_usps \
+  --street-address="1600 Pennsylvania Ave NW" \
+  --city="Washington" \
+  --state="DC" \
+  --zip-code="20500"
+```
+
+Use the TEM URLs in environment variables if you want to test against USPS's testing environment rather than production.
 
 ### Scheduled Tasks (Django-Q2)
 

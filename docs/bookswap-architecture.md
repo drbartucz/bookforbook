@@ -15,7 +15,8 @@ BookForBook is a book bartering platform where users trade books 1-for-1 without
 | Task queue | Django-Q2 (PostgreSQL broker) | Background matching engine, email notifications, ISBN enrichment |
 | Frontend | React 18 (Vite) as PWA | Interactive browsing, trade flows; PWA for mobile access |
 | ISBN enrichment | Open Library API (free, no key required) | Title, author, cover image, publisher, year, page count |
-| Notifications | Email (Django + SendGrid/SES), SMS optional (Twilio) | Trade alerts, match notifications, shipping confirmations |
+| Notifications | Email (Resend for outbound, Proton Mail inbound), SMS optional (Twilio) | Trade alerts, match notifications, shipping confirmations |
+| Address verification | USPS Developer API (OAuth2 + Addresses v3) | Standardize and verify shipping addresses before accepting matches/proposals |
 | Search | PostgreSQL full-text search (upgrade to Meilisearch/Typesense if needed) | Book catalog browsing |
 | File storage | S3-compatible (AWS S3, Backblaze B2, or local for dev) | Cover image caching |
 | Deployment | Native (PostgreSQL installed directly on VPS) OR managed (Railway, Render) | Flexible based on preference |
@@ -46,6 +47,8 @@ User
 ├── city                string
 ├── state               CHAR(2), validated to continental US states
 ├── zip_code            validated US ZIP
+├── address_verification_status  ENUM: 'unverified', 'verified', 'failed'
+├── address_verified_at nullable timestamp
 │
 ├── # Public profile stats (denormalized for performance)
 ├── total_trades        integer, default 0
@@ -67,6 +70,7 @@ User
 - Institutional accounts (`library`, `bookstore`) have a verification workflow: they register, provide institution details, and an admin approves via Django admin.
 - Institutional accounts do NOT trade — they only receive donations, so they don't need a "have" list or shipping address for outbound.
 - Address fields are encrypted at rest and only decrypted/revealed to a confirmed trade partner.
+- Users may list books without an address on file, but must have a USPS-verified address before accepting a match or trade proposal.
 
 ### Books (ISBN Cache)
 
@@ -130,6 +134,10 @@ WishlistItem
 ├── book_id             FK → Book, indexed
 ├── min_condition       ENUM: 'like_new', 'very_good', 'good', 'acceptable'
 │                       (minimum acceptable condition, default 'acceptable')
+├── edition_preference  ENUM: 'exact', 'same_language', 'any_language', 'custom'
+├── allow_translations  boolean, default false
+├── exclude_abridged    boolean, default true
+├── format_preferences  JSONB array of canonical format keys, default []
 ├── is_active           boolean, default true
 │
 ├── created_at          timestamp
@@ -142,6 +150,7 @@ INDEX: (book_id, is_active) — for matching queries
 **Notes:**
 - For institutional accounts, this is their "wanted for donation" list.
 - `is_active` allows soft-disable without deletion (e.g., "I got this from a store, pause for now").
+- Wishlist matching can be broadened beyond an exact ISBN to allow same-language editions, translations, or custom format/abridged rules.
 
 ### Matches (Auto-Detected)
 
@@ -341,7 +350,11 @@ User enters ISBN
     → If not found: call Open Library API, create Book record
     → If Open Library has no data: create Book with ISBN only, prompt user for title/author
     → User selects condition (for "have") or min condition (for "want")
+    → Wishlist flow may ask whether other editions are acceptable
     → Create UserBook or WishlistItem
+    → If this is the user's first listing and they have no address on file:
+        → Soft prompt: "Would you like to add your address now?"
+        → If accepted: verify with USPS and store standardized address
     → Trigger async matching scan for this user
 ```
 
@@ -403,6 +416,7 @@ If any leg in a ring is declined:
 ```
 Match detected → Notify all parties (email/in-app)
     → Each party reviews and accepts/declines their leg
+    → Before accepting a match or proposal, user must have USPS-verified address
     → If ALL accept:
         → Create Trade record
         → Reveal shipping addresses to involved parties
@@ -561,6 +575,7 @@ User requests deletion → POST /api/v1/users/me/ (DELETE)
 ├── users/
 │   ├── GET    me/                     # Current user profile
 │   ├── PATCH  me/                     # Update profile/address
+│   ├── POST   me/address/verify/      # Verify + standardize address via USPS
 │   ├── GET    me/export/              # GDPR data export (all user data as JSON)
 │   ├── DELETE me/                     # GDPR account deletion (requires confirmation)
 │   ├── GET    :id/                    # Public profile (stats, ratings, no address)
@@ -573,13 +588,13 @@ User requests deletion → POST /api/v1/users/me/ (DELETE)
 │
 ├── my-books/
 │   ├── GET    /                       # My have-list
-│   ├── POST   /                       # Add book (ISBN + condition)
+│   ├── POST   /                       # Add book (ISBN + condition); may return X-Address-Prompt header on first listing
 │   ├── PATCH  :id/                    # Update condition/notes
 │   └── DELETE :id/                    # Remove from list
 │
 ├── wishlist/
 │   ├── GET    /                       # My want-list
-│   ├── POST   /                       # Add to wishlist (ISBN + min condition)
+│   ├── POST   /                       # Add to wishlist (ISBN + min condition + edition preferences); may return X-Address-Prompt on first listing
 │   ├── PATCH  :id/                    # Update preferences
 │   └── DELETE :id/                    # Remove from wishlist
 │
@@ -653,6 +668,7 @@ User requests deletion → POST /api/v1/users/me/ (DELETE)
 ## Security Considerations
 
 - **Address privacy:** Encrypted at rest (Django Fernet fields or similar). Only decrypted and returned via API when a trade is in `confirmed` or later status AND the requesting user is a party to that trade.
+- **Address quality:** Users can defer address entry until after their first listing, but USPS verification is enforced before accepting a match or proposal.
 - **Rate limiting:** Django REST Framework throttling on all endpoints, especially ISBN lookup (prevent abuse of Open Library API).
 - **Authentication:** JWT via `djangorestframework-simplejwt`. Short-lived access tokens (15 min), longer refresh tokens (7 days). Email verification required before any trading activity.
 - **Input validation:** ISBN format validation, US state/ZIP validation, condition enum enforcement.
