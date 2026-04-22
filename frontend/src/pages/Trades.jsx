@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import { format } from 'date-fns';
+import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './Trades.module.css';
 
 const PAGE_SIZE = 15;
@@ -92,26 +93,26 @@ export default function Trades() {
 
                   <div className={styles.tradeBooks}>
                     <div className={styles.tradeBook}>
-                      {myBook?.cover_url && (
-                        <img src={myBook.cover_url} alt={myBook.title} className={styles.tradeCover} />
+                      {getBookCoverUrl(myBook) && (
+                        <img src={getBookCoverUrl(myBook)} alt={myBook.title} className={styles.tradeCover} />
                       )}
                       <div className={styles.tradeBookInfo}>
                         <p className={styles.tradeBookLabel}>You send</p>
                         <p className={styles.tradeBookTitle}>{myBook?.title ?? 'Unknown'}</p>
-                        {myBook?.author && <p className={styles.tradeBookAuthor}>{myBook.author}</p>}
+                        {getBookPrimaryAuthor(myBook) && <p className={styles.tradeBookAuthor}>{getBookPrimaryAuthor(myBook)}</p>}
                       </div>
                     </div>
 
                     <span className={styles.tradeSwap}>&#8646;</span>
 
                     <div className={styles.tradeBook}>
-                      {theirBook?.cover_url && (
-                        <img src={theirBook.cover_url} alt={theirBook.title} className={styles.tradeCover} />
+                      {getBookCoverUrl(theirBook) && (
+                        <img src={getBookCoverUrl(theirBook)} alt={theirBook.title} className={styles.tradeCover} />
                       )}
                       <div className={styles.tradeBookInfo}>
                         <p className={styles.tradeBookLabel}>You receive</p>
                         <p className={styles.tradeBookTitle}>{theirBook?.title ?? 'Unknown'}</p>
-                        {theirBook?.author && <p className={styles.tradeBookAuthor}>{theirBook.author}</p>}
+                        {getBookPrimaryAuthor(theirBook) && <p className={styles.tradeBookAuthor}>{getBookPrimaryAuthor(theirBook)}</p>}
                       </div>
                     </div>
                   </div>

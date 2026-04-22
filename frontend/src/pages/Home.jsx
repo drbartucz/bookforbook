@@ -8,6 +8,7 @@ import BookCard from '../components/common/BookCard.jsx';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import Pagination from '../components/common/Pagination.jsx';
+import { getBookIsbn } from '../utils/book.js';
 import styles from './Home.module.css';
 
 const PAGE_SIZE = 20;
@@ -151,7 +152,7 @@ export default function Home() {
             {books.map((item) => {
               const book = item.book ?? item;
               const owner = item.owner ?? item.user;
-              const isbn = book.isbn;
+              const isbn = getBookIsbn(book);
               const alreadyAdded = isbn && addedToWishlist.has(isbn);
 
               return (
@@ -162,7 +163,7 @@ export default function Home() {
                   onAction={
                     isAuthenticated && !alreadyAdded
                       ? () =>
-                          addToWishlistMutation.mutate({ isbn })
+                        addToWishlistMutation.mutate({ isbn })
                       : undefined
                   }
                   actionLabel={alreadyAdded ? 'Added!' : 'Want this'}

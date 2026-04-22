@@ -6,6 +6,7 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
 import ISBNInput from '../components/common/ISBNInput.jsx';
 import Pagination from '../components/common/Pagination.jsx';
+import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './Wishlist.module.css';
 
 const PAGE_SIZE = 20;
@@ -13,12 +14,6 @@ const PAGE_SIZE = 20;
 // Helper function to normalize bibliographic format for display.
 function getFormatLabel(formatValue) {
   return formatValue?.trim() || 'Unknown';
-}
-
-// Helper function to show primary author
-function getPrimaryAuthor(authors) {
-  if (!authors || authors.length === 0) return 'Unknown Author';
-  return authors[0];
 }
 
 // Helper to format date
@@ -257,12 +252,12 @@ export default function Wishlist() {
               const book = item.book ?? item;
               return (
                 <div key={item.id} className={`card ${styles.wishItem} ${!item.is_active ? styles.inactive : ''}`}>
-                  {book.cover_url && (
-                    <img src={book.cover_url} alt={book.title} className={styles.cover} />
+                  {getBookCoverUrl(book) && (
+                    <img src={getBookCoverUrl(book)} alt={book.title} className={styles.cover} />
                   )}
                   <div className={styles.info}>
                     <p className={styles.title}>{book.title}</p>
-                    <p className={styles.author}>{getPrimaryAuthor(book.authors)}</p>
+                    <p className={styles.author}>{getBookPrimaryAuthor(book) ?? 'Unknown Author'}</p>
                     <div className={styles.details}>
                       <span className={styles.detailItem}>
                         <strong>Format:</strong> {getFormatLabel(book.physical_format)}

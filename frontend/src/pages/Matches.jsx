@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import Pagination from '../components/common/Pagination.jsx';
+import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './Matches.module.css';
 
 const PAGE_SIZE = 15;
@@ -152,11 +153,11 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
           <p className={styles.exchangeLabel}>You give</p>
           {yourBook ? (
             <>
-              {yourBook.cover_url && (
-                <img src={yourBook.cover_url} alt={yourBook.title} className={styles.exchangeCover} />
+              {getBookCoverUrl(yourBook) && (
+                <img src={getBookCoverUrl(yourBook)} alt={yourBook.title} className={styles.exchangeCover} />
               )}
               <p className={styles.exchangeTitle}>{yourBook.title}</p>
-              {yourBook.author && <p className={styles.exchangeAuthor}>{yourBook.author}</p>}
+              {getBookPrimaryAuthor(yourBook) && <p className={styles.exchangeAuthor}>{getBookPrimaryAuthor(yourBook)}</p>}
               {match.your_book?.condition && (
                 <ConditionBadge condition={match.your_book.condition} />
               )}
@@ -181,11 +182,11 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
           <p className={styles.exchangeLabel}>You receive</p>
           {theirBook ? (
             <>
-              {theirBook.cover_url && (
-                <img src={theirBook.cover_url} alt={theirBook.title} className={styles.exchangeCover} />
+              {getBookCoverUrl(theirBook) && (
+                <img src={getBookCoverUrl(theirBook)} alt={theirBook.title} className={styles.exchangeCover} />
               )}
               <p className={styles.exchangeTitle}>{theirBook.title}</p>
-              {theirBook.author && <p className={styles.exchangeAuthor}>{theirBook.author}</p>}
+              {getBookPrimaryAuthor(theirBook) && <p className={styles.exchangeAuthor}>{getBookPrimaryAuthor(theirBook)}</p>}
               {match.their_book?.condition && (
                 <ConditionBadge condition={match.their_book.condition} />
               )}
