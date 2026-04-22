@@ -1,24 +1,11 @@
 import React, { useState } from 'react';
 import { books as booksApi } from '../../services/api.js';
+import {
+  getBookCoverUrl,
+  getBookPrimaryAuthor,
+  getBookPublishYear,
+} from '../../utils/book.js';
 import styles from './ISBNInput.module.css';
-
-function getPreviewAuthor(book) {
-  if (Array.isArray(book.authors) && book.authors.length > 0) {
-    return book.authors[0];
-  }
-  if (typeof book.author === 'string' && book.author.trim()) {
-    return book.author;
-  }
-  return null;
-}
-
-function getPreviewYear(book) {
-  return book.publish_year ?? book.published_year ?? null;
-}
-
-function getPreviewCover(book) {
-  return book.cover_image_url ?? book.cover_url ?? null;
-}
 
 /**
  * ISBNInput — ISBN input with lookup button and book preview.
@@ -43,9 +30,9 @@ export default function ISBNInput({
   const [localBook, setLocalBook] = useState(null);
 
   const displayBook = foundBook ?? localBook;
-  const previewAuthor = displayBook ? getPreviewAuthor(displayBook) : null;
-  const previewYear = displayBook ? getPreviewYear(displayBook) : null;
-  const previewCover = displayBook ? getPreviewCover(displayBook) : null;
+  const previewAuthor = getBookPrimaryAuthor(displayBook);
+  const previewYear = getBookPublishYear(displayBook);
+  const previewCover = getBookCoverUrl(displayBook);
 
   async function handleLookup() {
     const isbn = value.trim().replace(/-/g, '');

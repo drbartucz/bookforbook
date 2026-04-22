@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import ConditionBadge from './ConditionBadge.jsx';
+import { getBookCoverUrl, getBookIsbn, getBookPrimaryAuthor } from '../../utils/book.js';
 import styles from './BookCard.module.css';
 
 const PLACEHOLDER_COVER = 'data:image/svg+xml,' + encodeURIComponent(`
@@ -17,7 +18,7 @@ const PLACEHOLDER_COVER = 'data:image/svg+xml,' + encodeURIComponent(`
 /**
  * BookCard — displays a book with cover, title, author, condition badge and optional actions.
  * @param {object} props
- * @param {object} props.book - Book object (title, author, cover_url, condition, isbn, etc.)
+ * @param {object} props.book - Book object from the API or legacy UI shape.
  * @param {object} [props.owner] - Owner user object (id, username)
  * @param {Function} [props.onAction] - Primary action callback
  * @param {string} [props.actionLabel] - Label for primary action button
@@ -36,7 +37,9 @@ export default function BookCard({
 }) {
   if (!book) return null;
 
-  const coverUrl = book.cover_url || book.thumbnail || PLACEHOLDER_COVER;
+  const coverUrl = getBookCoverUrl(book) || PLACEHOLDER_COVER;
+  const author = getBookPrimaryAuthor(book);
+  const isbn = getBookIsbn(book);
 
   return (
     <div className={`card ${styles.card} ${compact ? styles.compact : ''}`}>
@@ -56,11 +59,11 @@ export default function BookCard({
           <h3 className={styles.title} title={book.title}>
             {book.title || 'Unknown title'}
           </h3>
-          {book.author && (
-            <p className={styles.author}>{book.author}</p>
+          {author && (
+            <p className={styles.author}>{author}</p>
           )}
-          {book.isbn && (
-            <p className={styles.isbn}>ISBN: {book.isbn}</p>
+          {isbn && (
+            <p className={styles.isbn}>ISBN: {isbn}</p>
           )}
           <div className={styles.meta}>
             {book.condition && <ConditionBadge condition={book.condition} />}
