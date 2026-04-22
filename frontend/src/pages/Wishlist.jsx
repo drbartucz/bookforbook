@@ -176,89 +176,96 @@ export default function Wishlist() {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="minCondition">
-              Minimum acceptable condition
-            </label>
-            <select
-              id="minCondition"
-              className="form-input"
-              value={minCondition}
-              onChange={(e) => setMinCondition(e.target.value)}
-            >
-              {CONDITION_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <p className="form-hint">
-              You&apos;ll only be matched with books meeting this condition or better.
-            </p>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="editionPreference">
-              Match flexibility
-            </label>
-            <select
-              id="editionPreference"
-              className="form-input"
-              value={editionPreference}
-              onChange={(e) => setEditionPreference(e.target.value)}
-            >
-              {EDITION_PREFERENCE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <p className="form-hint">
-              Choose whether to match only this ISBN or other editions of the same work.
-            </p>
-          </div>
-
-          {editionPreference === 'custom' && (
-            <div className="form-group">
-              <label className="form-label">Custom edition rules</label>
-              <div style={{ display: 'grid', gap: '0.5rem' }}>
-                <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={allowTranslations}
-                    onChange={(e) => setAllowTranslations(e.target.checked)}
-                  />
-                  Include translations
+          {foundBook && (
+            <>
+              <div className="form-group">
+                <label className="form-label" htmlFor="editionPreference">
+                  Would you also accept other editions?
                 </label>
-                <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={excludeAbridged}
-                    onChange={(e) => setExcludeAbridged(e.target.checked)}
-                  />
-                  Exclude abridged versions
-                </label>
+                <select
+                  id="editionPreference"
+                  className="form-input"
+                  value={editionPreference}
+                  onChange={(e) => setEditionPreference(e.target.value)}
+                >
+                  {EDITION_PREFERENCE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="form-hint">
+                  {editionPreference === 'exact' && 'Only this exact ISBN will be matched.'}
+                  {editionPreference === 'same_language' && 'Any edition with the same title and author (same language).'}
+                  {editionPreference === 'any_language' && 'Any edition including translations.'}
+                  {editionPreference === 'custom' && 'Define your own rules below.'}
+                </p>
               </div>
 
-              <div style={{ marginTop: '0.75rem' }}>
-                <p className="form-label" style={{ marginBottom: '0.5rem' }}>Allowed formats</p>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {FORMAT_OPTIONS.map((format) => {
-                    const active = formatPreferences.includes(format.value);
-                    return (
-                      <button
-                        key={format.value}
-                        type="button"
-                        className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => toggleFormatPreference(format.value)}
-                      >
-                        {format.label}
-                      </button>
-                    );
-                  })}
+              {editionPreference === 'custom' && (
+                <div className="form-group">
+                  <label className="form-label">Custom edition rules</label>
+                  <div style={{ display: 'grid', gap: '0.5rem' }}>
+                    <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={allowTranslations}
+                        onChange={(e) => setAllowTranslations(e.target.checked)}
+                      />
+                      Include translations
+                    </label>
+                    <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={excludeAbridged}
+                        onChange={(e) => setExcludeAbridged(e.target.checked)}
+                      />
+                      Exclude abridged versions
+                    </label>
+                  </div>
+
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>Allowed formats</p>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {FORMAT_OPTIONS.map((format) => {
+                        const active = formatPreferences.includes(format.value);
+                        return (
+                          <button
+                            key={format.value}
+                            type="button"
+                            className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => toggleFormatPreference(format.value)}
+                          >
+                            {format.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="minCondition">
+                  Minimum acceptable condition
+                </label>
+                <select
+                  id="minCondition"
+                  className="form-input"
+                  value={minCondition}
+                  onChange={(e) => setMinCondition(e.target.value)}
+                >
+                  {CONDITION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="form-hint">
+                  You&apos;ll only be matched with books meeting this condition or better.
+                </p>
               </div>
-            </div>
+            </>
           )}
 
           <button
