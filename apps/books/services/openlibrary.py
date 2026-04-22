@@ -382,6 +382,8 @@ def _normalize_physical_format(value) -> str | None:
     if value is None:
         return None
     text = str(value).strip()
+    if text.lower() in {"unknown", "n/a", "none", "null"}:
+        return None
     return text or None
 
 
