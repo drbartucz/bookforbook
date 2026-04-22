@@ -220,7 +220,11 @@ def fetch_from_open_library(isbn_13: str) -> dict:
     except requests.RequestException as e:
         logger.warning("Open Library ISBN request failed for %s: %s", isbn_13, e)
 
-    if not data.get("title") or not data.get("authors") or not data.get("physical_format"):
+    if (
+        not data.get("title")
+        or not data.get("authors")
+        or not data.get("physical_format")
+    ):
         search_data = _fetch_search_data(isbn_13)
         if search_data:
             data = _merge_book_data(data, search_data)
