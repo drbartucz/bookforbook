@@ -25,12 +25,14 @@ def run_matching_for_new_item(user_book_id=None, wishlist_item_id=None):
         from apps.inventory.models import WishlistItem
         try:
             item = WishlistItem.objects.get(pk=wishlist_item_id)
-            # Find books available that this user wants
             from apps.inventory.models import UserBook
+            from apps.matching.services.preference_filters import wishlist_allows_book
+
             available = UserBook.objects.filter(
-                book=item.book,
                 status=UserBook.Status.AVAILABLE,
             ).select_related('user', 'book')
+
+            available = [ub for ub in available if wishlist_allows_book(item, ub.book)]
             total = 0
             for ub in available:
                 matches = run_direct_matching(user_book=ub)

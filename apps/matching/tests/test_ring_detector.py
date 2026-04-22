@@ -211,6 +211,42 @@ class TestBuildTradeGraph:
         graph, _ = _build_trade_graph()
         assert str(a.pk) not in graph
 
+    def test_related_edition_preference_creates_edge(self):
+        wanted = BookFactory(title="Domain-Driven Design", authors=["Eric Evans"])
+        related = BookFactory(title="Domain-Driven Design", authors=["Eric Evans"])
+        a = UserFactory()
+        b = UserFactory()
+
+        UserBookFactory(user=a, book=related, condition="good")
+        WishlistItemFactory(
+            user=b,
+            book=wanted,
+            min_condition="acceptable",
+            edition_preference="same_language",
+        )
+
+        graph, _ = _build_trade_graph()
+        neighbors_of_a = [n for n, _ in graph.get(str(a.pk), [])]
+        assert str(b.pk) in neighbors_of_a
+
+    def test_exact_preference_does_not_create_related_edge(self):
+        wanted = BookFactory(title="Patterns of Enterprise Application Architecture", authors=["Martin Fowler"])
+        related = BookFactory(title="Patterns of Enterprise Application Architecture", authors=["Martin Fowler"])
+        a = UserFactory()
+        b = UserFactory()
+
+        UserBookFactory(user=a, book=related, condition="good")
+        WishlistItemFactory(
+            user=b,
+            book=wanted,
+            min_condition="acceptable",
+            edition_preference="exact",
+        )
+
+        graph, _ = _build_trade_graph()
+        neighbors_of_a = [n for n, _ in graph.get(str(a.pk), [])]
+        assert str(b.pk) not in neighbors_of_a
+
 
 # ---------------------------------------------------------------------------
 # DB integration tests — run_ring_detection (end-to-end)
