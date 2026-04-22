@@ -96,8 +96,12 @@ describe('Wishlist page', () => {
         await userEvent.type(screen.getByLabelText('ISBN'), '9780393081084');
         await userEvent.click(screen.getByRole('button', { name: 'Mock Lookup' }));
 
+        expect(
+            screen.getByRole('heading', { name: 'Would you also accept other editions?' })
+        ).toBeInTheDocument();
+
         await userEvent.selectOptions(
-            screen.getByLabelText('Would you also accept other editions?'),
+            screen.getByLabelText('Edition matching'),
             'custom'
         );
         await userEvent.click(screen.getByLabelText('Include translations'));

@@ -61,6 +61,7 @@ export default function Wishlist() {
   const [addError, setAddError] = useState(null);
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [showEditionPrompt, setShowEditionPrompt] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['wishlist', page, sortBy, sortOrder],
@@ -72,6 +73,7 @@ export default function Wishlist() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       setShowAddForm(false);
+      setShowEditionPrompt(false);
       setIsbn('');
       setFoundBook(null);
       setMinCondition('any');
@@ -102,6 +104,11 @@ export default function Wishlist() {
 
   const items = data?.results ?? [];
   const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE);
+
+  function handleBookFound(book) {
+    setFoundBook(book);
+    setShowEditionPrompt(Boolean(book));
+  }
 
   function handleAddSubmit(e) {
     e.preventDefault();
@@ -171,79 +178,23 @@ export default function Wishlist() {
             <ISBNInput
               value={isbn}
               onChange={setIsbn}
-              onBookFound={setFoundBook}
+              onBookFound={handleBookFound}
               foundBook={foundBook}
             />
           </div>
 
           {foundBook && (
             <>
-              <div className="form-group">
-                <label className="form-label" htmlFor="editionPreference">
-                  Would you also accept other editions?
-                </label>
-                <select
-                  id="editionPreference"
-                  className="form-input"
-                  value={editionPreference}
-                  onChange={(e) => setEditionPreference(e.target.value)}
+              <div className={styles.preferenceRow}>
+                <span className="badge badge-gray">{getEditionPreferenceLabel(editionPreference)}</span>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowEditionPrompt(true)}
                 >
-                  {EDITION_PREFERENCE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="form-hint">
-                  {editionPreference === 'exact' && 'Only this exact ISBN will be matched.'}
-                  {editionPreference === 'same_language' && 'Any edition with the same title and author (same language).'}
-                  {editionPreference === 'any_language' && 'Any edition including translations.'}
-                  {editionPreference === 'custom' && 'Define your own rules below.'}
-                </p>
+                  Edit edition preferences
+                </button>
               </div>
-
-              {editionPreference === 'custom' && (
-                <div className="form-group">
-                  <label className="form-label">Custom edition rules</label>
-                  <div style={{ display: 'grid', gap: '0.5rem' }}>
-                    <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input
-                        type="checkbox"
-                        checked={allowTranslations}
-                        onChange={(e) => setAllowTranslations(e.target.checked)}
-                      />
-                      Include translations
-                    </label>
-                    <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input
-                        type="checkbox"
-                        checked={excludeAbridged}
-                        onChange={(e) => setExcludeAbridged(e.target.checked)}
-                      />
-                      Exclude abridged versions
-                    </label>
-                  </div>
-
-                  <div style={{ marginTop: '0.75rem' }}>
-                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>Allowed formats</p>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {FORMAT_OPTIONS.map((format) => {
-                        const active = formatPreferences.includes(format.value);
-                        return (
-                          <button
-                            key={format.value}
-                            type="button"
-                            className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
-                            onClick={() => toggleFormatPreference(format.value)}
-                          >
-                            {format.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <div className="form-group">
                 <label className="form-label" htmlFor="minCondition">
@@ -266,6 +217,94 @@ export default function Wishlist() {
                 </p>
               </div>
             </>
+          )}
+
+          {showEditionPrompt && foundBook && (
+            <div className={styles.modalOverlay} role="presentation">
+              <div className={styles.modalCard} role="dialog" aria-modal="true" aria-labelledby="editionPromptTitle">
+                <h3 id="editionPromptTitle" className={styles.modalTitle}>Would you also accept other editions?</h3>
+                <p className={styles.modalSubtitle}>
+                  Set how flexible matching should be for <strong>{foundBook.title}</strong>.
+                </p>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="editionPreference">
+                    Edition matching
+                  </label>
+                  <select
+                    id="editionPreference"
+                    className="form-input"
+                    value={editionPreference}
+                    onChange={(e) => setEditionPreference(e.target.value)}
+                  >
+                    {EDITION_PREFERENCE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="form-hint">
+                    {editionPreference === 'exact' && 'Only this exact ISBN will be matched.'}
+                    {editionPreference === 'same_language' && 'Any edition with the same title and author (same language).'}
+                    {editionPreference === 'any_language' && 'Any edition including translations.'}
+                    {editionPreference === 'custom' && 'Define your own rules below.'}
+                  </p>
+                </div>
+
+                {editionPreference === 'custom' && (
+                  <div className="form-group">
+                    <label className="form-label">Custom edition rules</label>
+                    <div style={{ display: 'grid', gap: '0.5rem' }}>
+                      <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={allowTranslations}
+                          onChange={(e) => setAllowTranslations(e.target.checked)}
+                        />
+                        Include translations
+                      </label>
+                      <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={excludeAbridged}
+                          onChange={(e) => setExcludeAbridged(e.target.checked)}
+                        />
+                        Exclude abridged versions
+                      </label>
+                    </div>
+
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>Allowed formats</p>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {FORMAT_OPTIONS.map((format) => {
+                          const active = formatPreferences.includes(format.value);
+                          return (
+                            <button
+                              key={format.value}
+                              type="button"
+                              className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
+                              onClick={() => toggleFormatPreference(format.value)}
+                            >
+                              {format.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className={styles.modalActions}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowEditionPrompt(false)}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           <button
