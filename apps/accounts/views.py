@@ -14,6 +14,7 @@ from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshV
 from .models import User
 from .serializers import (
     AccountDeletionSerializer,
+    AddressVerificationSerializer,
     EmailVerificationSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
@@ -39,14 +40,20 @@ class RegisterView(APIView):
         # Send verification email asynchronously
         try:
             from django_q.tasks import async_task
+
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = email_verification_token.make_token(user)
-            async_task('apps.notifications.tasks.send_verification_email', str(user.pk), uid, token)
+            async_task(
+                "apps.notifications.tasks.send_verification_email",
+                str(user.pk),
+                uid,
+                token,
+            )
         except Exception:
-            logger.exception('Failed to queue verification email for user %s', user.pk)
+            logger.exception("Failed to queue verification email for user %s", user.pk)
 
         return Response(
-            {'detail': 'Account created. Please verify your email address.'},
+            {"detail": "Account created. Please verify your email address."},
             status=status.HTTP_201_CREATED,
         )
 
@@ -57,31 +64,34 @@ class VerifyEmailView(APIView):
     def post(self, request):
         serializer = EmailVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
+        user = serializer.validated_data["user"]
         user.email_verified = True
         user.email_verified_at = timezone.now()
-        user.save(update_fields=['email_verified', 'email_verified_at'])
-        return Response({'detail': 'Email verified successfully.'})
+        user.save(update_fields=["email_verified", "email_verified_at"])
+        return Response({"detail": "Email verified successfully."})
 
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        serializer = LoginSerializer(data=request.data, context={'request': request})
+        serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
+        user = serializer.validated_data["user"]
 
         refresh = RefreshToken.for_user(user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': UserMeSerializer(user).data,
-        })
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserMeSerializer(user).data,
+            }
+        )
 
 
 class TokenRefreshView(BaseTokenRefreshView):
     """Thin wrapper around simplejwt's token refresh."""
+
     pass
 
 
@@ -91,13 +101,14 @@ class LogoutView(APIView):
     def post(self, request):
         try:
             from rest_framework_simplejwt.tokens import RefreshToken
-            refresh_token = request.data.get('refresh')
+
+            refresh_token = request.data.get("refresh")
             if refresh_token:
                 token = RefreshToken(refresh_token)
                 token.blacklist()
         except Exception:
             pass  # Already expired or invalid — treat as logged out
-        return Response({'detail': 'Logged out.'}, status=status.HTTP_200_OK)
+        return Response({"detail": "Logged out."}, status=status.HTTP_200_OK)
 
 
 class PasswordResetRequestView(APIView):
@@ -106,18 +117,28 @@ class PasswordResetRequestView(APIView):
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data['email']
+        email = serializer.validated_data["email"]
 
         try:
             user = User.objects.get(email=email, is_active=True)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
             from django_q.tasks import async_task
-            async_task('apps.notifications.tasks.send_password_reset_email', str(user.pk), uid, token)
+
+            async_task(
+                "apps.notifications.tasks.send_password_reset_email",
+                str(user.pk),
+                uid,
+                token,
+            )
         except User.DoesNotExist:
             pass  # Don't reveal if email exists
 
-        return Response({'detail': 'If an account with that email exists, a reset link has been sent.'})
+        return Response(
+            {
+                "detail": "If an account with that email exists, a reset link has been sent."
+            }
+        )
 
 
 class PasswordResetConfirmView(APIView):
@@ -126,10 +147,10 @@ class PasswordResetConfirmView(APIView):
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        user.set_password(serializer.validated_data['new_password'])
-        user.save(update_fields=['password'])
-        return Response({'detail': 'Password reset successfully.'})
+        user = serializer.validated_data["user"]
+        user.set_password(serializer.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        return Response({"detail": "Password reset successfully."})
 
 
 class UserMeView(APIView):
@@ -149,7 +170,7 @@ class UserMeView(APIView):
 
     def delete(self, request):
         serializer = AccountDeletionSerializer(
-            data=request.data, context={'request': request}
+            data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
 
@@ -160,15 +181,79 @@ class UserMeView(APIView):
         # Queue GDPR export + deletion
         try:
             from django_q.tasks import async_task
-            async_task('apps.notifications.tasks.send_account_deletion_initiated', str(user.pk))
+
+            async_task(
+                "apps.notifications.tasks.send_account_deletion_initiated", str(user.pk)
+            )
         except Exception:
-            logger.exception('Failed to queue deletion notification for user %s', user.pk)
+            logger.exception(
+                "Failed to queue deletion notification for user %s", user.pk
+            )
 
         # For now, deactivate the account (30-day grace period would require a scheduled task)
         user.is_active = False
-        user.save(update_fields=['is_active'])
+        user.save(update_fields=["is_active"])
 
-        return Response({'detail': 'Account deletion initiated. You will receive a data export by email.'})
+        return Response(
+            {
+                "detail": "Account deletion initiated. You will receive a data export by email."
+            }
+        )
+
+
+class UserAddressVerifyView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = AddressVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        from .services.usps import USPSVerificationError, verify_address_with_usps
+
+        user = request.user
+        payload = serializer.validated_data
+        try:
+            normalized = verify_address_with_usps(
+                address_line_1=payload["address_line_1"],
+                address_line_2=payload.get("address_line_2", ""),
+                city=payload["city"],
+                state=payload["state"],
+                zip_code=payload["zip_code"],
+            )
+        except USPSVerificationError as exc:
+            user.address_verification_status = User.AddressVerificationStatus.FAILED
+            user.save(update_fields=["address_verification_status", "updated_at"])
+            return Response(
+                {
+                    "detail": str(exc),
+                    "code": "address_verification_failed",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.full_name = payload["full_name"]
+        user.address_line_1 = normalized["address_line_1"]
+        user.address_line_2 = normalized["address_line_2"]
+        user.city = normalized["city"]
+        user.state = normalized["state"]
+        user.zip_code = normalized["zip_code"]
+        user.address_verification_status = User.AddressVerificationStatus.VERIFIED
+        user.address_verified_at = timezone.now()
+        user.save(
+            update_fields=[
+                "full_name",
+                "address_line_1",
+                "address_line_2",
+                "city",
+                "state",
+                "zip_code",
+                "address_verification_status",
+                "address_verified_at",
+                "updated_at",
+            ]
+        )
+
+        return Response(UserMeSerializer(user).data, status=status.HTTP_200_OK)
 
 
 class UserMeExportView(APIView):
@@ -184,7 +269,7 @@ class UserPublicProfileView(generics.RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = UserPublicProfileSerializer
     queryset = User.objects.filter(is_active=True)
-    lookup_field = 'id'
+    lookup_field = "id"
 
 
 class UserRatingsView(APIView):
@@ -194,11 +279,12 @@ class UserRatingsView(APIView):
         try:
             user = User.objects.get(pk=id, is_active=True)
         except User.DoesNotExist:
-            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
         from apps.ratings.models import Rating
         from apps.ratings.serializers import RatingSerializer
-        ratings = Rating.objects.filter(rated=user).order_by('-created_at')[:10]
+
+        ratings = Rating.objects.filter(rated=user).order_by("-created_at")[:10]
         serializer = RatingSerializer(ratings, many=True)
         return Response(serializer.data)
 
@@ -212,7 +298,7 @@ class InstitutionListView(generics.ListAPIView):
             account_type__in=[User.AccountType.LIBRARY, User.AccountType.BOOKSTORE],
             is_verified=True,
             is_active=True,
-        ).order_by('institution_name')
+        ).order_by("institution_name")
 
 
 class InstitutionDetailView(generics.RetrieveAPIView):
@@ -226,7 +312,7 @@ class InstitutionDetailView(generics.RetrieveAPIView):
             is_active=True,
         )
 
-    lookup_field = 'id'
+    lookup_field = "id"
 
 
 class InstitutionWantedView(APIView):
@@ -241,16 +327,20 @@ class InstitutionWantedView(APIView):
                 is_active=True,
             )
         except User.DoesNotExist:
-            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
         from apps.inventory.models import WishlistItem
         from apps.inventory.serializers import WishlistItemSerializer
-        items = WishlistItem.objects.filter(user=institution, is_active=True).select_related('book')
+
+        items = WishlistItem.objects.filter(
+            user=institution, is_active=True
+        ).select_related("book")
         serializer = WishlistItemSerializer(items, many=True)
         return Response(serializer.data)
 
 
 # Helper functions
+
 
 def _cancel_user_active_matches(user):
     """Cancel all active matches and proposals for a user being deleted."""
@@ -259,19 +349,19 @@ def _cancel_user_active_matches(user):
 
     # Cancel pending matches
     active_leg_match_ids = MatchLeg.objects.filter(
-        sender=user, status__in=['pending', 'accepted']
-    ).values_list('match_id', flat=True)
+        sender=user, status__in=["pending", "accepted"]
+    ).values_list("match_id", flat=True)
     Match.objects.filter(
-        id__in=active_leg_match_ids, status__in=['pending', 'proposed']
-    ).update(status='expired')
+        id__in=active_leg_match_ids, status__in=["pending", "proposed"]
+    ).update(status="expired")
 
     # Cancel pending proposals
     TradeProposal.objects.filter(
-        proposer=user, status__in=['pending', 'countered']
-    ).update(status='cancelled')
+        proposer=user, status__in=["pending", "countered"]
+    ).update(status="cancelled")
     TradeProposal.objects.filter(
-        recipient=user, status__in=['pending', 'countered']
-    ).update(status='cancelled')
+        recipient=user, status__in=["pending", "countered"]
+    ).update(status="cancelled")
 
 
 def _build_user_export(user):
@@ -281,65 +371,74 @@ def _build_user_export(user):
     from apps.trading.models import Trade, TradeProposal
 
     export = {
-        'profile': {
-            'id': str(user.id),
-            'email': user.email,
-            'username': user.username,
-            'account_type': user.account_type,
-            'created_at': user.created_at.isoformat(),
-            'total_trades': user.total_trades,
-            'avg_recent_rating': str(user.avg_recent_rating) if user.avg_recent_rating else None,
+        "profile": {
+            "id": str(user.id),
+            "email": user.email,
+            "username": user.username,
+            "account_type": user.account_type,
+            "created_at": user.created_at.isoformat(),
+            "total_trades": user.total_trades,
+            "avg_recent_rating": (
+                str(user.avg_recent_rating) if user.avg_recent_rating else None
+            ),
         },
-        'address': {
-            'full_name': user.full_name,
-            'address_line_1': user.address_line_1,
-            'address_line_2': user.address_line_2,
-            'city': user.city,
-            'state': user.state,
-            'zip_code': user.zip_code,
+        "address": {
+            "full_name": user.full_name,
+            "address_line_1": user.address_line_1,
+            "address_line_2": user.address_line_2,
+            "city": user.city,
+            "state": user.state,
+            "zip_code": user.zip_code,
         },
-        'books': [
+        "books": [
             {
-                'id': str(b.id),
-                'isbn_13': b.book.isbn_13,
-                'title': b.book.title,
-                'condition': b.condition,
-                'status': b.status,
-                'created_at': b.created_at.isoformat(),
+                "id": str(b.id),
+                "isbn_13": b.book.isbn_13,
+                "title": b.book.title,
+                "condition": b.condition,
+                "status": b.status,
+                "created_at": b.created_at.isoformat(),
             }
-            for b in UserBook.objects.filter(user=user).select_related('book')
+            for b in UserBook.objects.filter(user=user).select_related("book")
         ],
-        'wishlist': [
+        "wishlist": [
             {
-                'id': str(w.id),
-                'isbn_13': w.book.isbn_13,
-                'title': w.book.title,
-                'min_condition': w.min_condition,
-                'is_active': w.is_active,
+                "id": str(w.id),
+                "isbn_13": w.book.isbn_13,
+                "title": w.book.title,
+                "min_condition": w.min_condition,
+                "is_active": w.is_active,
             }
-            for w in WishlistItem.objects.filter(user=user).select_related('book')
+            for w in WishlistItem.objects.filter(user=user).select_related("book")
         ],
-        'ratings_given': [
+        "ratings_given": [
             {
-                'id': str(r.id),
-                'trade_id': str(r.trade_id),
-                'rated_username': r.rated.username,
-                'score': r.score,
-                'comment': r.comment,
-                'created_at': r.created_at.isoformat(),
+                "id": str(r.id),
+                "trade_id": str(r.trade_id),
+                "rated_username": r.rated.username,
+                "score": r.score,
+                "comment": r.comment,
+                "created_at": r.created_at.isoformat(),
             }
-            for r in Rating.objects.filter(rater=user).select_related('rated')
+            for r in Rating.objects.filter(rater=user).select_related("rated")
         ],
-        'ratings_received': [
+        "ratings_received": [
             {
-                'id': str(r.id),
-                'trade_id': str(r.trade_id),
-                'score': r.score,
-                'comment': r.comment,
-                'book_condition_accurate': r.book_condition_accurate,
-                'created_at': r.created_at.isoformat(),
+                "id": str(r.id),
+                "trade_id": str(r.trade_id),
+                "score": r.score,
+                "comment": r.comment,
+                "book_condition_accurate": r.book_condition_accurate,
+                "created_at": r.created_at.isoformat(),
             }
             for r in Rating.objects.filter(rated=user)
         ],
     }
     return export
+
+
+def user_has_verified_shipping_address(user: User) -> bool:
+    return (
+        user.has_shipping_address
+        and user.address_verification_status == User.AddressVerificationStatus.VERIFIED
+    )

@@ -21,6 +21,20 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+def _should_prompt_for_address(user) -> bool:
+    if user.has_shipping_address:
+        return False
+
+    have_count = (
+        UserBook.objects.filter(user=user)
+        .exclude(status=UserBook.Status.REMOVED)
+        .count()
+    )
+    want_count = WishlistItem.objects.filter(user=user).count()
+    total_listings = have_count + want_count
+    return total_listings == 1
+
+
 def _primary_author(authors) -> str:
     if not authors:
         return ""
@@ -113,9 +127,12 @@ class MyBooksView(APIView):
                 "Failed to queue matching task for user_book %s", user_book.pk
             )
 
-        return Response(
+        response = Response(
             UserBookSerializer(user_book).data, status=status.HTTP_201_CREATED
         )
+        if _should_prompt_for_address(request.user):
+            response["X-Address-Prompt"] = "add_now"
+        return response
 
 
 class MyBookDetailView(APIView):
@@ -189,9 +206,12 @@ class WishlistView(APIView):
                 "Failed to queue matching task for wishlist_item %s", item.pk
             )
 
-        return Response(
+        response = Response(
             WishlistItemSerializer(item).data, status=status.HTTP_201_CREATED
         )
+        if _should_prompt_for_address(request.user):
+            response["X-Address-Prompt"] = "add_now"
+        return response
 
 
 class WishlistItemDetailView(APIView):

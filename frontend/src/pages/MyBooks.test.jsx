@@ -1,5 +1,6 @@
 import React from 'react';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
 import { renderWithProviders } from '../test/renderWithProviders.jsx';
@@ -11,6 +12,35 @@ vi.mock('../services/api.js', () => ({
         add: vi.fn(),
         update: vi.fn(),
         remove: vi.fn(),
+    },
+    users: {
+        verifyAddress: vi.fn(),
+    },
+}));
+
+vi.mock('../components/common/ISBNInput.jsx', () => ({
+    default: function MockISBNInput({ value, onChange, onBookFound }) {
+        return (
+            <div>
+                <input
+                    aria-label="ISBN"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                />
+                <button
+                    type="button"
+                    onClick={() =>
+                        onBookFound({
+                            id: 'book-lookup-1',
+                            title: 'Lookup Book',
+                            isbn_13: value,
+                        })
+                    }
+                >
+                    Mock Lookup
+                </button>
+            </div>
+        );
     },
 }));
 
@@ -54,5 +84,26 @@ describe('MyBooks page', () => {
             'src',
             'https://example.com/foodlab.jpg'
         );
+    });
+
+    it('shows address prompt popup after first offer listing', async () => {
+        myBooks.list.mockResolvedValue({
+            data: { count: 0, results: [] },
+        });
+        myBooks.add.mockResolvedValue({
+            data: {},
+            headers: { 'x-address-prompt': 'add_now' },
+        });
+
+        renderWithProviders(<MyBooks />);
+
+        await userEvent.click(await screen.findByRole('button', { name: '+ Add Book' }));
+        await userEvent.type(screen.getByLabelText('ISBN'), '9780393081084');
+        await userEvent.click(screen.getByRole('button', { name: 'Mock Lookup' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Add to My Books' }));
+
+        expect(
+            await screen.findByRole('heading', { name: 'Would you like to add your address now?' })
+        ).toBeInTheDocument();
     });
 });

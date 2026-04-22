@@ -39,6 +39,9 @@ vi.mock('../services/api.js', () => ({
         update: vi.fn(),
         remove: vi.fn(),
     },
+    users: {
+        verifyAddress: vi.fn(),
+    },
 }));
 
 import { wishlist } from '../services/api.js';
@@ -153,5 +156,26 @@ describe('Wishlist page', () => {
         expect(
             screen.queryByRole('heading', { name: 'Would you also accept other editions?' })
         ).not.toBeInTheDocument();
+    });
+
+    it('shows address prompt after first wishlist listing', async () => {
+        wishlist.list.mockResolvedValue({
+            data: { count: 0, results: [] },
+        });
+        wishlist.add.mockResolvedValue({
+            data: {},
+            headers: { 'x-address-prompt': 'add_now' },
+        });
+
+        renderWithProviders(<Wishlist />);
+
+        await userEvent.click(await screen.findByRole('button', { name: '+ Add to Wishlist' }));
+        await userEvent.type(screen.getByLabelText('ISBN'), '9780393081084');
+        await userEvent.click(screen.getByRole('button', { name: 'Mock Lookup' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Add to Wishlist' }));
+
+        expect(
+            await screen.findByRole('heading', { name: 'Would you like to add your address now?' })
+        ).toBeInTheDocument();
     });
 });
