@@ -97,7 +97,7 @@ describe('Wishlist page', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Mock Lookup' }));
 
         await userEvent.selectOptions(
-            screen.getByLabelText('Match flexibility'),
+            screen.getByLabelText('Would you also accept other editions?'),
             'custom'
         );
         await userEvent.click(screen.getByLabelText('Include translations'));
