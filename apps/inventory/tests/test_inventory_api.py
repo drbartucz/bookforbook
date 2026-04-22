@@ -278,7 +278,9 @@ class TestWishlistView:
         assert item["format_preferences"] == []
         assert item["is_active"] is True
 
-    def test_add_wishlist_item_with_custom_edition_preferences(self, auth_api_client, book):
+    def test_add_wishlist_item_with_custom_edition_preferences(
+        self, auth_api_client, book
+    ):
         from unittest.mock import patch
 
         with patch(
