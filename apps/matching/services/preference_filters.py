@@ -72,7 +72,11 @@ def wishlist_allows_book(wish: WishlistItem, offered_book) -> bool:
     if not allow_translations:
         wanted_authors = extract_author_tokens(wish.book.authors)
         offered_authors = extract_author_tokens(offered_book.authors)
-        if wanted_authors and offered_authors and wanted_authors.isdisjoint(offered_authors):
+        if (
+            wanted_authors
+            and offered_authors
+            and wanted_authors.isdisjoint(offered_authors)
+        ):
             return False
 
     if wish.exclude_abridged and is_abridged(offered_book):

@@ -115,8 +115,12 @@ class TestDirectMatcherService:
         assert len(matches) == 0
 
     def test_exact_preference_blocks_related_edition(self, db):
-        wanted_by_b = BookFactory(title="The Pragmatic Programmer", authors=["Andrew Hunt"])
-        related_from_a = BookFactory(title="The Pragmatic Programmer", authors=["Andrew Hunt"])
+        wanted_by_b = BookFactory(
+            title="The Pragmatic Programmer", authors=["Andrew Hunt"]
+        )
+        related_from_a = BookFactory(
+            title="The Pragmatic Programmer", authors=["Andrew Hunt"]
+        )
         wanted_by_a = BookFactory()
         user_a = UserFactory()
         user_b = UserFactory()
