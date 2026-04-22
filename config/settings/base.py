@@ -158,6 +158,7 @@ CORS_ALLOWED_ORIGINS = config(
     cast=Csv(),
 )
 CORS_ALLOW_CREDENTIALS = True
+CORS_EXPOSE_HEADERS = ["X-Address-Prompt"]
 
 # Django-Q2 (uses PostgreSQL as broker — no Redis needed)
 Q_CLUSTER = {
@@ -197,3 +198,15 @@ AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default="")
 AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default="")
 AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="")
 AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="us-east-1")
+
+# USPS Developer API (OAuth2 + Addresses v3)
+USPS_CLIENT_ID = config("USPS_CLIENT_ID", default="")
+USPS_CLIENT_SECRET = config("USPS_CLIENT_SECRET", default="")
+USPS_OAUTH_SCOPE = config("USPS_OAUTH_SCOPE", default="")
+USPS_OAUTH_BASE_URL = config(
+    "USPS_OAUTH_BASE_URL", default="https://apis.usps.com/oauth2/v3"
+)
+USPS_ADDRESSES_BASE_URL = config(
+    "USPS_ADDRESSES_BASE_URL", default="https://apis.usps.com/addresses/v3"
+)
+USPS_API_TIMEOUT = config("USPS_API_TIMEOUT", default=8, cast=int)

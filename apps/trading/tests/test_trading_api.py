@@ -130,6 +130,13 @@ class TestProposalAccept:
     def test_recipient_accepts_creates_trade(self, api_client):
         proposer = UserFactory()
         recipient = UserFactory()
+        recipient.full_name = "Reader Two"
+        recipient.address_line_1 = "456 Oak Ave"
+        recipient.city = "Austin"
+        recipient.state = "TX"
+        recipient.zip_code = "73301"
+        recipient.address_verification_status = "verified"
+        recipient.save()
         pbook = UserBookFactory(user=proposer, book=BookFactory())
         rbook = UserBookFactory(user=recipient, book=BookFactory())
 
@@ -156,6 +163,23 @@ class TestProposalAccept:
         rbook.refresh_from_db()
         assert pbook.status == UserBook.Status.RESERVED
         assert rbook.status == UserBook.Status.RESERVED
+
+    def test_accept_requires_verified_address(self, api_client):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+
+        client = _auth(api_client, recipient)
+        url = reverse("proposal-accept", kwargs={"pk": proposal_id})
+        resp = client.post(url, format="json")
+
+        assert resp.status_code == 409
+        assert resp.data["code"] == "address_verification_required"
 
     def test_proposer_cannot_accept_own_proposal(self, api_client):
         proposer = UserFactory()
@@ -194,6 +218,13 @@ class TestProposalAccept:
     def test_accept_rejected_if_item_book_no_longer_available(self, api_client):
         proposer = UserFactory()
         recipient = UserFactory()
+        recipient.full_name = "Reader Two"
+        recipient.address_line_1 = "456 Oak Ave"
+        recipient.city = "Austin"
+        recipient.state = "TX"
+        recipient.zip_code = "73301"
+        recipient.address_verification_status = "verified"
+        recipient.save()
         pbook = UserBookFactory(user=proposer, book=BookFactory())
         rbook = UserBookFactory(user=recipient, book=BookFactory())
 

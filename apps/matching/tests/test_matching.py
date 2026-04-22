@@ -229,6 +229,14 @@ class TestCountActiveMatches:
 @pytest.mark.django_db
 class TestMatchAPI:
     def test_accept_match_sets_leg_accepted(self, auth_api_client, verified_user, db):
+        verified_user.full_name = "Reader One"
+        verified_user.address_line_1 = "123 Main St"
+        verified_user.city = "Denver"
+        verified_user.state = "CO"
+        verified_user.zip_code = "80202"
+        verified_user.address_verification_status = "verified"
+        verified_user.save()
+
         other = UserFactory()
         book_a = BookFactory()
         book_b = BookFactory()
@@ -249,6 +257,29 @@ class TestMatchAPI:
         assert resp.status_code == 200
         leg_a.refresh_from_db()
         assert leg_a.status == MatchLeg.Status.ACCEPTED
+
+    def test_accept_match_requires_verified_address(
+        self, auth_api_client, verified_user, db
+    ):
+        other = UserFactory()
+        book_a = BookFactory()
+        book_b = BookFactory()
+        ub_a = UserBookFactory(user=verified_user, book=book_a, condition="good")
+        ub_b = UserBookFactory(user=other, book=book_b, condition="good")
+
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        MatchLeg.objects.create(
+            match=match, sender=verified_user, receiver=other, user_book=ub_a
+        )
+        MatchLeg.objects.create(
+            match=match, sender=other, receiver=verified_user, user_book=ub_b
+        )
+
+        resp = auth_api_client.post(f"/api/v1/matches/{match.id}/accept/")
+        assert resp.status_code == 409
+        assert resp.data["code"] == "address_verification_required"
 
     def test_decline_match_sets_expired(self, auth_api_client, verified_user, db):
         other = UserFactory()

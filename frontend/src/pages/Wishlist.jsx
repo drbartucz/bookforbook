@@ -6,6 +6,7 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
 import ISBNInput from '../components/common/ISBNInput.jsx';
 import Pagination from '../components/common/Pagination.jsx';
+import AddressPromptModal from '../components/common/AddressPromptModal.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './Wishlist.module.css';
 
@@ -62,6 +63,7 @@ export default function Wishlist() {
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
   const [showEditionPrompt, setShowEditionPrompt] = useState(false);
+  const [showAddressPrompt, setShowAddressPrompt] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['wishlist', page, sortBy, sortOrder],
@@ -70,7 +72,7 @@ export default function Wishlist() {
 
   const addMutation = useMutation({
     mutationFn: (itemData) => wishlistApi.add(itemData),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       setShowAddForm(false);
       setShowEditionPrompt(false);
@@ -82,6 +84,9 @@ export default function Wishlist() {
       setExcludeAbridged(true);
       setFormatPreferences([]);
       setAddError(null);
+      if (response?.headers?.['x-address-prompt'] === 'add_now') {
+        setShowAddressPrompt(true);
+      }
     },
     onError: (err) => {
       const msg =
@@ -490,6 +495,8 @@ export default function Wishlist() {
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
+
+      <AddressPromptModal open={showAddressPrompt} onClose={() => setShowAddressPrompt(false)} />
     </div>
   );
 }

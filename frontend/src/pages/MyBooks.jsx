@@ -6,6 +6,7 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
 import ISBNInput from '../components/common/ISBNInput.jsx';
 import Pagination from '../components/common/Pagination.jsx';
+import AddressPromptModal from '../components/common/AddressPromptModal.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './MyBooks.module.css';
 
@@ -45,6 +46,7 @@ export default function MyBooks() {
   const [editCondition, setEditCondition] = useState('');
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [showAddressPrompt, setShowAddressPrompt] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['myBooks', page, sortBy, sortOrder],
@@ -53,13 +55,16 @@ export default function MyBooks() {
 
   const addMutation = useMutation({
     mutationFn: (bookData) => myBooksApi.add(bookData),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['myBooks'] });
       setShowAddForm(false);
       setIsbn('');
       setFoundBook(null);
       setAddCondition('good');
       setAddError(null);
+      if (response?.headers?.['x-address-prompt'] === 'add_now') {
+        setShowAddressPrompt(true);
+      }
     },
     onError: (err) => {
       const msg =
@@ -357,6 +362,8 @@ export default function MyBooks() {
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
+
+      <AddressPromptModal open={showAddressPrompt} onClose={() => setShowAddressPrompt(false)} />
     </div>
   );
 }

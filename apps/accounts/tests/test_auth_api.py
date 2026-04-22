@@ -248,3 +248,60 @@ class TestPasswordReset:
             },
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+class TestAddressVerification:
+    url = "/api/v1/users/me/address/verify/"
+
+    def test_verify_address_success(self, auth_api_client):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.accounts.services.usps.verify_address_with_usps",
+            return_value={
+                "address_line_1": "123 MAIN ST",
+                "address_line_2": "APT 2",
+                "city": "DENVER",
+                "state": "CO",
+                "zip_code": "80202-1234",
+            },
+        ):
+            resp = auth_api_client.post(
+                self.url,
+                {
+                    "full_name": "Reader One",
+                    "address_line_1": "123 Main Street",
+                    "address_line_2": "Apt 2",
+                    "city": "Denver",
+                    "state": "CO",
+                    "zip_code": "80202",
+                },
+            )
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["address_verification_status"] == "verified"
+        assert resp.data["address_line_1"] == "123 MAIN ST"
+
+    def test_verify_address_failure(self, auth_api_client):
+        from unittest.mock import patch
+
+        from apps.accounts.services.usps import USPSVerificationError
+
+        with patch(
+            "apps.accounts.services.usps.verify_address_with_usps",
+            side_effect=USPSVerificationError("Address not found."),
+        ):
+            resp = auth_api_client.post(
+                self.url,
+                {
+                    "full_name": "Reader One",
+                    "address_line_1": "Nope",
+                    "city": "Nowhere",
+                    "state": "CO",
+                    "zip_code": "80202",
+                },
+            )
+
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert resp.data["code"] == "address_verification_failed"

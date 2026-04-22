@@ -7,6 +7,8 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.views import user_has_verified_shipping_address
+
 from .models import Trade, TradeProposal, TradeShipment
 from .serializers import (
     MarkShippedSerializer,
@@ -102,6 +104,15 @@ class ProposalAcceptView(APIView):
             return Response(
                 {"detail": "This proposal has expired."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user_has_verified_shipping_address(request.user):
+            return Response(
+                {
+                    "detail": "You need a USPS-verified shipping address before accepting a proposal.",
+                    "code": "address_verification_required",
+                },
+                status=status.HTTP_409_CONFLICT,
             )
 
         with transaction.atomic():
