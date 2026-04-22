@@ -1,7 +1,24 @@
 import React, { useState } from 'react';
 import { books as booksApi } from '../../services/api.js';
-import ConditionBadge from './ConditionBadge.jsx';
 import styles from './ISBNInput.module.css';
+
+function getPreviewAuthor(book) {
+  if (Array.isArray(book.authors) && book.authors.length > 0) {
+    return book.authors[0];
+  }
+  if (typeof book.author === 'string' && book.author.trim()) {
+    return book.author;
+  }
+  return null;
+}
+
+function getPreviewYear(book) {
+  return book.publish_year ?? book.published_year ?? null;
+}
+
+function getPreviewCover(book) {
+  return book.cover_image_url ?? book.cover_url ?? null;
+}
 
 /**
  * ISBNInput — ISBN input with lookup button and book preview.
@@ -26,6 +43,9 @@ export default function ISBNInput({
   const [localBook, setLocalBook] = useState(null);
 
   const displayBook = foundBook ?? localBook;
+  const previewAuthor = displayBook ? getPreviewAuthor(displayBook) : null;
+  const previewYear = displayBook ? getPreviewYear(displayBook) : null;
+  const previewCover = displayBook ? getPreviewCover(displayBook) : null;
 
   async function handleLookup() {
     const isbn = value.trim().replace(/-/g, '');
@@ -116,20 +136,20 @@ export default function ISBNInput({
 
       {displayBook && (
         <div className={styles.bookPreview}>
-          {displayBook.cover_url && (
+          {previewCover && (
             <img
-              src={displayBook.cover_url}
+              src={previewCover}
               alt="Book cover"
               className={styles.previewCover}
             />
           )}
           <div className={styles.previewInfo}>
             <p className={styles.previewTitle}>{displayBook.title}</p>
-            {displayBook.author && (
-              <p className={styles.previewAuthor}>{displayBook.author}</p>
+            {previewAuthor && (
+              <p className={styles.previewAuthor}>{previewAuthor}</p>
             )}
-            {displayBook.published_year && (
-              <p className={styles.previewMeta}>{displayBook.published_year}</p>
+            {previewYear && (
+              <p className={styles.previewMeta}>{previewYear}</p>
             )}
           </div>
           <span className="badge badge-green" style={{ alignSelf: 'flex-start', flexShrink: 0 }}>
