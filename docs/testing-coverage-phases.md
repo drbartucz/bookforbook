@@ -31,9 +31,12 @@ This plan turns the current testing gaps into executable phases with clear compl
   - Phase 6 additions:
     - `frontend/src/services/api.test.js` added simultaneous 401 concurrency coverage to verify one refresh call serves queued requests.
     - `frontend/src/hooks/useAuth.test.jsx` now includes parameterized account-type coverage for `isInstitution` across `individual`, `library`, and `bookstore`.
+  - Phase 7 additions:
+    - `apps/trading/tests/test_trading_api.py` added `@pytest.mark.slow` full pipeline integration coverage for match acceptance -> trade lifecycle -> mutual ratings -> rolling average recompute.
+    - `apps/matching/views.py` fixed `MatchAcceptView` all-accepted completion check to use a fresh queryset, preventing stale prefetched leg states from blocking trade creation.
 
 - Remaining:
-  - Execute Phase 7.
+  - None. All phases complete.
 
 Notes:
 - In this environment, focused Django test runs may require `--reuse-db` if another session is holding the test database.
