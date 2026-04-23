@@ -55,6 +55,28 @@ def verified_user(db) -> User:
 
 
 @pytest.fixture
+def address_verified_user(db) -> User:
+    user = UserFactory(email_verified=True)
+    user.full_name = "Reader One"
+    user.address_line_1 = "123 Main St"
+    user.city = "Denver"
+    user.state = "CO"
+    user.zip_code = "80202"
+    user.address_verification_status = User.AddressVerificationStatus.VERIFIED
+    user.save(
+        update_fields=[
+            "full_name",
+            "address_line_1",
+            "city",
+            "state",
+            "zip_code",
+            "address_verification_status",
+        ]
+    )
+    return user
+
+
+@pytest.fixture
 def auth_api_client(verified_user: User):
     from rest_framework.test import APIClient
 
