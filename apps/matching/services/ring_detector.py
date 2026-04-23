@@ -16,6 +16,10 @@ from apps.matching.services.direct_matcher import (
     _active_match_exists_for_user_book,
     user_at_match_limit,
 )
+from apps.matching.services.prioritization import (
+    condition_priority_value,
+    priority_ordered_wishlist_entries,
+)
 from apps.matching.services.preference_filters import wishlist_allows_book
 
 logger = logging.getLogger(__name__)
@@ -39,6 +43,7 @@ def _build_trade_graph() -> tuple[dict, dict]:
         user__is_active=True,
         user__account_type="individual",
     ).select_related("user", "book")
+    wishlist_items = priority_ordered_wishlist_entries(wishlist_items)
 
     # Build a per-user list of active wishlist items.
     wants: dict[str, list[WishlistItem]] = defaultdict(list)
@@ -62,6 +67,7 @@ def _build_trade_graph() -> tuple[dict, dict]:
     graph: dict[str, list[tuple]] = defaultdict(list)
 
     for sender_id, books in user_books_map.items():
+        sender_edges = []
         for ub in books:
             if _active_match_exists_for_user_book(ub.pk):
                 continue
@@ -72,8 +78,20 @@ def _build_trade_graph() -> tuple[dict, dict]:
                     if wishlist_allows_book(wish, ub.book) and condition_meets_minimum(
                         ub.condition, wish.min_condition
                     ):
-                        graph[sender_id].append((receiver_id, str(ub.pk)))
+                        priority_key = (
+                            wish.created_at,
+                            condition_priority_value(wish.min_condition),
+                            str(wish.pk),
+                            str(ub.pk),
+                            receiver_id,
+                        )
+                        sender_edges.append((priority_key, receiver_id, str(ub.pk)))
                         break
+
+        sender_edges.sort(key=lambda edge: edge[0])
+        graph[sender_id].extend(
+            (receiver_id, book_id) for _, receiver_id, book_id in sender_edges
+        )
 
     return graph, user_books_map
 
