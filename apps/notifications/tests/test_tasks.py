@@ -383,3 +383,24 @@ class TestCheckInactivityTask:
 
         calls_str = str(mock_async.call_args_list)
         assert "send_books_delisted_notification" not in calls_str
+
+    @patch("django_q.tasks.async_task")
+    def test_delists_user_who_never_received_2m_warning(self, mock_async):
+        """User inactive 3+ months is delisted even if the 2m warning was never sent."""
+        user = UserFactory(
+            inactivity_warned_1m=None,
+            inactivity_warned_2m=None,
+            books_delisted_at=None,
+        )
+        _set_last_active(user, 95)
+        book = UserBookFactory(user=user, status=UserBook.Status.AVAILABLE)
+
+        from apps.notifications.tasks import check_inactivity
+
+        check_inactivity()
+
+        book.refresh_from_db()
+        assert book.status == UserBook.Status.DELISTED
+        mock_async.assert_any_call(
+            "apps.notifications.tasks.send_books_delisted_notification", str(user.pk)
+        )

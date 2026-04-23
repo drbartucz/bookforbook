@@ -84,23 +84,20 @@ class DonationAcceptView(APIView):
                 status=UserBook.Status.RESERVED
             )
 
-            # Create a Trade record
-            try:
-                from apps.trading.models import Trade, TradeShipment
+            # Create a Trade record — must succeed for the accept to be valid
+            from apps.trading.models import Trade, TradeShipment
 
-                trade = Trade.objects.create(
-                    source_type=Trade.SourceType.DONATION,
-                    source_id=donation.pk,
-                    status=Trade.Status.CONFIRMED,
-                )
-                TradeShipment.objects.create(
-                    trade=trade,
-                    sender=donation.donor,
-                    receiver=donation.institution,
-                    user_book=donation.user_book,
-                )
-            except Exception:
-                logger.exception("Failed to create trade for donation %s", donation.pk)
+            trade = Trade.objects.create(
+                source_type=Trade.SourceType.DONATION,
+                source_id=donation.pk,
+                status=Trade.Status.CONFIRMED,
+            )
+            TradeShipment.objects.create(
+                trade=trade,
+                sender=donation.donor,
+                receiver=donation.institution,
+                user_book=donation.user_book,
+            )
 
             # Notify donor
             try:

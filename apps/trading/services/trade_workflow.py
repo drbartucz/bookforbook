@@ -257,10 +257,9 @@ def check_trade_completion(trade):
     )
     total_count = len(all_shipments)
 
-    if (
-        received_count == 1
-        and total_count > 1
-        and trade.status == Trade.Status.SHIPPING
+    if 0 < received_count < total_count and trade.status in (
+        Trade.Status.SHIPPING,
+        Trade.Status.ONE_RECEIVED,
     ):
         trade.status = Trade.Status.ONE_RECEIVED
         trade.save(update_fields=["status"])

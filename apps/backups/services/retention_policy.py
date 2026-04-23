@@ -9,7 +9,7 @@ Retention rules:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import NamedTuple
 
 from django.utils import timezone as tz
@@ -55,45 +55,7 @@ def apply_retention_policy() -> None:
 
     # Partition backups into retention buckets
     keep: set[str] = set()
-    delete: set[str] = set()
-
-    for backup in backups:
-        age = now - backup.created_at
-        days_old = age.days
-
-        if days_old < 14:
-            # Daily: keep all
-            if backup.file_name:
-                keep.add(backup.file_name)
-
-        elif days_old < 60:
-            # Weekly: keep oldest from each week
-            week_start = backup.created_at - timedelta(days=backup.created_at.weekday())
-            week_id = (week_start.year, week_start.isocalendar()[1])
-            # Use a simpler approach: group by (year, week)
-            bucket_id = f"week_{week_id}"
-            if not any(
-                b.file_name == backup.file_name
-                for b in backups
-                if (now - b.created_at).days >= 14 and (now - b.created_at).days < 60
-            ):
-                if backup.file_name:
-                    keep.add(backup.file_name)
-
-        elif days_old < 365:
-            # Monthly: keep oldest from each month
-            month_id = (backup.created_at.year, backup.created_at.month)
-            if backup.file_name:
-                keep.add(backup.file_name)
-
-        else:
-            # >1 year: delete
-            if backup.file_name:
-                delete.add(backup.file_name)
-
-    # Refine the logic: for each week/month bucket, keep only the oldest
-    keep = set()
-    delete_set = set()
+    delete_set: set = set()
 
     daily_bucket = []
     weekly_buckets: dict = {}
