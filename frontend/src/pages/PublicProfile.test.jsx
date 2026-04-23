@@ -157,6 +157,30 @@ describe('PublicProfile page', () => {
         expect(wishlist.list).not.toHaveBeenCalled();
     });
 
+    it('does not show shipping address when viewing another individual user profile', async () => {
+        useParams.mockReturnValue({ id: 'user-2' });
+        useAuth.mockReturnValue({ isAuthenticated: true, user: { id: 'user-1' } });
+
+        users.getPublicProfile.mockResolvedValue({
+            data: {
+                id: 'user-2',
+                username: 'another-reader',
+                account_type: 'individual',
+                is_verified: true,
+                total_trades: 4,
+            },
+        });
+        users.getUserRatings.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<PublicProfile />);
+
+        expect(await screen.findByText('@another-reader')).toBeInTheDocument();
+        expect(screen.queryByText('Shipping Address')).not.toBeInTheDocument();
+        expect(screen.queryByText('Wishlist Match Preferences')).not.toBeInTheDocument();
+        expect(users.getMe).not.toHaveBeenCalled();
+        expect(wishlist.list).not.toHaveBeenCalled();
+    });
+
     it('pre-populates wishlist match preferences with defaults when no wishlist items exist', async () => {
         useParams.mockReturnValue({ id: 'user-1' });
         useAuth.mockReturnValue({ isAuthenticated: true, user: { id: 'user-1' } });
