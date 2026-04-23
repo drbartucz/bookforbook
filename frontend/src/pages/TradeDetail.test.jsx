@@ -46,30 +46,46 @@ describe('TradeDetail page', () => {
                 id: 'trade-1',
                 status: 'confirmed',
                 created_at: '2026-04-20T12:00:00Z',
-                partner: { id: 'user-2', username: 'alice' },
-                my_book: {
-                    condition: 'good',
-                    book: {
-                        id: 'book-1',
-                        title: 'Kindred',
-                        authors: ['Octavia E. Butler'],
-                        cover_image_url: 'https://example.com/kindred.jpg',
+                shipments: [
+                    {
+                        sender: { id: 'user-1', username: 'bart0605' },
+                        receiver: { id: 'user-2', username: 'alice' },
+                        status: 'pending',
+                        user_book: {
+                            condition: 'good',
+                            book: {
+                                id: 'book-1',
+                                title: 'Kindred',
+                                authors: ['Octavia E. Butler'],
+                                cover_image_url: 'https://example.com/kindred.jpg',
+                            },
+                        },
+                    },
+                    {
+                        sender: { id: 'user-2', username: 'alice' },
+                        receiver: { id: 'user-1', username: 'bart0605' },
+                        status: 'pending',
+                        user_book: {
+                            condition: 'very_good',
+                            book: {
+                                id: 'book-2',
+                                title: 'The Left Hand of Darkness',
+                                authors: ['Ursula K. Le Guin'],
+                                cover_image_url: 'https://example.com/lefthand.jpg',
+                            },
+                        },
+                    },
+                ],
+                partner_addresses: {
+                    'user-2': {
+                        full_name: 'Alice Reader',
+                        address_line_1: '123 Main St',
+                        address_line_2: '',
+                        city: 'Denver',
+                        state: 'CO',
+                        zip_code: '80202',
                     },
                 },
-                their_book: {
-                    condition: 'very_good',
-                    book: {
-                        id: 'book-2',
-                        title: 'The Left Hand of Darkness',
-                        authors: ['Ursula K. Le Guin'],
-                        cover_image_url: 'https://example.com/lefthand.jpg',
-                    },
-                },
-                my_shipped: false,
-                they_shipped: false,
-                i_received: false,
-                they_received: false,
-                i_rated: false,
             },
         });
         trades.getMessages.mockResolvedValue({ data: [] });
@@ -85,7 +101,11 @@ describe('TradeDetail page', () => {
         expect(screen.getByAltText('The Left Hand of Darkness')).toHaveAttribute('src', 'https://example.com/lefthand.jpg');
 
         await userEvent.type(screen.getByPlaceholderText('Type a message...'), 'Ready to ship soon');
+        expect(screen.getByText('18/1000')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Type a message...')).toHaveAttribute('maxLength', '1000');
+
         await userEvent.click(screen.getByRole('button', { name: 'Send message' }));
+        expect(screen.getByText('0/1000')).toBeInTheDocument();
 
         await waitFor(() => {
             expect(trades.sendMessage).toHaveBeenCalledWith('trade-1', {

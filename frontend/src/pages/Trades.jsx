@@ -7,6 +7,8 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
+import useAuth from '../hooks/useAuth.js';
+import { mapTradeForView } from '../adapters/trades.js';
 import styles from './Trades.module.css';
 
 const PAGE_SIZE = 15;
@@ -27,6 +29,7 @@ const TRADE_STATUS_CONFIG = {
 };
 
 export default function Trades() {
+  const { user } = useAuth();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('active');
 
@@ -39,7 +42,7 @@ export default function Trades() {
     },
   });
 
-  const items = data?.results ?? [];
+  const items = (data?.results ?? []).map((trade) => mapTradeForView(trade, user?.id));
   const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE);
 
   return (
@@ -80,9 +83,9 @@ export default function Trades() {
           <div className={styles.tradeList}>
             {items.map((trade) => {
               const statusConfig = TRADE_STATUS_CONFIG[trade.status] ?? { label: trade.status, cls: 'badge-gray' };
-              const myBook = trade.initiator_book?.book ?? trade.my_book?.book;
-              const theirBook = trade.responder_book?.book ?? trade.their_book?.book;
-              const partner = trade.partner ?? trade.other_user;
+              const myBook = trade.myBook?.book ?? trade.myBook;
+              const theirBook = trade.theirBook?.book ?? trade.theirBook;
+              const partner = trade.partner;
 
               return (
                 <Link key={trade.id} to={`/trades/${trade.id}`} className={`card ${styles.tradeCard}`}>

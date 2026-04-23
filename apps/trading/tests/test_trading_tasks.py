@@ -6,14 +6,20 @@ import pytest
 from datetime import timedelta
 from unittest.mock import patch, call
 
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.inventory.models import UserBook
+from apps.matching.models import Match, MatchLeg
 from apps.notifications.models import Notification
 from apps.ratings.models import Rating
 from apps.tests.factories import BookFactory, UserBookFactory, UserFactory
 from apps.trading.models import Trade, TradeShipment
 from apps.trading.models import TradeProposal
+from apps.trading.services.trade_workflow import (
+    create_trade_from_match,
+    create_trade_from_proposal,
+)
 from apps.trading.tasks import auto_close_trades, send_rating_reminders
 
 
@@ -126,9 +132,10 @@ class TestAutoCloseTrades:
         assert trade.status == Trade.Status.AUTO_CLOSED
 
     def test_books_marked_as_traded_on_auto_close(self):
+        """Books in transit (SHIPPING) are marked TRADED on auto-close."""
         a = UserFactory()
         b = UserFactory()
-        trade, s1, s2 = _make_trade(a, b, Trade.Status.CONFIRMED, overdue=True)
+        trade, s1, s2 = _make_trade(a, b, Trade.Status.SHIPPING, overdue=True)
 
         auto_close_trades()
 
@@ -138,9 +145,10 @@ class TestAutoCloseTrades:
         assert s2.user_book.status == UserBook.Status.TRADED
 
     def test_user_trade_counts_incremented_on_auto_close(self):
+        """Trade counts increment only for SHIPPING auto-close, not CONFIRMED."""
         a = UserFactory()
         b = UserFactory()
-        _make_trade(a, b, Trade.Status.CONFIRMED, overdue=True)
+        _make_trade(a, b, Trade.Status.SHIPPING, overdue=True)
 
         auto_close_trades()
 
@@ -166,9 +174,10 @@ class TestAutoCloseTrades:
         assert notif_b.exists()
 
     def test_pending_shipments_marked_received_on_auto_close(self):
+        """Pending shipments in a SHIPPING trade are marked received on auto-close."""
         a = UserFactory()
         b = UserFactory()
-        trade, s1, s2 = _make_trade(a, b, Trade.Status.CONFIRMED, overdue=True)
+        trade, s1, s2 = _make_trade(a, b, Trade.Status.SHIPPING, overdue=True)
 
         auto_close_trades()
 
@@ -191,10 +200,132 @@ class TestAutoCloseTrades:
         assert trade1.status == Trade.Status.AUTO_CLOSED
         assert trade2.status == Trade.Status.AUTO_CLOSED
 
+    def test_confirmed_auto_close_restores_books_to_available(self):
+        """CONFIRMED trades never shipped — books go back to AVAILABLE, not TRADED."""
+        a = UserFactory()
+        b = UserFactory()
+        trade, s1, s2 = _make_trade(a, b, Trade.Status.CONFIRMED, overdue=True)
+
+        auto_close_trades()
+
+        s1.user_book.refresh_from_db()
+        s2.user_book.refresh_from_db()
+        assert s1.user_book.status == UserBook.Status.AVAILABLE
+        assert s2.user_book.status == UserBook.Status.AVAILABLE
+
+    def test_confirmed_auto_close_does_not_increment_trade_counts(self):
+        """No shipping happened → user trade count must not increase."""
+        a = UserFactory()
+        b = UserFactory()
+        _make_trade(a, b, Trade.Status.CONFIRMED, overdue=True)
+
+        auto_close_trades()
+
+        a.refresh_from_db()
+        b.refresh_from_db()
+        assert a.total_trades == 0
+        assert b.total_trades == 0
+
+    def test_shipping_auto_close_marks_books_traded(self):
+        """Books in transit (SHIPPING) should still be marked TRADED on auto-close."""
+        a = UserFactory()
+        b = UserFactory()
+        trade, s1, s2 = _make_trade(a, b, Trade.Status.SHIPPING, overdue=True)
+
+        auto_close_trades()
+
+        s1.user_book.refresh_from_db()
+        s2.user_book.refresh_from_db()
+        assert s1.user_book.status == UserBook.Status.TRADED
+        assert s2.user_book.status == UserBook.Status.TRADED
+
 
 # ---------------------------------------------------------------------------
-# send_rating_reminders
+# check_trade_completion — ONE_RECEIVED for multi-leg rings
 # ---------------------------------------------------------------------------
+
+
+class TestCheckTradeCompletion:
+    """Unit tests for check_trade_completion / mark_received for 3-leg ring trades."""
+
+    def _make_3leg_trade(self):
+        """Return a SHIPPING trade with 3 shipments (ring: a→b→c→a)."""
+        from apps.trading.models import Trade, TradeShipment
+
+        a = UserFactory()
+        b = UserFactory()
+        c = UserFactory()
+        book_a = UserBookFactory(
+            user=a, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
+        book_b = UserBookFactory(
+            user=b, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
+        book_c = UserBookFactory(
+            user=c, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
+
+        proposal = TradeProposal.objects.create(
+            proposer=a, recipient=b, status=TradeProposal.Status.COMPLETED
+        )
+        trade = Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=proposal.pk,
+            status=Trade.Status.SHIPPING,
+        )
+        s1 = TradeShipment.objects.create(
+            trade=trade, sender=a, receiver=b, user_book=book_a
+        )
+        s2 = TradeShipment.objects.create(
+            trade=trade, sender=b, receiver=c, user_book=book_b
+        )
+        s3 = TradeShipment.objects.create(
+            trade=trade, sender=c, receiver=a, user_book=book_c
+        )
+        return trade, s1, s2, s3
+
+    def test_3leg_one_received_stays_one_received_after_second(self):
+        """After 2 of 3 shipments received the trade stays ONE_RECEIVED, not COMPLETED."""
+        from apps.trading.services.trade_workflow import mark_received
+
+        trade, s1, s2, s3 = self._make_3leg_trade()
+
+        mark_received(s1)
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.ONE_RECEIVED
+
+        mark_received(s2)
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.ONE_RECEIVED
+
+    def test_3leg_completes_when_all_received(self):
+        """All 3 shipments received → COMPLETED."""
+        from apps.trading.services.trade_workflow import mark_received
+
+        trade, s1, s2, s3 = self._make_3leg_trade()
+
+        mark_received(s1)
+        mark_received(s2)
+        mark_received(s3)
+
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.COMPLETED
+
+    def test_2leg_one_received_correct(self):
+        """Regression: 2-leg trade still transitions ONE_RECEIVED → COMPLETED correctly."""
+        from apps.trading.services.trade_workflow import mark_received
+
+        a = UserFactory()
+        b = UserFactory()
+        trade, s1, s2 = _make_trade(a, b, Trade.Status.SHIPPING)
+
+        mark_received(s1)
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.ONE_RECEIVED
+
+        mark_received(s2)
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.COMPLETED
 
 
 class TestSendRatingReminders:
@@ -258,6 +389,86 @@ class TestSendRatingReminders:
             send_rating_reminders()
 
         mock_task.assert_not_called()
+
+
+class TestTradeUniquenessAndIdempotency:
+    def test_trade_source_unique_constraint_blocks_duplicates(self):
+        proposal = TradeProposal.objects.create(
+            proposer=UserFactory(),
+            recipient=UserFactory(),
+            status=TradeProposal.Status.COMPLETED,
+        )
+        Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=proposal.pk,
+            status=Trade.Status.CONFIRMED,
+        )
+
+        with pytest.raises(IntegrityError):
+            Trade.objects.create(
+                source_type=Trade.SourceType.PROPOSAL,
+                source_id=proposal.pk,
+                status=Trade.Status.CONFIRMED,
+            )
+
+    def test_create_trade_from_match_is_idempotent(self):
+        user_a = UserFactory()
+        user_b = UserFactory()
+        book_a = UserBookFactory(user=user_a, book=BookFactory())
+        book_b = UserBookFactory(user=user_b, book=BookFactory())
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT,
+            status=Match.Status.PENDING,
+        )
+        MatchLeg.objects.create(
+            match=match, sender=user_a, receiver=user_b, user_book=book_a, position=0
+        )
+        MatchLeg.objects.create(
+            match=match, sender=user_b, receiver=user_a, user_book=book_b, position=1
+        )
+
+        first = create_trade_from_match(match)
+        second = create_trade_from_match(match)
+
+        assert first.pk == second.pk
+        assert (
+            Trade.objects.filter(
+                source_type=Trade.SourceType.MATCH,
+                source_id=match.pk,
+            ).count()
+            == 1
+        )
+
+    def test_create_trade_from_proposal_is_idempotent(self):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        proposal = TradeProposal.objects.create(
+            proposer=proposer,
+            recipient=recipient,
+            status=TradeProposal.Status.ACCEPTED,
+        )
+        proposer_book = UserBookFactory(user=proposer, book=BookFactory())
+        recipient_book = UserBookFactory(user=recipient, book=BookFactory())
+        proposal.items.create(
+            direction="proposer_sends",
+            user_book=proposer_book,
+        )
+        proposal.items.create(
+            direction="recipient_sends",
+            user_book=recipient_book,
+        )
+
+        first = create_trade_from_proposal(proposal)
+        second = create_trade_from_proposal(proposal)
+
+        assert first.pk == second.pk
+        assert (
+            Trade.objects.filter(
+                source_type=Trade.SourceType.PROPOSAL,
+                source_id=proposal.pk,
+            ).count()
+            == 1
+        )
 
     def test_no_reminder_for_completed_trade_with_max_reminders(self):
         a = UserFactory()

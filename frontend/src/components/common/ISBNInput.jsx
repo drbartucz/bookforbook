@@ -28,6 +28,8 @@ export default function ISBNInput({
   const [looking, setLooking] = useState(false);
   const [lookupError, setLookupError] = useState(null);
   const [localBook, setLocalBook] = useState(null);
+  const [hasBlurred, setHasBlurred] = useState(false);
+  const [hasLookupAttempted, setHasLookupAttempted] = useState(false);
 
   const displayBook = foundBook ?? localBook;
   const previewAuthor = getBookPrimaryAuthor(displayBook);
@@ -35,6 +37,7 @@ export default function ISBNInput({
   const previewCover = getBookCoverUrl(displayBook);
 
   async function handleLookup() {
+    setHasLookupAttempted(true);
     const isbn = value.trim().replace(/-/g, '');
     if (!isbn) return;
 
@@ -85,15 +88,19 @@ export default function ISBNInput({
     setLookupError(null);
   }
 
+  const shouldShowError = hasBlurred || hasLookupAttempted;
+  const visibleError = shouldShowError ? (error || lookupError) : null;
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.inputRow}>
         <input
           type="text"
-          className={`form-input ${error || lookupError ? 'error' : ''} ${styles.input}`}
+          className={`form-input ${visibleError ? 'error' : ''} ${styles.input}`}
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onBlur={() => setHasBlurred(true)}
           placeholder="e.g. 9780141439518"
           disabled={disabled || looking}
           inputMode="numeric"
@@ -117,8 +124,8 @@ export default function ISBNInput({
         </button>
       </div>
 
-      {(error || lookupError) && (
-        <p className="form-error">{error || lookupError}</p>
+      {visibleError && (
+        <p className="form-error">{visibleError}</p>
       )}
 
       {displayBook && (

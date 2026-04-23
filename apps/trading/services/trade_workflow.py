@@ -19,11 +19,15 @@ def create_trade_from_match(match) -> "Trade":
     from apps.inventory.models import UserBook
     from apps.trading.models import Trade, TradeShipment
 
-    trade = Trade.objects.create(
+    trade, created = Trade.objects.get_or_create(
         source_type=Trade.SourceType.MATCH,
         source_id=match.pk,
-        status=Trade.Status.CONFIRMED,
+        defaults={"status": Trade.Status.CONFIRMED},
     )
+
+    if not created:
+        logger.info("Trade %s already exists for match %s", trade.pk, match.pk)
+        return trade
 
     for leg in match.legs.select_related("sender", "receiver", "user_book").all():
         TradeShipment.objects.create(
@@ -61,6 +65,16 @@ def create_trade_from_proposal(proposal) -> "Trade":
     from apps.inventory.models import UserBook
     from apps.trading.models import Trade, TradeProposalItem, TradeShipment
 
+    existing_trade = Trade.objects.filter(
+        source_type=Trade.SourceType.PROPOSAL,
+        source_id=proposal.pk,
+    ).first()
+    if existing_trade is not None:
+        logger.info(
+            "Trade %s already exists for proposal %s", existing_trade.pk, proposal.pk
+        )
+        return existing_trade
+
     items = list(
         proposal.items.select_related("user_book__user", "user_book__book").all()
     )
@@ -75,18 +89,29 @@ def create_trade_from_proposal(proposal) -> "Trade":
     if directions != expected:
         raise ValueError("Proposal is invalid: one item in each direction is required.")
 
-    for item in items:
-        locked_book = UserBook.objects.select_for_update().get(pk=item.user_book_id)
-        if locked_book.status != UserBook.Status.AVAILABLE:
-            raise ValueError(
-                "One or more books are no longer available for this proposal."
-            )
+    book_ids = sorted({item.user_book_id for item in items})
+    locked_books = {
+        book.pk: book
+        for book in UserBook.objects.select_for_update().filter(pk__in=book_ids)
+    }
+    if len(locked_books) != len(book_ids):
+        raise ValueError("One or more books in this proposal no longer exist.")
 
-    trade = Trade.objects.create(
+    if any(
+        locked_books[book_id].status != UserBook.Status.AVAILABLE
+        for book_id in book_ids
+    ):
+        raise ValueError("One or more books are no longer available for this proposal.")
+
+    trade, created = Trade.objects.get_or_create(
         source_type=Trade.SourceType.PROPOSAL,
         source_id=proposal.pk,
-        status=Trade.Status.CONFIRMED,
+        defaults={"status": Trade.Status.CONFIRMED},
     )
+
+    if not created:
+        logger.info("Trade %s already exists for proposal %s", trade.pk, proposal.pk)
+        return trade
 
     for item in items:
         if item.direction == TradeProposalItem.Direction.PROPOSER_SENDS:
@@ -232,10 +257,9 @@ def check_trade_completion(trade):
     )
     total_count = len(all_shipments)
 
-    if (
-        received_count == 1
-        and total_count > 1
-        and trade.status == Trade.Status.SHIPPING
+    if 0 < received_count < total_count and trade.status in (
+        Trade.Status.SHIPPING,
+        Trade.Status.ONE_RECEIVED,
     ):
         trade.status = Trade.Status.ONE_RECEIVED
         trade.save(update_fields=["status"])

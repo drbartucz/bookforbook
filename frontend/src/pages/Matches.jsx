@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { matches as matchesApi } from '../services/api.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
@@ -6,6 +7,8 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
+import useAuth from '../hooks/useAuth.js';
+import { mapMatchForCard } from '../adapters/matches.js';
 import styles from './Matches.module.css';
 
 const PAGE_SIZE = 15;
@@ -25,10 +28,13 @@ const STATUS_CONFIG = {
 };
 
 export default function Matches() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [actionError, setActionError] = useState(null);
+  const [requiresAddressVerification, setRequiresAddressVerification] = useState(false);
+  const [verificationUrl, setVerificationUrl] = useState('/account');
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['matches', statusFilter, page],
@@ -44,9 +50,19 @@ export default function Matches() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       setActionError(null);
+      setRequiresAddressVerification(false);
+      setVerificationUrl('/account');
     },
     onError: (err) => {
-      setActionError(err?.response?.data?.detail || 'Failed to accept match.');
+      const responseData = err?.response?.data;
+      setActionError(responseData?.detail || 'Failed to accept match.');
+      if (responseData?.code === 'address_verification_required') {
+        setRequiresAddressVerification(true);
+        setVerificationUrl(responseData?.verification_url || '/account');
+      } else {
+        setRequiresAddressVerification(false);
+        setVerificationUrl('/account');
+      }
     },
   });
 
@@ -55,13 +71,15 @@ export default function Matches() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       setActionError(null);
+      setRequiresAddressVerification(false);
+      setVerificationUrl('/account');
     },
     onError: (err) => {
       setActionError(err?.response?.data?.detail || 'Failed to decline match.');
     },
   });
 
-  const items = data?.results ?? [];
+  const items = (data?.results ?? []).map((match) => mapMatchForCard(match, user?.id));
   const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE);
 
   function handleTabChange(val) {
@@ -93,7 +111,16 @@ export default function Matches() {
 
       {actionError && (
         <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
-          {actionError}
+          <div>{actionError}</div>
+          {requiresAddressVerification && verificationUrl && (
+            <Link
+              to={verificationUrl}
+              className="btn btn-secondary"
+              style={{ marginTop: '0.75rem', display: 'inline-flex' }}
+            >
+              Verify address now
+            </Link>
+          )}
         </div>
       )}
 
@@ -135,10 +162,9 @@ export default function Matches() {
 function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
   const statusConfig = STATUS_CONFIG[match.status] ?? { label: match.status, cls: 'badge-gray' };
 
-  // Each match leg: your book going out, their book coming in
-  const yourBook = match.your_book?.book ?? match.offered_book?.book ?? null;
-  const theirBook = match.their_book?.book ?? match.requested_book?.book ?? null;
-  const partner = match.partner ?? match.other_user;
+  const yourBook = match.yourBook;
+  const theirBook = match.theirBook;
+  const partner = match.partner;
 
   return (
     <div className={`card ${styles.matchCard}`}>
@@ -158,8 +184,8 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
               )}
               <p className={styles.exchangeTitle}>{yourBook.title}</p>
               {getBookPrimaryAuthor(yourBook) && <p className={styles.exchangeAuthor}>{getBookPrimaryAuthor(yourBook)}</p>}
-              {match.your_book?.condition && (
-                <ConditionBadge condition={match.your_book.condition} />
+              {match.yourCondition && (
+                <ConditionBadge condition={match.yourCondition} />
               )}
             </>
           ) : (
@@ -187,8 +213,8 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
               )}
               <p className={styles.exchangeTitle}>{theirBook.title}</p>
               {getBookPrimaryAuthor(theirBook) && <p className={styles.exchangeAuthor}>{getBookPrimaryAuthor(theirBook)}</p>}
-              {match.their_book?.condition && (
-                <ConditionBadge condition={match.their_book.condition} />
+              {match.theirCondition && (
+                <ConditionBadge condition={match.theirCondition} />
               )}
             </>
           ) : (

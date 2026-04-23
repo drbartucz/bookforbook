@@ -19,6 +19,8 @@ export default function Register() {
   });
 
   const password = watch('password');
+  const accountType = watch('account_type');
+  const isInstitution = accountType === 'library' || accountType === 'bookstore';
 
   async function onSubmit(data) {
     setServerError(null);
@@ -30,6 +32,8 @@ export default function Register() {
         password: data.password,
         password2: data.confirmPassword,
         account_type: data.account_type,
+        institution_name: data.institution_name || '',
+        institution_url: data.institution_url || '',
       });
       setSuccess(true);
     } catch (err) {
@@ -96,7 +100,8 @@ export default function Register() {
             <div style={{ display: 'flex', gap: '1rem' }}>
               {[
                 { value: 'individual', label: 'Individual' },
-                { value: 'institution', label: 'Institution (library / bookstore)' },
+                { value: 'library', label: 'Library' },
+                { value: 'bookstore', label: 'Bookstore' },
               ].map((opt) => (
                 <label
                   key={opt.value}
@@ -118,6 +123,58 @@ export default function Register() {
               ))}
             </div>
           </div>
+
+          {isInstitution && (
+            <>
+              <div className="form-group">
+                <label className="form-label" htmlFor="institution_name">
+                  Institution name
+                </label>
+                <input
+                  id="institution_name"
+                  type="text"
+                  className={`form-input ${errors.institution_name ? 'error' : ''}`}
+                  {...register('institution_name', {
+                    validate: (value) => {
+                      if (!isInstitution) return true;
+                      return value?.trim() ? true : 'Institution name is required.';
+                    },
+                  })}
+                />
+                {errors.institution_name && (
+                  <p className="form-error">{errors.institution_name.message}</p>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="institution_url">
+                  Institution website (optional)
+                </label>
+                <input
+                  id="institution_url"
+                  type="url"
+                  className={`form-input ${errors.institution_url ? 'error' : ''}`}
+                  placeholder="https://example.org"
+                  {...register('institution_url', {
+                    validate: (value) => {
+                      if (!value) return true;
+                      try {
+                        const parsed = new URL(value);
+                        return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+                          ? true
+                          : 'Use an http:// or https:// URL.';
+                      } catch {
+                        return 'Enter a valid URL.';
+                      }
+                    },
+                  })}
+                />
+                {errors.institution_url && (
+                  <p className="form-error">{errors.institution_url.message}</p>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Email */}
           <div className="form-group">

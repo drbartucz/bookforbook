@@ -44,9 +44,7 @@ def run_database_backup(record_id: str) -> None:
         file_size: int | None = None
         if filename:
             try:
-                f = storage.open(filename)
-                content = f.read()
-                file_size = len(content)
+                file_size = storage.size(filename)
             except Exception:
                 pass
 

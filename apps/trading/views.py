@@ -111,6 +111,7 @@ class ProposalAcceptView(APIView):
                 {
                     "detail": "You need a USPS-verified shipping address before accepting a proposal.",
                     "code": "address_verification_required",
+                    "verification_url": "/account",
                 },
                 status=status.HTTP_409_CONFLICT,
             )

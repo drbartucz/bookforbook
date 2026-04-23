@@ -118,3 +118,76 @@ def expire_old_matches():
 
     if expired_count:
         logger.info("Expired %d match(es)", expired_count)
+
+
+def retry_ring_after_decline_task(match_id: str, declining_user_id: str):
+    """
+    Async job: attempt to reform a ring after a decline and notify participants.
+    """
+    from apps.accounts.models import User
+    from apps.matching.models import Match
+
+    try:
+        match = Match.objects.prefetch_related("legs").get(pk=match_id)
+    except Match.DoesNotExist:
+        logger.warning("Ring retry skipped: match %s not found", match_id)
+        return
+
+    if match.match_type != Match.MatchType.RING:
+        logger.info("Ring retry skipped: match %s is not a ring", match_id)
+        return
+
+    try:
+        declining_user = User.objects.get(pk=declining_user_id)
+    except User.DoesNotExist:
+        logger.warning(
+            "Ring retry skipped: declining user %s not found", declining_user_id
+        )
+        return
+
+    try:
+        from apps.matching.services.ring_detector import retry_ring_after_decline
+
+        new_match = retry_ring_after_decline(match, declining_user)
+        if new_match:
+            from django_q.tasks import async_task
+
+            async_task(
+                "apps.notifications.tasks.send_match_notification",
+                str(new_match.pk),
+            )
+            return
+    except Exception:
+        logger.exception(
+            "Error during async ring retry after decline for match %s", match.pk
+        )
+        return
+
+    participant_ids = list(
+        match.legs.exclude(sender=declining_user)
+        .values_list("sender_id", flat=True)
+        .distinct()
+    )
+    participants = User.objects.filter(pk__in=participant_ids)
+
+    try:
+        from apps.notifications.models import Notification
+
+        notifications = [
+            Notification(
+                user=participant,
+                notification_type="ring_cancelled",
+                title="Exchange ring cancelled",
+                body=(
+                    "An exchange ring you were part of could not be completed. "
+                    "Your books are available for new matches."
+                ),
+            )
+            for participant in participants
+        ]
+        if notifications:
+            Notification.objects.bulk_create(notifications)
+    except Exception:
+        logger.exception(
+            "Failed to notify ring participants after decline for match %s", match.pk
+        )

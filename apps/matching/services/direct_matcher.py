@@ -9,6 +9,7 @@ import logging
 from typing import Optional
 
 from django.db import transaction
+from django.db.models import Exists, OuterRef, Q
 
 from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg
@@ -30,24 +31,32 @@ def count_active_matches_for_user(user) -> int:
         .count()
     )
 
-    proposal_count = 0
-    try:
-        from apps.trading.models import TradeProposal
+    from apps.trading.models import Trade, TradeProposal
 
-        proposal_count = (
-            TradeProposal.objects.filter(
-                proposer=user,
-                status__in=["pending", "accepted"],
-            ).count()
-            + TradeProposal.objects.filter(
-                recipient=user,
-                status__in=["pending", "accepted"],
-            ).count()
+    user_proposals = TradeProposal.objects.filter(Q(proposer=user) | Q(recipient=user))
+
+    active_proposals = user_proposals.filter(
+        status__in=[
+            TradeProposal.Status.PENDING,
+            TradeProposal.Status.COUNTERED,
+        ]
+    ).count()
+
+    accepted_without_trade = (
+        user_proposals.filter(status=TradeProposal.Status.ACCEPTED)
+        .annotate(
+            has_trade=Exists(
+                Trade.objects.filter(
+                    source_type=Trade.SourceType.PROPOSAL,
+                    source_id=OuterRef("pk"),
+                )
+            )
         )
-    except Exception:
-        pass
+        .filter(has_trade=False)
+        .count()
+    )
 
-    return match_count + proposal_count
+    return match_count + active_proposals + accepted_without_trade
 
 
 def user_at_match_limit(user) -> bool:
@@ -61,6 +70,17 @@ def _active_match_exists_for_user_book(user_book_id) -> bool:
         user_book_id=user_book_id,
         match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
     ).exists()
+
+
+def _lock_user_books(*book_ids: int) -> dict[int, UserBook]:
+    """Lock user-book rows in deterministic order and return by id."""
+    unique_ids = sorted(set(book_ids))
+    locked_books = (
+        UserBook.objects.select_for_update()
+        .select_related("user", "book")
+        .filter(pk__in=unique_ids)
+    )
+    return {book.pk: book for book in locked_books}
 
 
 def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
@@ -111,6 +131,13 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
                 user__email_verified=True,
                 user__is_active=True,
             )
+            .filter(
+                Q(
+                    edition_preference=WishlistItem.EditionPreference.EXACT,
+                    book=book_a.book,
+                )
+                | ~Q(edition_preference=WishlistItem.EditionPreference.EXACT)
+            )
             .select_related("user", "book")
             .exclude(user=user_a)
         )
@@ -139,16 +166,10 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
             if match_book_b is None:
                 continue
 
-            # Skip if book_b is already in an active match
-            if _active_match_exists_for_user_book(match_book_b.pk):
-                continue
-
-            # Check for duplicate active match
-            if _duplicate_match_exists(user_a, user_b, book_a, match_book_b):
-                continue
-
-            # Create the direct match
-            match = _create_direct_match(user_a, user_b, book_a, match_book_b)
+            # Create the direct match under row locks to avoid races across workers.
+            match = _create_direct_match_with_locks(
+                user_a, user_b, book_a, match_book_b
+            )
             if match:
                 created_matches.append(match)
                 logger.info(
@@ -214,6 +235,39 @@ def _duplicate_match_exists(user_a, user_b, book_a: UserBook, book_b: UserBook) 
         receiver=user_b,
     ).exists()
     return existing
+
+
+@transaction.atomic
+def _create_direct_match_with_locks(
+    user_a, user_b, book_a: UserBook, book_b: UserBook
+) -> Optional[Match]:
+    """Re-check and create a direct match while holding row locks on both books."""
+    locked_books = _lock_user_books(book_a.pk, book_b.pk)
+    locked_book_a = locked_books.get(book_a.pk)
+    locked_book_b = locked_books.get(book_b.pk)
+
+    if not locked_book_a or not locked_book_b:
+        return None
+
+    if (
+        locked_book_a.status != UserBook.Status.AVAILABLE
+        or locked_book_b.status != UserBook.Status.AVAILABLE
+    ):
+        return None
+
+    if _active_match_exists_for_user_book(locked_book_a.pk):
+        return None
+
+    if _active_match_exists_for_user_book(locked_book_b.pk):
+        return None
+
+    if _duplicate_match_exists(user_a, user_b, locked_book_a, locked_book_b):
+        return None
+
+    if user_at_match_limit(user_a) or user_at_match_limit(user_b):
+        return None
+
+    return _create_direct_match(user_a, user_b, locked_book_a, locked_book_b)
 
 
 @transaction.atomic

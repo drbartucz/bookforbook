@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { users as usersApi } from '../services/api.js';
 import useAuth from '../hooks/useAuth.js';
@@ -11,11 +12,24 @@ function getAddressStatusLabel(status) {
     return 'Not verified';
 }
 
+function getAddressStatusHelp(status) {
+    if (status === 'verified') {
+        return 'Your shipping address is verified and ready for matches and proposals.';
+    }
+    if (status === 'failed') {
+        return 'Your last USPS verification failed. Review the error details and re-submit your address.';
+    }
+    return 'Verify your shipping address to accept matches and proposals.';
+}
+
 export default function AccountSettings() {
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const { user, updateUser } = useAuth();
+    const { user, updateUser, logout } = useAuth();
     const [serverError, setServerError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
+    const [deletePassword, setDeletePassword] = useState('');
+    const [deleteError, setDeleteError] = useState(null);
     const [form, setForm] = useState({
         full_name: '',
         address_line_1: '',
@@ -76,6 +90,29 @@ export default function AccountSettings() {
         },
     });
 
+    const deleteAccountMutation = useMutation({
+        mutationFn: (payload) => usersApi.deleteAccount(payload),
+        onSuccess: () => {
+            logout();
+            navigate('/login', { replace: true });
+        },
+        onError: (mutationError) => {
+            const responseData = mutationError?.response?.data;
+            if (typeof responseData?.detail === 'string') {
+                setDeleteError(responseData.detail);
+                return;
+            }
+            if (responseData && typeof responseData === 'object') {
+                const fieldMessage = Object.values(responseData).flat().find(Boolean);
+                if (fieldMessage) {
+                    setDeleteError(String(fieldMessage));
+                    return;
+                }
+            }
+            setDeleteError('Unable to delete account. Please try again.');
+        },
+    });
+
     function handleChange(event) {
         const { name, value } = event.target;
         setSuccessMessage(null);
@@ -100,6 +137,16 @@ export default function AccountSettings() {
         });
     }
 
+    function handleDeleteAccount(event) {
+        event.preventDefault();
+        setDeleteError(null);
+        if (!deletePassword.trim()) {
+            setDeleteError('Password is required to delete your account.');
+            return;
+        }
+        deleteAccountMutation.mutate({ password: deletePassword });
+    }
+
     if (isLoading) {
         return <LoadingSpinner center size="lg" />;
     }
@@ -122,6 +169,7 @@ export default function AccountSettings() {
 
     const account = me ?? user;
     const addressStatus = getAddressStatusLabel(account?.address_verification_status);
+    const statusHelp = getAddressStatusHelp(account?.address_verification_status);
     const hasAddress = Boolean(account?.address_line_1 && account?.city && account?.state && account?.zip_code);
 
     return (
@@ -140,6 +188,10 @@ export default function AccountSettings() {
                             ? 'Your current address is stored here and can be re-verified any time.'
                             : 'No shipping address is on file yet.'}
                     </p>
+                    <p className={styles.statusText}>{statusHelp}</p>
+                    {account?.address_verification_status === 'failed' && serverError && (
+                        <p className={styles.statusError}>Last USPS error: {serverError}</p>
+                    )}
                 </div>
             </div>
 
@@ -263,6 +315,37 @@ export default function AccountSettings() {
                         </div>
                     </form>
                 </div>
+            </div>
+
+            <div className={`card ${styles.dangerZone}`}>
+                <h2 className={styles.sectionTitle}>Danger Zone</h2>
+                <p className={styles.helperText}>
+                    Delete your account and deactivate access. This action cannot be undone.
+                </p>
+
+                {deleteError && <div className="alert alert-error">{deleteError}</div>}
+
+                <form onSubmit={handleDeleteAccount} className={styles.deleteForm}>
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="delete-password">Confirm password</label>
+                        <input
+                            id="delete-password"
+                            type="password"
+                            className="form-input"
+                            value={deletePassword}
+                            onChange={(event) => setDeletePassword(event.target.value)}
+                            autoComplete="current-password"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        className="btn btn-danger"
+                        disabled={deleteAccountMutation.isPending}
+                    >
+                        {deleteAccountMutation.isPending ? 'Deleting account...' : 'Delete account'}
+                    </button>
+                </form>
             </div>
         </div>
     );

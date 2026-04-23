@@ -1,42 +1,56 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import useAuth from '../../hooks/useAuth.js';
-import { matches as matchesApi, proposals as proposalsApi } from '../../services/api.js';
+import { notifications as notificationsApi } from '../../services/api.js';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
+  const queryClient = useQueryClient();
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Fetch pending counts for notification badge
-  const { data: pendingMatches } = useQuery({
-    queryKey: ['matches', 'pending-count'],
+  // Fetch consolidated pending counts for navbar badges.
+  const { data: pendingCounts } = useQuery({
+    queryKey: ['notifications', 'counts'],
     queryFn: async () => {
-      const res = await matchesApi.list({ status: 'pending', page_size: 1 });
-      return res.data?.count ?? 0;
+      const res = await notificationsApi.counts();
+      return res.data ?? {};
     },
     enabled: isAuthenticated,
     refetchInterval: 60_000, // refresh every minute
   });
 
-  const { data: pendingProposals } = useQuery({
-    queryKey: ['proposals', 'pending-count'],
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications', 'recent'],
     queryFn: async () => {
-      const res = await proposalsApi.list({ status: 'pending', direction: 'received', page_size: 1 });
-      return res.data?.count ?? 0;
+      const res = await notificationsApi.list({ page: 1, page_size: 5 });
+      return res.data ?? {};
     },
-    enabled: isAuthenticated,
-    refetchInterval: 60_000,
+    enabled: isAuthenticated && notificationsOpen,
   });
 
-  const totalPending = (pendingMatches ?? 0) + (pendingProposals ?? 0);
+  const markAllReadMutation = useMutation({
+    mutationFn: () => notificationsApi.markAllRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'recent'] });
+    },
+  });
+
+  const totalPending = pendingCounts?.total_pending ?? 0;
+  const unreadNotifications = pendingCounts?.unread_notifications ?? 0;
+  const recentNotifications = Array.isArray(notificationsData)
+    ? notificationsData
+    : (notificationsData?.results ?? []);
 
   function handleLogout() {
     logout();
     setMenuOpen(false);
+    setNotificationsOpen(false);
     navigate('/');
   }
 
@@ -85,24 +99,77 @@ export default function Navbar() {
         {/* Desktop auth area */}
         <div className={styles.authArea}>
           {isAuthenticated ? (
-            <div className={styles.userMenu}>
-              <button
-                className={styles.userMenuButton}
-                onClick={() => setMenuOpen((o) => !o)}
-                aria-expanded={menuOpen}
-                aria-haspopup="true"
-              >
-                <span className={styles.userAvatar}>
-                  {user?.username?.[0]?.toUpperCase() ?? 'U'}
-                </span>
-                <span className={styles.username}>{user?.username ?? 'Account'}</span>
-                <svg className={styles.chevron} viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                </svg>
-              </button>
-              {menuOpen && (
-                <>
-                  <div className={styles.backdrop} onClick={() => setMenuOpen(false)} />
+            <div className={styles.authActions}>
+              <div className={styles.notificationsMenu}>
+                <button
+                  className={styles.notificationsButton}
+                  onClick={() => {
+                    setNotificationsOpen((o) => !o);
+                    setMenuOpen(false);
+                  }}
+                  aria-expanded={notificationsOpen}
+                  aria-haspopup="true"
+                  aria-label="Notifications"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18" aria-hidden="true">
+                    <path d="M10 2.5a4.75 4.75 0 00-4.75 4.75v2.035c0 .796-.316 1.559-.879 2.121L3.78 12a1.5 1.5 0 001.06 2.56h10.32A1.5 1.5 0 0016.22 12l-.59-.59a3 3 0 01-.88-2.12V7.25A4.75 4.75 0 0010 2.5z" />
+                    <path d="M7.75 15.5a2.25 2.25 0 004.5 0h-4.5z" />
+                  </svg>
+                  {unreadNotifications > 0 && (
+                    <span className={styles.notificationsBadge}>
+                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                    </span>
+                  )}
+                </button>
+
+                {notificationsOpen && (
+                  <div className={styles.notificationsDropdown}>
+                    <div className={styles.notificationsHeader}>
+                      <span>Notifications</span>
+                      <button
+                        className={styles.dropdownItem}
+                        onClick={() => markAllReadMutation.mutate()}
+                        disabled={markAllReadMutation.isPending}
+                        type="button"
+                      >
+                        {markAllReadMutation.isPending ? 'Marking...' : 'Mark all read'}
+                      </button>
+                    </div>
+                    <div className={styles.notificationsList}>
+                      {recentNotifications.length === 0 ? (
+                        <p className={styles.emptyNotifications}>No notifications yet.</p>
+                      ) : (
+                        recentNotifications.map((n) => (
+                          <div key={n.id} className={styles.notificationItem}>
+                            <p className={styles.notificationTitle}>{n.title}</p>
+                            {n.body && <p className={styles.notificationBody}>{n.body}</p>}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.userMenu}>
+                <button
+                  className={styles.userMenuButton}
+                  onClick={() => {
+                    setMenuOpen((o) => !o);
+                    setNotificationsOpen(false);
+                  }}
+                  aria-expanded={menuOpen}
+                  aria-haspopup="true"
+                >
+                  <span className={styles.userAvatar}>
+                    {user?.username?.[0]?.toUpperCase() ?? 'U'}
+                  </span>
+                  <span className={styles.username}>{user?.username ?? 'Account'}</span>
+                  <svg className={styles.chevron} viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {menuOpen && (
                   <div className={styles.dropdown}>
                     <Link
                       to="/dashboard"
@@ -137,7 +204,13 @@ export default function Navbar() {
                       Sign out
                     </button>
                   </div>
-                </>
+                )}
+              </div>
+              {(menuOpen || notificationsOpen) && (
+                <div className={styles.backdrop} onClick={() => {
+                  setMenuOpen(false);
+                  setNotificationsOpen(false);
+                }} />
               )}
             </div>
           ) : (

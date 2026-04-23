@@ -51,6 +51,34 @@ describe('Register page', () => {
         await waitFor(() => {
             expect(screen.getByText(/check your email/i)).toBeInTheDocument();
         });
+        expect(authApi.register).toHaveBeenCalledWith(expect.objectContaining({
+            account_type: 'individual',
+            institution_name: '',
+            institution_url: '',
+        }));
+    });
+
+    it('renders institution fields and submits institution payload for library account', async () => {
+        authApi.register.mockResolvedValueOnce({ data: {} });
+
+        renderWithProviders(<Register />);
+        await userEvent.click(screen.getByLabelText(/library/i));
+
+        expect(screen.getByLabelText(/institution name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/institution website/i)).toBeInTheDocument();
+
+        await fillForm();
+        await userEvent.type(screen.getByLabelText(/institution name/i), 'City Library');
+        await userEvent.type(screen.getByLabelText(/institution website/i), 'https://library.example.org');
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(authApi.register).toHaveBeenCalledWith(expect.objectContaining({
+                account_type: 'library',
+                institution_name: 'City Library',
+                institution_url: 'https://library.example.org',
+            }));
+        });
     });
 
     it('shows Go to sign in link on success screen', async () => {

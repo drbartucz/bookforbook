@@ -13,7 +13,10 @@ vi.mock('./hooks/useAuth.js', () => ({
 vi.mock('./pages/Home.jsx', () => ({ default: () => <div data-testid="home-page" /> }));
 vi.mock('./pages/Login.jsx', () => ({ default: () => <div data-testid="login-page" /> }));
 vi.mock('./pages/Register.jsx', () => ({ default: () => <div data-testid="register-page" /> }));
+vi.mock('./pages/ForgotPassword.jsx', () => ({ default: () => <div data-testid="forgot-password-page" /> }));
+vi.mock('./pages/ResetPassword.jsx', () => ({ default: () => <div data-testid="reset-password-page" /> }));
 vi.mock('./pages/VerifyEmail.jsx', () => ({ default: () => <div data-testid="verify-email-page" /> }));
+vi.mock('./pages/NotFound.jsx', () => ({ default: () => <div data-testid="not-found-page" /> }));
 vi.mock('./pages/Dashboard.jsx', () => ({ default: () => <div data-testid="dashboard-page" /> }));
 vi.mock('./pages/AccountSettings.jsx', () => ({ default: () => <div data-testid="account-settings-page" /> }));
 vi.mock('./pages/MyBooks.jsx', () => ({ default: () => <div data-testid="my-books-page" /> }));
@@ -103,5 +106,20 @@ describe('GuestRoute', () => {
         renderApp('/register', { isAuthenticated: true });
         expect(screen.getByTestId('dashboard-page')).toBeInTheDocument();
         expect(screen.queryByTestId('register-page')).not.toBeInTheDocument();
+    });
+
+    it('renders forgot password page for unauthenticated user', () => {
+        renderApp('/forgot-password', { isAuthenticated: false });
+        expect(screen.getByTestId('forgot-password-page')).toBeInTheDocument();
+    });
+
+    it('renders reset password page for unauthenticated user', () => {
+        renderApp('/reset-password', { isAuthenticated: false });
+        expect(screen.getByTestId('reset-password-page')).toBeInTheDocument();
+    });
+
+    it('shows not found page for unknown route', () => {
+        renderApp('/this-route-does-not-exist', { isAuthenticated: false });
+        expect(screen.getByTestId('not-found-page')).toBeInTheDocument();
     });
 });

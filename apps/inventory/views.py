@@ -1,5 +1,8 @@
 import logging
 
+from django.db import connection
+from django.db.models import CharField, F, Func, Value
+from django.db.models.functions import Cast, Coalesce, Lower
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
@@ -57,7 +60,31 @@ def apply_book_sorting(queryset, sort_by: str, sort_order: str):
         return queryset.order_by(ordering)
 
     if sort_by == "author":
-        # Use Python-side sorting for cross-database compatibility (SQLite/Postgres).
+        if connection.vendor == "postgresql":
+            # Postgres path: keep sorting in SQL so pagination doesn't materialize
+            # the full queryset in Python.
+            primary_author = Lower(
+                Coalesce(
+                    Cast(F("book__authors__0"), CharField()),
+                    Value(""),
+                )
+            )
+            queryset = queryset.annotate(
+                _primary_author=primary_author,
+                _author_last_name=Func(
+                    F("_primary_author"),
+                    Value(r"^.*[[:space:]]+"),
+                    Value(""),
+                    function="regexp_replace",
+                    output_field=CharField(),
+                ),
+            )
+            ordering = ["_author_last_name", "_primary_author", "book__title"]
+            if is_desc:
+                ordering = ["-_author_last_name", "-_primary_author", "-book__title"]
+            return queryset.order_by(*ordering)
+
+        # SQLite fallback: preserve last-name behavior for tests/local dev.
         sorted_items = sorted(
             list(queryset),
             key=lambda item: (

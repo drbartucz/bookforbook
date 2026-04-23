@@ -349,19 +349,23 @@ def _cancel_user_active_matches(user):
 
     # Cancel pending matches
     active_leg_match_ids = MatchLeg.objects.filter(
-        sender=user, status__in=["pending", "accepted"]
+        sender=user,
+        status__in=[MatchLeg.Status.PENDING, MatchLeg.Status.ACCEPTED],
     ).values_list("match_id", flat=True)
     Match.objects.filter(
-        id__in=active_leg_match_ids, status__in=["pending", "proposed"]
-    ).update(status="expired")
+        id__in=active_leg_match_ids,
+        status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+    ).update(status=Match.Status.EXPIRED)
 
     # Cancel pending proposals
     TradeProposal.objects.filter(
-        proposer=user, status__in=["pending", "countered"]
-    ).update(status="cancelled")
+        proposer=user,
+        status__in=[TradeProposal.Status.PENDING, TradeProposal.Status.COUNTERED],
+    ).update(status=TradeProposal.Status.CANCELLED)
     TradeProposal.objects.filter(
-        recipient=user, status__in=["pending", "countered"]
-    ).update(status="cancelled")
+        recipient=user,
+        status__in=[TradeProposal.Status.PENDING, TradeProposal.Status.COUNTERED],
+    ).update(status=TradeProposal.Status.CANCELLED)
 
 
 def _build_user_export(user):
