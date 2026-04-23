@@ -36,7 +36,7 @@ export default function Home() {
     queryKey: ['browse', 'available', debouncedSearch, condition, page],
     queryFn: async () => {
       const params = { page, page_size: PAGE_SIZE };
-      if (debouncedSearch) params.search = debouncedSearch;
+      if (debouncedSearch) params.q = debouncedSearch;
       if (condition) params.condition = condition;
       const res = await browse.available(params);
       return res.data;
