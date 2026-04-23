@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.matching.models import Match
 from apps.matching.tasks import (
     expire_old_matches,
+    retry_ring_after_decline_task,
     run_matching_for_new_item,
     run_periodic_matching,
 )
@@ -123,3 +124,76 @@ class TestMatchingTasks:
         assert expired_proposed.status == Match.Status.EXPIRED
         assert future_pending.status == Match.Status.PENDING
         assert already_completed.status == Match.Status.COMPLETED
+
+    def test_retry_ring_after_decline_task_queues_notification_when_reformed(self):
+        user_a = UserFactory()
+        user_b = UserFactory()
+        book = BookFactory()
+        ring = Match.objects.create(
+            match_type=Match.MatchType.RING,
+            status=Match.Status.EXPIRED,
+        )
+        leg = UserBookFactory(user=user_a, book=book)
+        from apps.matching.models import MatchLeg
+
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_a,
+            receiver=user_b,
+            user_book=leg,
+        )
+
+        replacement = Match.objects.create(
+            match_type=Match.MatchType.RING,
+            status=Match.Status.PROPOSED,
+        )
+
+        with patch(
+            "apps.matching.services.ring_detector.retry_ring_after_decline",
+            return_value=replacement,
+        ), patch("django_q.tasks.async_task") as mock_async_task:
+            retry_ring_after_decline_task(str(ring.pk), str(user_a.pk))
+
+        mock_async_task.assert_called_once_with(
+            "apps.notifications.tasks.send_match_notification",
+            str(replacement.pk),
+        )
+
+    def test_retry_ring_after_decline_task_notifies_when_not_reformed(self):
+        user_a = UserFactory()
+        user_b = UserFactory()
+        book_a = BookFactory()
+        book_b = BookFactory()
+        ring = Match.objects.create(
+            match_type=Match.MatchType.RING,
+            status=Match.Status.EXPIRED,
+        )
+        leg_a = UserBookFactory(user=user_a, book=book_a)
+        leg_b = UserBookFactory(user=user_b, book=book_b)
+        from apps.matching.models import MatchLeg
+
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_a,
+            receiver=user_b,
+            user_book=leg_a,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_b,
+            receiver=user_a,
+            user_book=leg_b,
+        )
+
+        with patch(
+            "apps.matching.services.ring_detector.retry_ring_after_decline",
+            return_value=None,
+        ):
+            retry_ring_after_decline_task(str(ring.pk), str(user_a.pk))
+
+        from apps.notifications.models import Notification
+
+        assert Notification.objects.filter(
+            user=user_b,
+            notification_type="ring_cancelled",
+        ).exists()

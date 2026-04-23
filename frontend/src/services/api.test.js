@@ -2,10 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
 
 import apiClient, { books } from './api';
+import useAuthStore from '../store/authStore';
 
 describe('api client request interceptor', () => {
   it('attaches authorization header when access token exists', async () => {
-    localStorage.setItem('accessToken', 'token-123');
+    useAuthStore.setState({
+      accessToken: 'token-123',
+      refreshToken: null,
+      user: null,
+    });
 
     let requestHeaders = {};
     await apiClient.get('/health/', {
@@ -25,7 +30,11 @@ describe('api client request interceptor', () => {
   });
 
   it('does not attach authorization header when token does not exist', async () => {
-    localStorage.removeItem('accessToken');
+    useAuthStore.setState({
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+    });
 
     let requestHeaders = {};
     await apiClient.get('/health/', {
@@ -52,6 +61,7 @@ describe('api client request interceptor', () => {
 describe('api client response interceptor', () => {
   beforeEach(() => {
     localStorage.clear();
+    useAuthStore.setState({ user: null, accessToken: null, refreshToken: null });
     vi.restoreAllMocks();
   });
 
@@ -60,7 +70,7 @@ describe('api client response interceptor', () => {
   });
 
   it('clears tokens and fires auth:logout event when no refresh token on 401', async () => {
-    localStorage.setItem('accessToken', 'old-access');
+    useAuthStore.setState({ user: null, accessToken: 'old-access', refreshToken: null });
 
     const logoutHandler = vi.fn();
     window.addEventListener('auth:logout', logoutHandler);
@@ -83,13 +93,16 @@ describe('api client response interceptor', () => {
     }
 
     expect(logoutHandler).toHaveBeenCalledOnce();
-    expect(localStorage.getItem('accessToken')).toBeNull();
+    expect(useAuthStore.getState().accessToken).toBeNull();
     window.removeEventListener('auth:logout', logoutHandler);
   });
 
   it('retries original request with new token after successful refresh', async () => {
-    localStorage.setItem('accessToken', 'old-access');
-    localStorage.setItem('refreshToken', 'valid-refresh');
+    useAuthStore.setState({
+      user: null,
+      accessToken: 'old-access',
+      refreshToken: 'valid-refresh',
+    });
 
     const postSpy = vi.spyOn(axios, 'post').mockResolvedValueOnce({
       data: { access: 'new-access' },
@@ -110,7 +123,7 @@ describe('api client response interceptor', () => {
     });
 
     expect(result.data).toEqual({ ok: true });
-    expect(localStorage.getItem('accessToken')).toBe('new-access');
+    expect(useAuthStore.getState().accessToken).toBe('new-access');
     postSpy.mockRestore();
   });
 
@@ -126,8 +139,11 @@ describe('api client response interceptor', () => {
   });
 
   it('fires auth:logout and rejects when refresh call fails', async () => {
-    localStorage.setItem('accessToken', 'old-access');
-    localStorage.setItem('refreshToken', 'expired-refresh');
+    useAuthStore.setState({
+      user: null,
+      accessToken: 'old-access',
+      refreshToken: 'expired-refresh',
+    });
 
     const postSpy = vi.spyOn(axios, 'post').mockRejectedValueOnce(new Error('Refresh failed'));
 
@@ -150,8 +166,8 @@ describe('api client response interceptor', () => {
     ).rejects.toThrow();
 
     expect(logoutHandler).toHaveBeenCalledOnce();
-    expect(localStorage.getItem('accessToken')).toBeNull();
-    expect(localStorage.getItem('refreshToken')).toBeNull();
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(useAuthStore.getState().refreshToken).toBeNull();
 
     window.removeEventListener('auth:logout', logoutHandler);
     postSpy.mockRestore();

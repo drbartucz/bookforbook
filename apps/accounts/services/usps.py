@@ -1,18 +1,13 @@
 import logging
-import threading
 import time
-from typing import Any
 
 import requests
 from django.conf import settings
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
-_token_cache: dict[str, Any] = {
-    "access_token": None,
-    "expires_at": 0.0,
-}
-_token_lock = threading.Lock()
+TOKEN_CACHE_KEY = "accounts:usps:oauth_token"
 
 
 class USPSVerificationError(Exception):
@@ -45,53 +40,49 @@ def _get_oauth_token() -> str:
         raise USPSVerificationError("USPS address verification is not configured.")
 
     now = time.time()
-    cached_token = _token_cache.get("access_token")
-    cached_expires_at = float(_token_cache.get("expires_at") or 0)
+    cached_payload = cache.get(TOKEN_CACHE_KEY) or {}
+    cached_token = cached_payload.get("access_token")
+    cached_expires_at = float(cached_payload.get("expires_at") or 0)
     if cached_token and now < (cached_expires_at - 60):
         return str(cached_token)
 
-    with _token_lock:
-        now = time.time()
-        cached_token = _token_cache.get("access_token")
-        cached_expires_at = float(_token_cache.get("expires_at") or 0)
-        if cached_token and now < (cached_expires_at - 60):
-            return str(cached_token)
+    payload: dict[str, str] = {
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }
+    if scope:
+        payload["scope"] = scope
 
-        payload: dict[str, str] = {
-            "grant_type": "client_credentials",
-            "client_id": client_id,
-            "client_secret": client_secret,
-        }
-        if scope:
-            payload["scope"] = scope
+    try:
+        resp = requests.post(
+            f"{_oauth_base_url()}/token",
+            json=payload,
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        raise USPSVerificationError("Unable to authenticate with USPS APIs.") from exc
 
-        try:
-            resp = requests.post(
-                f"{_oauth_base_url()}/token",
-                json=payload,
-                timeout=timeout,
-            )
-            resp.raise_for_status()
-        except requests.RequestException as exc:
-            raise USPSVerificationError(
-                "Unable to authenticate with USPS APIs."
-            ) from exc
+    try:
+        data = resp.json()
+    except ValueError as exc:
+        raise USPSVerificationError("Invalid USPS OAuth response.") from exc
 
-        try:
-            data = resp.json()
-        except ValueError as exc:
-            raise USPSVerificationError("Invalid USPS OAuth response.") from exc
+    access_token = data.get("access_token")
+    expires_in = int(data.get("expires_in") or 0)
+    if not access_token:
+        raise USPSVerificationError(
+            "USPS OAuth response did not include an access token."
+        )
 
-        access_token = data.get("access_token")
-        expires_in = int(data.get("expires_in") or 0)
-        if not access_token:
-            raise USPSVerificationError(
-                "USPS OAuth response did not include an access token."
-            )
-
-        _token_cache["access_token"] = access_token
-        _token_cache["expires_at"] = time.time() + max(expires_in, 300)
-        return str(access_token)
+    expires_at = time.time() + max(expires_in, 300)
+    cache.set(
+        TOKEN_CACHE_KEY,
+        {"access_token": access_token, "expires_at": expires_at},
+        timeout=max(expires_in, 300),
+    )
+    return str(access_token)
 
 
 def _extract_error_message(resp: requests.Response) -> str:
@@ -158,8 +149,7 @@ def verify_address_with_usps(
 
     if resp.status_code == 401:
         # Token may be stale/revoked: clear cache and retry once.
-        _token_cache["access_token"] = None
-        _token_cache["expires_at"] = 0.0
+        cache.delete(TOKEN_CACHE_KEY)
         retry_headers = {
             "Authorization": f"Bearer {_get_oauth_token()}",
             "Accept": "application/json",

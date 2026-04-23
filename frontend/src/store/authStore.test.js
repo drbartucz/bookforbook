@@ -22,8 +22,6 @@ describe('authStore', () => {
     expect(state.user).toEqual(user);
     expect(state.accessToken).toBe('access-token');
     expect(state.refreshToken).toBe('refresh-token');
-    expect(localStorage.getItem('accessToken')).toBe('access-token');
-    expect(localStorage.getItem('refreshToken')).toBe('refresh-token');
   });
 
   it('clears user and tokens on logout', () => {
@@ -38,8 +36,6 @@ describe('authStore', () => {
     expect(state.user).toBeNull();
     expect(state.accessToken).toBeNull();
     expect(state.refreshToken).toBeNull();
-    expect(localStorage.getItem('accessToken')).toBeNull();
-    expect(localStorage.getItem('refreshToken')).toBeNull();
   });
 
   it('updateUser replaces user object without touching tokens', () => {
@@ -52,7 +48,7 @@ describe('authStore', () => {
     expect(useAuthStore.getState().accessToken).toBe('tok');
   });
 
-  it('updateAccessToken persists new token to localStorage', () => {
+  it('updateAccessToken updates token in store', () => {
     useAuthStore.getState().login(
       { access: 'old-access', refresh: 'ref' },
       { id: 'u1', username: 'alice' }
@@ -61,7 +57,6 @@ describe('authStore', () => {
     useAuthStore.getState().updateAccessToken('new-access');
 
     expect(useAuthStore.getState().accessToken).toBe('new-access');
-    expect(localStorage.getItem('accessToken')).toBe('new-access');
     // refresh and user unchanged
     expect(useAuthStore.getState().refreshToken).toBe('ref');
   });

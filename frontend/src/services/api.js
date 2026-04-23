@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+import useAuthStore from '../store/authStore';
+
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 const apiClient = axios.create({
@@ -12,7 +14,7 @@ const apiClient = axios.create({
 // ── Request interceptor: attach JWT access token ──────────────────────────────
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = useAuthStore.getState().accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -56,12 +58,10 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = useAuthStore.getState().refreshToken;
       if (!refreshToken) {
         isRefreshing = false;
-        // Clear auth state
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        useAuthStore.getState().logout();
         window.dispatchEvent(new CustomEvent('auth:logout'));
         return Promise.reject(error);
       }
@@ -71,15 +71,14 @@ apiClient.interceptors.response.use(
           refresh: refreshToken,
         });
         const { access } = response.data;
-        localStorage.setItem('accessToken', access);
+        useAuthStore.getState().updateAccessToken(access);
         apiClient.defaults.headers.common.Authorization = `Bearer ${access}`;
         originalRequest.headers.Authorization = `Bearer ${access}`;
         processQueue(null, access);
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        useAuthStore.getState().logout();
         window.dispatchEvent(new CustomEvent('auth:logout'));
         return Promise.reject(refreshError);
       } finally {

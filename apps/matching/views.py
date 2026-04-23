@@ -166,24 +166,23 @@ class MatchDeclineView(APIView):
 
             # For ring matches, attempt retry
             if match.match_type == Match.MatchType.RING:
-                try:
-                    from apps.matching.services.ring_detector import (
-                        retry_ring_after_decline,
-                    )
 
-                    new_match = retry_ring_after_decline(match, user)
-                    if new_match:
+                def _enqueue_ring_retry():
+                    try:
                         from django_q.tasks import async_task
 
                         async_task(
-                            "apps.notifications.tasks.send_match_notification",
-                            str(new_match.pk),
+                            "apps.matching.tasks.retry_ring_after_decline_task",
+                            str(match.pk),
+                            str(user.pk),
                         )
-                    else:
-                        # Notify all participants that ring could not be reformed
-                        _notify_ring_cancelled(match, user)
-                except Exception:
-                    logger.exception("Error during ring retry after decline")
+                    except Exception:
+                        logger.exception(
+                            "Failed to queue ring retry after decline for match %s",
+                            match.pk,
+                        )
+
+                transaction.on_commit(_enqueue_ring_retry)
             else:
                 _notify_match_cancelled(match)
 

@@ -4,12 +4,14 @@ Tests for the direct match detection service and matching API.
 
 import uuid
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from django.utils import timezone
 
 from apps.inventory.models import UserBook
 from apps.matching.models import Match, MatchLeg
+from apps.matching.services.preference_filters import normalize_title
 from apps.matching.services.direct_matcher import (
     count_active_matches_for_user,
     run_direct_matching,
@@ -96,7 +98,7 @@ class TestDirectMatcherService:
     def test_user_at_match_limit_blocks_new_match(self, db):
         book_for_b = BookFactory()
         book_for_a = BookFactory()
-        user_a = UserFactory(rating_count=0)  # max_active_matches = 1
+        user_a = UserFactory(rating_count=0)  # max_active_matches = 2
         user_b = UserFactory()
 
         ub_a = UserBookFactory(user=user_a, book=book_for_b, condition="good")
@@ -104,15 +106,31 @@ class TestDirectMatcherService:
         WishlistItemFactory(user=user_b, book=book_for_b, min_condition="acceptable")
         WishlistItemFactory(user=user_a, book=book_for_a, min_condition="acceptable")
 
-        # Create an existing match using up user_a's 1-slot capacity
-        other_book = BookFactory()
-        other_user = UserFactory()
-        other_ub = UserBookFactory(user=user_a, book=other_book, condition="good")
-        existing_match = Match.objects.create(
+        # Create existing matches using up user_a's 2-slot capacity
+        other_book_1 = BookFactory()
+        other_user_1 = UserFactory()
+        other_ub_1 = UserBookFactory(user=user_a, book=other_book_1, condition="good")
+        existing_match_1 = Match.objects.create(
             match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
         )
         MatchLeg.objects.create(
-            match=existing_match, sender=user_a, receiver=other_user, user_book=other_ub
+            match=existing_match_1,
+            sender=user_a,
+            receiver=other_user_1,
+            user_book=other_ub_1,
+        )
+
+        other_book_2 = BookFactory()
+        other_user_2 = UserFactory()
+        other_ub_2 = UserBookFactory(user=user_a, book=other_book_2, condition="good")
+        existing_match_2 = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        MatchLeg.objects.create(
+            match=existing_match_2,
+            sender=user_a,
+            receiver=other_user_2,
+            user_book=other_ub_2,
         )
 
         matches = run_direct_matching(user_book=ub_a)
@@ -338,6 +356,43 @@ class TestCountActiveMatches:
         MatchLeg.objects.create(match=match, sender=user, receiver=other, user_book=ub)
         assert count_active_matches_for_user(user) == 1
 
+    def test_accepted_proposal_with_trade_not_counted(self, db):
+        from apps.trading.models import Trade, TradeProposal
+
+        user = UserFactory()
+        other = UserFactory()
+        proposal = TradeProposal.objects.create(
+            proposer=user,
+            recipient=other,
+            status=TradeProposal.Status.ACCEPTED,
+        )
+        Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=proposal.pk,
+            status=Trade.Status.CONFIRMED,
+        )
+
+        assert count_active_matches_for_user(user) == 0
+
+    def test_accepted_proposal_without_trade_is_counted(self, db):
+        from apps.trading.models import TradeProposal
+
+        user = UserFactory()
+        other = UserFactory()
+        TradeProposal.objects.create(
+            proposer=user,
+            recipient=other,
+            status=TradeProposal.Status.ACCEPTED,
+        )
+
+        assert count_active_matches_for_user(user) == 1
+
+
+@pytest.mark.django_db
+class TestPreferenceFilters:
+    def test_normalize_title_handles_accents(self):
+        assert normalize_title("Les Misérables") == normalize_title("Les Miserables")
+
 
 @pytest.mark.django_db
 class TestMatchAPI:
@@ -477,6 +532,36 @@ class TestMatchAPI:
         assert resp.status_code == 200
         match.refresh_from_db()
         assert match.status == Match.Status.EXPIRED
+
+    def test_decline_ring_queues_async_retry(self, auth_api_client, verified_user, db):
+        other = UserFactory()
+        book_a = BookFactory()
+        ub_a = UserBookFactory(user=verified_user, book=book_a, condition="good")
+
+        ring = Match.objects.create(
+            match_type=Match.MatchType.RING,
+            status=Match.Status.PROPOSED,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=verified_user,
+            receiver=other,
+            user_book=ub_a,
+        )
+
+        with patch(
+            "django.db.transaction.on_commit", side_effect=lambda fn: fn()
+        ), patch("django_q.tasks.async_task") as mock_async_task:
+            resp = auth_api_client.post(f"/api/v1/matches/{ring.id}/decline/")
+
+        assert resp.status_code == 200
+        ring.refresh_from_db()
+        assert ring.status == Match.Status.EXPIRED
+        mock_async_task.assert_called_once_with(
+            "apps.matching.tasks.retry_ring_after_decline_task",
+            str(ring.pk),
+            str(verified_user.pk),
+        )
 
     def test_non_participant_cannot_accept(self, auth_api_client, db):
         user_x = UserFactory()
