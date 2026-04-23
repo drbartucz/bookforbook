@@ -172,4 +172,56 @@ describe('api client response interceptor', () => {
     window.removeEventListener('auth:logout', logoutHandler);
     postSpy.mockRestore();
   });
+
+  it('queues simultaneous 401 responses behind a single refresh request', async () => {
+    useAuthStore.setState({
+      user: null,
+      accessToken: 'old-access',
+      refreshToken: 'valid-refresh',
+    });
+
+    let resolveRefresh;
+    const refreshPromise = new Promise((resolve) => {
+      resolveRefresh = resolve;
+    });
+    const postSpy = vi.spyOn(axios, 'post').mockReturnValue(refreshPromise);
+
+    const attempts = new Map();
+    const seenRetryAuthHeaders = [];
+    const adapter = async (config) => {
+      const key = config.url;
+      const count = (attempts.get(key) ?? 0) + 1;
+      attempts.set(key, count);
+
+      if (count === 1) {
+        const err = new Error('Unauthorized');
+        err.config = config;
+        err.response = { status: 401, data: 'Unauthorized', config };
+        throw err;
+      }
+
+      seenRetryAuthHeaders.push(config.headers?.Authorization);
+      return {
+        data: { ok: true, path: key },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    };
+
+    const reqA = apiClient.get('/protected/a', { adapter });
+    const reqB = apiClient.get('/protected/b', { adapter });
+
+    resolveRefresh({ data: { access: 'new-access' } });
+    const [resA, resB] = await Promise.all([reqA, reqB]);
+
+    expect(resA.data).toEqual({ ok: true, path: '/protected/a' });
+    expect(resB.data).toEqual({ ok: true, path: '/protected/b' });
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(seenRetryAuthHeaders).toEqual(['Bearer new-access', 'Bearer new-access']);
+    expect(useAuthStore.getState().accessToken).toBe('new-access');
+
+    postSpy.mockRestore();
+  });
 });

@@ -28,9 +28,12 @@ This plan turns the current testing gaps into executable phases with clear compl
     - `apps/trading/tests/test_trading_tasks.py` added same-direction proposal-items validation test (`ValueError`) for `create_trade_from_proposal`.
     - `conftest.py` added reusable `address_verified_user` fixture.
     - `apps/matching/tests/test_matching.py` now uses `address_verified_user` in the successful match-acceptance test.
+  - Phase 6 additions:
+    - `frontend/src/services/api.test.js` added simultaneous 401 concurrency coverage to verify one refresh call serves queued requests.
+    - `frontend/src/hooks/useAuth.test.jsx` now includes parameterized account-type coverage for `isInstitution` across `individual`, `library`, and `bookstore`.
 
 - Remaining:
-  - Execute Phases 6 through 7.
+  - Execute Phase 7.
 
 Notes:
 - In this environment, focused Django test runs may require `--reuse-db` if another session is holding the test database.
