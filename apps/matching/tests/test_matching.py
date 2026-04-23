@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from apps.inventory.models import UserBook
 from apps.matching.models import Match, MatchLeg
+from apps.matching.views import _notify_ring_cancelled
 from apps.matching.services.preference_filters import normalize_title
 from apps.matching.services.direct_matcher import (
     count_active_matches_for_user,
@@ -562,6 +563,85 @@ class TestMatchAPI:
             str(ring.pk),
             str(verified_user.pk),
         )
+
+    def test_decline_ring_still_succeeds_when_retry_enqueue_fails(
+        self, auth_api_client, verified_user, db
+    ):
+        other = UserFactory()
+        book_a = BookFactory()
+        ub_a = UserBookFactory(user=verified_user, book=book_a, condition="good")
+
+        ring = Match.objects.create(
+            match_type=Match.MatchType.RING,
+            status=Match.Status.PROPOSED,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=verified_user,
+            receiver=other,
+            user_book=ub_a,
+        )
+
+        with patch(
+            "django.db.transaction.on_commit", side_effect=lambda fn: fn()
+        ), patch("django_q.tasks.async_task", side_effect=RuntimeError("queue down")):
+            resp = auth_api_client.post(f"/api/v1/matches/{ring.id}/decline/")
+
+        assert resp.status_code == 200
+        ring.refresh_from_db()
+        assert ring.status == Match.Status.EXPIRED
+
+    def test_notify_ring_cancelled_excludes_declining_user(self, db):
+        declining_user = UserFactory()
+        participant_b = UserFactory()
+        participant_c = UserFactory()
+
+        book_a = BookFactory()
+        book_b = BookFactory()
+        book_c = BookFactory()
+        ub_a = UserBookFactory(user=declining_user, book=book_a, condition="good")
+        ub_b = UserBookFactory(user=participant_b, book=book_b, condition="good")
+        ub_c = UserBookFactory(user=participant_c, book=book_c, condition="good")
+
+        ring = Match.objects.create(
+            match_type=Match.MatchType.RING,
+            status=Match.Status.EXPIRED,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=declining_user,
+            receiver=participant_b,
+            user_book=ub_a,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=participant_b,
+            receiver=participant_c,
+            user_book=ub_b,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=participant_c,
+            receiver=declining_user,
+            user_book=ub_c,
+        )
+
+        _notify_ring_cancelled(ring, declining_user)
+
+        from apps.notifications.models import Notification
+
+        assert Notification.objects.filter(
+            user=participant_b,
+            notification_type="ring_cancelled",
+        ).exists()
+        assert Notification.objects.filter(
+            user=participant_c,
+            notification_type="ring_cancelled",
+        ).exists()
+        assert not Notification.objects.filter(
+            user=declining_user,
+            notification_type="ring_cancelled",
+        ).exists()
 
     def test_non_participant_cannot_accept(self, auth_api_client, db):
         user_x = UserFactory()

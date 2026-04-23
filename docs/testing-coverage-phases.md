@@ -2,6 +2,22 @@
 
 This plan turns the current testing gaps into executable phases with clear completion gates.
 
+## Execution Status
+
+- Completed on 2026-04-23:
+  - Phase 1 backend coverage additions:
+    - `apps/matching/tests/test_ring_detector.py` added `retry_ring_after_decline` integration coverage.
+    - `apps/matching/tests/test_matching.py` added ring decline enqueue-failure behavior test and `_notify_ring_cancelled` helper coverage.
+  - Phase 1 frontend verification:
+    - Targeted tests pass for Matches, Trades, TradeDetail, Proposals, Donations page suites.
+  - Phase 2 initial additions:
+    - `apps/trading/tests/test_trading_tasks.py` added explicit CONFIRMED auto-close shipment-status regression lock.
+    - `apps/accounts/tests/test_usps_service.py` added USPS token cache, 401 retry, and malformed response coverage.
+
+- Remaining:
+  - Continue Phase 2 (if additional task-coverage deltas are identified).
+  - Execute Phases 3 through 7.
+
 ## Phase 1 - Contract and Critical Regression Coverage (Highest Priority)
 
 Goal: prevent UI and workflow regressions caused by serializer shape drift and untested trade/match edges.
