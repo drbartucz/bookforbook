@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { users as usersApi, institutions as institutionsApi } from '../services/api.js';
+import useAuth from '../hooks/useAuth.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge from '../components/common/ConditionBadge.jsx';
@@ -11,6 +12,8 @@ import styles from './PublicProfile.module.css';
 
 export default function PublicProfile() {
   const { id } = useParams();
+  const { user, isAuthenticated } = useAuth();
+  const isOwnProfile = isAuthenticated && user?.id != null && String(user.id) === String(id);
 
   const { data: profile, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['publicProfile', id],
@@ -29,6 +32,12 @@ export default function PublicProfile() {
     enabled: !!profile && profile.account_type === 'institution',
   });
 
+  const { data: meData } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => usersApi.getMe().then((r) => r.data),
+    enabled: isOwnProfile,
+  });
+
   if (isLoading) return <LoadingSpinner center size="lg" />;
   if (isError) return <ErrorMessage error={error} onRetry={refetch} />;
   if (!profile) return null;
@@ -36,6 +45,10 @@ export default function PublicProfile() {
   const ratings = ratingsData?.results ?? ratingsData ?? [];
   const wantedBooks = wantedData?.results ?? wantedData ?? [];
   const isInstitution = profile.account_type === 'institution';
+  const hasOwnAddress = Boolean(
+    meData?.address_line_1 && meData?.city && meData?.state && meData?.zip_code
+  );
+  const ownAddressStatus = meData?.address_verification_status;
 
   return (
     <div className={styles.page}>
@@ -97,6 +110,45 @@ export default function PublicProfile() {
       </div>
 
       <div className={styles.content}>
+        {isOwnProfile && (
+          <div className={`card ${styles.section}`}>
+            <div className={styles.addressHeader}>
+              <h2 className={styles.sectionTitle}>Shipping Address</h2>
+              <Link to="/account" className={styles.addressEditLink}>
+                Edit address
+              </Link>
+            </div>
+
+            {hasOwnAddress ? (
+              <>
+                <p className={styles.addressLine}>{meData.full_name}</p>
+                <p className={styles.addressLine}>{meData.address_line_1}</p>
+                {meData.address_line_2 && <p className={styles.addressLine}>{meData.address_line_2}</p>}
+                <p className={styles.addressLine}>
+                  {meData.city}, {meData.state} {meData.zip_code}
+                </p>
+                <p className={styles.addressMeta}>
+                  Status:{' '}
+                  <strong>
+                    {ownAddressStatus === 'verified'
+                      ? 'Verified'
+                      : ownAddressStatus === 'failed'
+                        ? 'Needs review'
+                        : 'Not verified'}
+                  </strong>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className={styles.emptyText}>No shipping address on file yet.</p>
+                <Link to="/account" className="btn btn-primary btn-sm">
+                  Add address
+                </Link>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Ratings */}
         <div className={`card ${styles.section}`}>
           <h2 className={styles.sectionTitle}>Recent Ratings</h2>
