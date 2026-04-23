@@ -8,6 +8,7 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
+import { buildTradeRatingPayload, mapTradeForView } from '../adapters/trades.js';
 import styles from './TradeDetail.module.css';
 
 const MESSAGE_TYPES = [
@@ -37,6 +38,7 @@ export default function TradeDetail() {
   const [showRateForm, setShowRateForm] = useState(false);
   const [ratingScore, setRatingScore] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
+  const [bookConditionAccurate, setBookConditionAccurate] = useState(true);
   const [actionError, setActionError] = useState(null);
 
   const {
@@ -91,7 +93,22 @@ export default function TradeDetail() {
   });
 
   const rateMutation = useMutation({
-    mutationFn: () => tradesApi.rate(id, { score: ratingScore, comment: ratingComment }),
+    mutationFn: () => {
+      const payload = buildTradeRatingPayload(
+        tradeView,
+        {
+          score: ratingScore,
+          comment: ratingComment,
+          bookConditionAccurate,
+        }
+      );
+
+      if (!payload) {
+        throw new Error('Unable to determine trade partner for rating.');
+      }
+
+      return tradesApi.rate(id, payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trade', id] });
       setShowRateForm(false);
@@ -104,21 +121,23 @@ export default function TradeDetail() {
   if (isError) return <ErrorMessage error={error} onRetry={refetch} />;
   if (!trade) return null;
 
-  const statusConfig = TRADE_STATUS_CONFIG[trade.status] ?? { label: trade.status, cls: 'badge-gray' };
+  const tradeView = mapTradeForView(trade, user?.id);
 
-  const myBook = trade.my_book ?? trade.initiator_book;
-  const theirBook = trade.their_book ?? trade.responder_book;
-  const partner = trade.partner ?? trade.other_user;
+  const statusConfig = TRADE_STATUS_CONFIG[tradeView.status] ?? { label: tradeView.status, cls: 'badge-gray' };
+
+  const myBook = tradeView.myBook;
+  const theirBook = tradeView.theirBook;
+  const partner = tradeView.partner;
 
   const myBookData = myBook?.book;
   const theirBookData = theirBook?.book;
 
   const messages = messagesData?.results ?? messagesData ?? [];
 
-  const isCompleted = trade.status === 'completed';
-  const canMarkShipped = ['confirmed', 'one_received'].includes(trade.status) && !trade.my_shipped;
-  const canMarkReceived = ['shipping', 'one_received'].includes(trade.status) && trade.my_shipped && !trade.i_received;
-  const canRate = isCompleted && !trade.i_rated;
+  const isCompleted = tradeView.status === 'completed';
+  const canMarkShipped = ['confirmed', 'one_received'].includes(tradeView.status) && !tradeView.myShipped;
+  const canMarkReceived = ['shipping', 'one_received'].includes(tradeView.status) && tradeView.theyShipped && !tradeView.iReceived;
+  const canRate = isCompleted && !tradeView.iRated;
 
   return (
     <div>
@@ -155,35 +174,36 @@ export default function TradeDetail() {
                 label="You send"
                 book={myBookData}
                 condition={myBook?.condition}
-                shipped={trade.my_shipped}
-                shippedAt={trade.my_shipped_at}
-                trackingNumber={trade.my_tracking}
-                received={trade.i_received}
+                shipped={tradeView.myShipped}
+                shippedAt={tradeView.myShippedAt}
+                trackingNumber={tradeView.myTracking}
+                received={tradeView.theyReceived}
               />
               <div className={styles.exchangeIcon}>&#8646;</div>
               <BookSummary
                 label="You receive"
                 book={theirBookData}
                 condition={theirBook?.condition}
-                shipped={trade.they_shipped}
-                shippedAt={trade.they_shipped_at}
-                trackingNumber={trade.their_tracking}
-                received={trade.they_received}
+                shipped={tradeView.theyShipped}
+                shippedAt={tradeView.theyShippedAt}
+                trackingNumber={tradeView.theirTracking}
+                received={tradeView.iReceived}
               />
             </div>
           </div>
 
           {/* Shipping address */}
-          {(trade.status !== 'confirmed') && (
+          {(tradeView.status !== 'confirmed') && (
             <div className={`card ${styles.section}`}>
               <h2 className={styles.sectionTitle}>Shipping Address</h2>
-              {trade.partner_address ? (
+              {tradeView.partnerAddress ? (
                 <div className={styles.address}>
-                  <p>{trade.partner_address.name}</p>
-                  <p>{trade.partner_address.street}</p>
+                  <p>{tradeView.partnerAddress.name}</p>
+                  <p>{tradeView.partnerAddress.street}</p>
+                  {tradeView.partnerAddress.street2 && <p>{tradeView.partnerAddress.street2}</p>}
                   <p>
-                    {trade.partner_address.city}, {trade.partner_address.state}{' '}
-                    {trade.partner_address.zip}
+                    {tradeView.partnerAddress.city}, {tradeView.partnerAddress.state}{' '}
+                    {tradeView.partnerAddress.zip}
                   </p>
                 </div>
               ) : (
@@ -292,6 +312,14 @@ export default function TradeDetail() {
                         placeholder="How was the trade?"
                       />
                     </div>
+                    <label className={styles.ratingCheckbox}>
+                      <input
+                        type="checkbox"
+                        checked={bookConditionAccurate}
+                        onChange={(e) => setBookConditionAccurate(e.target.checked)}
+                      />
+                      The book condition matched the listing.
+                    </label>
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
                       <button
                         className="btn btn-primary"
@@ -313,7 +341,7 @@ export default function TradeDetail() {
               </>
             )}
 
-            {trade.i_rated && (
+            {tradeView.iRated && (
               <div className="alert alert-success">You have rated this trade. Thank you!</div>
             )}
           </div>

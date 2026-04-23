@@ -6,6 +6,8 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
+import useAuth from '../hooks/useAuth.js';
+import { buildCounterPayload, mapProposalForCard } from '../adapters/proposals.js';
 import styles from './Proposals.module.css';
 
 const PAGE_SIZE = 15;
@@ -33,6 +35,7 @@ const STATUS_CONFIG = {
 };
 
 export default function Proposals() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('pending');
@@ -70,7 +73,7 @@ export default function Proposals() {
   });
 
   const counterMutation = useMutation({
-    mutationFn: ({ id, note }) => proposalsApi.counter(id, { note }),
+    mutationFn: ({ id, payload }) => proposalsApi.counter(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       setCounteringId(null);
@@ -80,7 +83,7 @@ export default function Proposals() {
     onError: (err) => setActionError(err?.response?.data?.detail || 'Failed to counter.'),
   });
 
-  const items = data?.results ?? [];
+  const items = (data?.results ?? []).map((proposal) => mapProposalForCard(proposal, user?.id));
   const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE);
 
   return (
@@ -138,8 +141,8 @@ export default function Proposals() {
           <div className={styles.proposalList}>
             {items.map((proposal) => {
               const statusConfig = STATUS_CONFIG[proposal.status] ?? { label: proposal.status, cls: 'badge-gray' };
-              const offeredBook = proposal.offered_book?.book ?? proposal.offered_book;
-              const requestedBook = proposal.requested_book?.book ?? proposal.requested_book;
+              const offeredBook = proposal.offeredBook;
+              const requestedBook = proposal.requestedBook;
               const proposer = proposal.proposer ?? proposal.sender;
               const receiver = proposal.receiver ?? proposal.recipient;
               const isReceived = direction === 'received' || !direction;
@@ -177,8 +180,8 @@ export default function Proposals() {
                           <div>
                             <p className={styles.bookTitle}>{offeredBook.title}</p>
                             {getBookPrimaryAuthor(offeredBook) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(offeredBook)}</p>}
-                            {proposal.offered_book?.condition && (
-                              <ConditionBadge condition={proposal.offered_book.condition} />
+                            {proposal.offeredCondition && (
+                              <ConditionBadge condition={proposal.offeredCondition} />
                             )}
                           </div>
                         </div>
@@ -197,8 +200,8 @@ export default function Proposals() {
                           <div>
                             <p className={styles.bookTitle}>{requestedBook.title}</p>
                             {getBookPrimaryAuthor(requestedBook) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(requestedBook)}</p>}
-                            {proposal.requested_book?.condition && (
-                              <ConditionBadge condition={proposal.requested_book.condition} />
+                            {proposal.requestedCondition && (
+                              <ConditionBadge condition={proposal.requestedCondition} />
                             )}
                           </div>
                         </div>
@@ -247,7 +250,14 @@ export default function Proposals() {
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <button
                           className="btn btn-primary btn-sm"
-                          onClick={() => counterMutation.mutate({ id: proposal.id, note: counterNote })}
+                          onClick={() => {
+                            const payload = buildCounterPayload(proposal, counterNote);
+                            if (!payload) {
+                              setActionError('Unable to build counter-offer payload from this proposal.');
+                              return;
+                            }
+                            counterMutation.mutate({ id: proposal.id, payload });
+                          }}
                           disabled={counterMutation.isPending || !counterNote.trim()}
                         >
                           {counterMutation.isPending ? 'Sending...' : 'Send Counter'}

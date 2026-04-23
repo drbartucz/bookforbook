@@ -14,6 +14,10 @@ vi.mock('../services/api.js', () => ({
     },
 }));
 
+vi.mock('../hooks/useAuth.js', () => ({
+    default: vi.fn(() => ({ user: { id: 'user-1', username: 'bart0605' } })),
+}));
+
 import { matches } from '../services/api.js';
 
 describe('Matches page', () => {
@@ -29,25 +33,35 @@ describe('Matches page', () => {
                     {
                         id: 'match-1',
                         status: 'pending',
-                        partner: { id: 'user-2', username: 'alice', avg_recent_rating: 4.7 },
-                        your_book: {
-                            condition: 'good',
-                            book: {
-                                id: 'book-1',
-                                title: 'Kindred',
-                                authors: ['Octavia E. Butler'],
-                                cover_image_url: 'https://example.com/kindred.jpg',
+                        match_type: 'direct',
+                        legs: [
+                            {
+                                sender: { id: 'user-1', username: 'bart0605' },
+                                receiver: { id: 'user-2', username: 'alice', avg_recent_rating: 4.7 },
+                                user_book: {
+                                    condition: 'good',
+                                    book: {
+                                        id: 'book-1',
+                                        title: 'Kindred',
+                                        authors: ['Octavia E. Butler'],
+                                        cover_image_url: 'https://example.com/kindred.jpg',
+                                    },
+                                },
                             },
-                        },
-                        their_book: {
-                            condition: 'very_good',
-                            book: {
-                                id: 'book-2',
-                                title: 'The Dispossessed',
-                                authors: ['Ursula K. Le Guin'],
-                                cover_image_url: 'https://example.com/dispossessed.jpg',
+                            {
+                                sender: { id: 'user-2', username: 'alice', avg_recent_rating: 4.7 },
+                                receiver: { id: 'user-1', username: 'bart0605' },
+                                user_book: {
+                                    condition: 'very_good',
+                                    book: {
+                                        id: 'book-2',
+                                        title: 'The Dispossessed',
+                                        authors: ['Ursula K. Le Guin'],
+                                        cover_image_url: 'https://example.com/dispossessed.jpg',
+                                    },
+                                },
                             },
-                        },
+                        ],
                     },
                 ],
             },
