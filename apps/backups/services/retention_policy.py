@@ -138,11 +138,6 @@ def apply_retention_policy() -> None:
         if oldest.file_name:
             keep.add(oldest.file_name)
 
-    # All backups older than 1 year are deleted
-    for backup in delete_set:
-        if backup.file_name:
-            delete_set.add(backup.file_name)
-
     # Now actually delete from storage and update records
     deleted_count = 0
     for backup in BackupRecord.objects.filter(status=BackupRecord.Status.SUCCESS).all():
