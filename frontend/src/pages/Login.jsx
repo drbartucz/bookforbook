@@ -6,7 +6,7 @@ import useAuth from '../hooks/useAuth.js';
 import styles from './Auth.module.css';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, updateUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [serverError, setServerError] = useState(null);
@@ -30,9 +30,7 @@ export default function Login() {
       });
       const { access, refresh } = tokenRes.data;
 
-      // Store tokens first so the getMe call can use them
-      localStorage.setItem('accessToken', access);
-      if (refresh) localStorage.setItem('refreshToken', refresh);
+      login({ access, refresh }, null);
 
       // Fetch user profile
       let user = null;
@@ -43,7 +41,9 @@ export default function Login() {
         // Profile fetch is optional — proceed anyway
       }
 
-      login({ access, refresh }, user);
+      if (user) {
+        updateUser(user);
+      }
       navigate(from, { replace: true });
     } catch (err) {
       const data = err?.response?.data;

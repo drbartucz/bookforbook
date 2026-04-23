@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { matches as matchesApi } from '../services/api.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
@@ -32,6 +33,8 @@ export default function Matches() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [actionError, setActionError] = useState(null);
+  const [requiresAddressVerification, setRequiresAddressVerification] = useState(false);
+  const [verificationUrl, setVerificationUrl] = useState('/account');
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['matches', statusFilter, page],
@@ -47,9 +50,19 @@ export default function Matches() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       setActionError(null);
+      setRequiresAddressVerification(false);
+      setVerificationUrl('/account');
     },
     onError: (err) => {
-      setActionError(err?.response?.data?.detail || 'Failed to accept match.');
+      const responseData = err?.response?.data;
+      setActionError(responseData?.detail || 'Failed to accept match.');
+      if (responseData?.code === 'address_verification_required') {
+        setRequiresAddressVerification(true);
+        setVerificationUrl(responseData?.verification_url || '/account');
+      } else {
+        setRequiresAddressVerification(false);
+        setVerificationUrl('/account');
+      }
     },
   });
 
@@ -58,6 +71,8 @@ export default function Matches() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       setActionError(null);
+      setRequiresAddressVerification(false);
+      setVerificationUrl('/account');
     },
     onError: (err) => {
       setActionError(err?.response?.data?.detail || 'Failed to decline match.');
@@ -96,7 +111,16 @@ export default function Matches() {
 
       {actionError && (
         <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
-          {actionError}
+          <div>{actionError}</div>
+          {requiresAddressVerification && verificationUrl && (
+            <Link
+              to={verificationUrl}
+              className="btn btn-secondary"
+              style={{ marginTop: '0.75rem', display: 'inline-flex' }}
+            >
+              Verify address now
+            </Link>
+          )}
         </div>
       )}
 
