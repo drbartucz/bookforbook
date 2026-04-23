@@ -38,7 +38,7 @@ def remove_schedules(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [
         ("backups", "0001_initial"),
-        ("django_q", "0006_auto_20150805_1817"),
+        ("django_q", "0008_auto_20160224_1026"),
     ]
 
     operations = [
