@@ -13,10 +13,16 @@ This plan turns the current testing gaps into executable phases with clear compl
   - Phase 2 initial additions:
     - `apps/trading/tests/test_trading_tasks.py` added explicit CONFIRMED auto-close shipment-status regression lock.
     - `apps/accounts/tests/test_usps_service.py` added USPS token cache, 401 retry, and malformed response coverage.
+  - Phase 3 additions:
+    - `apps/matching/tests/test_preference_filters.py` added dedicated `wishlist_allows_book` unit tests for accented titles, mixed-case authors, and NOT-abridged phrasing.
+    - `apps/matching/services/preference_filters.py` now treats explicit non-abridged phrasing as non-abridged.
+    - `apps/matching/tests/test_direct_matcher_duplicates.py` added dedicated `_duplicate_match_exists` direction/asymmetry-focused unit coverage.
 
 - Remaining:
-  - Continue Phase 2 (if additional task-coverage deltas are identified).
-  - Execute Phases 3 through 7.
+  - Execute Phases 4 through 7.
+
+Notes:
+- In this environment, focused Django test runs may require `--reuse-db` if another session is holding the test database.
 
 ## Phase 1 - Contract and Critical Regression Coverage (Highest Priority)
 
