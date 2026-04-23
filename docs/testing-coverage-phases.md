@@ -23,9 +23,14 @@ This plan turns the current testing gaps into executable phases with clear compl
     - `apps/notifications/tasks.py` now excludes institutional users from inactivity warning/delisting pipeline.
     - `apps/notifications/tests/test_tasks.py` added institutional inactivity exclusion test.
     - `apps/notifications/tests/test_tasks.py` added verification-email HTML username escaping test.
+  - Phase 5 additions:
+    - `apps/inventory/tests/test_inventory_api.py` added PartnerBooksView access-rule tests for confirmed partners and outsider rejection.
+    - `apps/trading/tests/test_trading_tasks.py` added same-direction proposal-items validation test (`ValueError`) for `create_trade_from_proposal`.
+    - `conftest.py` added reusable `address_verified_user` fixture.
+    - `apps/matching/tests/test_matching.py` now uses `address_verified_user` in the successful match-acceptance test.
 
 - Remaining:
-  - Execute Phases 5 through 7.
+  - Execute Phases 6 through 7.
 
 Notes:
 - In this environment, focused Django test runs may require `--reuse-db` if another session is holding the test database.

@@ -483,6 +483,28 @@ class TestTradeUniquenessAndIdempotency:
             == 1
         )
 
+    def test_create_trade_from_proposal_rejects_same_direction_items(self):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        proposal = TradeProposal.objects.create(
+            proposer=proposer,
+            recipient=recipient,
+            status=TradeProposal.Status.ACCEPTED,
+        )
+        proposer_book_1 = UserBookFactory(user=proposer, book=BookFactory())
+        proposer_book_2 = UserBookFactory(user=proposer, book=BookFactory())
+        proposal.items.create(
+            direction="proposer_sends",
+            user_book=proposer_book_1,
+        )
+        proposal.items.create(
+            direction="proposer_sends",
+            user_book=proposer_book_2,
+        )
+
+        with pytest.raises(ValueError, match="one item in each direction"):
+            create_trade_from_proposal(proposal)
+
     def test_no_reminder_for_completed_trade_with_max_reminders(self):
         a = UserFactory()
         b = UserFactory()

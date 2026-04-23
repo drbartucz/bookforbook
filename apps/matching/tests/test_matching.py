@@ -397,29 +397,36 @@ class TestPreferenceFilters:
 
 @pytest.mark.django_db
 class TestMatchAPI:
-    def test_accept_match_sets_leg_accepted(self, auth_api_client, verified_user, db):
-        verified_user.full_name = "Reader One"
-        verified_user.address_line_1 = "123 Main St"
-        verified_user.city = "Denver"
-        verified_user.state = "CO"
-        verified_user.zip_code = "80202"
-        verified_user.address_verification_status = "verified"
-        verified_user.save()
+    def test_accept_match_sets_leg_accepted(self, address_verified_user, db):
+        from rest_framework.test import APIClient
+
+        auth_api_client = APIClient()
+        auth_api_client.force_authenticate(user=address_verified_user)
 
         other = UserFactory()
         book_a = BookFactory()
         book_b = BookFactory()
-        ub_a = UserBookFactory(user=verified_user, book=book_a, condition="good")
+        ub_a = UserBookFactory(
+            user=address_verified_user,
+            book=book_a,
+            condition="good",
+        )
         ub_b = UserBookFactory(user=other, book=book_b, condition="good")
 
         match = Match.objects.create(
             match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
         )
         leg_a = MatchLeg.objects.create(
-            match=match, sender=verified_user, receiver=other, user_book=ub_a
+            match=match,
+            sender=address_verified_user,
+            receiver=other,
+            user_book=ub_a,
         )
         leg_b = MatchLeg.objects.create(
-            match=match, sender=other, receiver=verified_user, user_book=ub_b
+            match=match,
+            sender=other,
+            receiver=address_verified_user,
+            user_book=ub_b,
         )
 
         resp = auth_api_client.post(f"/api/v1/matches/{match.id}/accept/")
