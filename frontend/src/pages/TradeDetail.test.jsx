@@ -101,7 +101,11 @@ describe('TradeDetail page', () => {
         expect(screen.getByAltText('The Left Hand of Darkness')).toHaveAttribute('src', 'https://example.com/lefthand.jpg');
 
         await userEvent.type(screen.getByPlaceholderText('Type a message...'), 'Ready to ship soon');
+        expect(screen.getByText('18/1000')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Type a message...')).toHaveAttribute('maxLength', '1000');
+
         await userEvent.click(screen.getByRole('button', { name: 'Send message' }));
+        expect(screen.getByText('0/1000')).toBeInTheDocument();
 
         await waitFor(() => {
             expect(trades.sendMessage).toHaveBeenCalledWith('trade-1', {

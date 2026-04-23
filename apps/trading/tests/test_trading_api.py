@@ -180,6 +180,7 @@ class TestProposalAccept:
 
         assert resp.status_code == 409
         assert resp.data["code"] == "address_verification_required"
+        assert resp.data["verification_url"] == "/account"
 
     def test_proposer_cannot_accept_own_proposal(self, api_client):
         proposer = UserFactory()

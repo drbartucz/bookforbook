@@ -79,8 +79,9 @@ class TestNotificationListView:
 
         resp = auth_client(user).get("/api/v1/notifications/")
         assert resp.status_code == status.HTTP_200_OK
-        assert len(resp.data) == 1
-        assert resp.data[0]["title"] == "Mine"
+        assert resp.data["count"] == 1
+        assert len(resp.data["results"]) == 1
+        assert resp.data["results"][0]["title"] == "Mine"
 
     def test_unauthenticated_gets_401(self):
         resp = APIClient().get("/api/v1/notifications/")
@@ -92,13 +93,17 @@ class TestNotificationListView:
 
         resp = auth_client(user).get("/api/v1/notifications/")
         assert resp.status_code == status.HTTP_200_OK
-        assert len(resp.data) == 50
+        assert resp.data["count"] == 55
+        assert len(resp.data["results"]) == 20
+        assert resp.data["page"] == 1
+        assert resp.data["page_size"] == 20
 
     def test_empty_list_for_user_with_no_notifications(self):
         user = UserFactory()
         resp = auth_client(user).get("/api/v1/notifications/")
         assert resp.status_code == status.HTTP_200_OK
-        assert resp.data == []
+        assert resp.data["count"] == 0
+        assert resp.data["results"] == []
 
     def test_read_status_included_in_response(self):
         user = UserFactory()
@@ -106,8 +111,24 @@ class TestNotificationListView:
         NotificationFactory(user=user, is_read=False)
 
         resp = auth_client(user).get("/api/v1/notifications/")
-        read_flags = {n["is_read"] for n in resp.data}
+        read_flags = {n["is_read"] for n in resp.data["results"]}
         assert read_flags == {True, False}
+
+    def test_supports_page_and_page_size_params(self):
+        user = UserFactory()
+        NotificationFactory.create_batch(30, user=user)
+
+        resp = auth_client(user).get("/api/v1/notifications/?page=2&page_size=10")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["count"] == 30
+        assert resp.data["page"] == 2
+        assert resp.data["page_size"] == 10
+        assert len(resp.data["results"]) == 10
+
+    def test_invalid_page_params_rejected(self):
+        user = UserFactory()
+        resp = auth_client(user).get("/api/v1/notifications/?page=0&page_size=10")
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
 
 # ---------------------------------------------------------------------------

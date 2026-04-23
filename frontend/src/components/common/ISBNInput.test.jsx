@@ -11,6 +11,25 @@ vi.mock('../../services/api.js', () => ({
 }));
 
 describe('ISBNInput', () => {
+    it('shows external validation error only after blur', async () => {
+        const onBookFound = vi.fn();
+        const onChange = vi.fn();
+
+        render(
+            <ISBNInput
+                value="123"
+                onChange={onChange}
+                onBookFound={onBookFound}
+                error="ISBN must be 10 or 13 digits."
+            />
+        );
+
+        expect(screen.queryByText('ISBN must be 10 or 13 digits.')).not.toBeInTheDocument();
+        await userEvent.click(screen.getByLabelText('ISBN'));
+        await userEvent.tab();
+        expect(screen.getByText('ISBN must be 10 or 13 digits.')).toBeInTheDocument();
+    });
+
     it('renders preview data from the current lookup response shape', async () => {
         const onBookFound = vi.fn();
         const onChange = vi.fn();

@@ -31,6 +31,10 @@ export function getBookPrimaryAuthor(book) {
  * Any other URL (e.g. S3, Google Books) is returned unchanged.
  */
 function proxyCoverUrl(url) {
+  if (!import.meta.env.PROD) {
+    return url;
+  }
+
   try {
     const parsed = new URL(url);
     if (parsed.hostname === 'covers.openlibrary.org') {
