@@ -1,19 +1,80 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { users as usersApi, institutions as institutionsApi } from '../services/api.js';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { users as usersApi, institutions as institutionsApi, wishlist as wishlistApi } from '../services/api.js';
 import useAuth from '../hooks/useAuth.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
-import ConditionBadge from '../components/common/ConditionBadge.jsx';
+import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
 import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './PublicProfile.module.css';
 
+const DEFAULT_WISHLIST_PREFERENCES = {
+  min_condition: 'any',
+  edition_preference: 'same_language',
+  allow_translations: false,
+  exclude_abridged: true,
+  format_preferences: [],
+};
+
+const EDITION_PREFERENCE_OPTIONS = [
+  { value: 'exact', label: 'Exact edition only' },
+  { value: 'same_language', label: 'Same work, same language' },
+  { value: 'any_language', label: 'Same work, any language/translation' },
+  { value: 'custom', label: 'Custom rules' },
+];
+
+const FORMAT_OPTIONS = [
+  { value: 'hardcover', label: 'Hardcover' },
+  { value: 'paperback', label: 'Paperback' },
+  { value: 'mass_market', label: 'Mass Market' },
+  { value: 'large_print', label: 'Large Print' },
+  { value: 'audiobook', label: 'Audiobook' },
+];
+
+const CONDITION_OPTIONS = [
+  { value: 'any', label: 'Any condition' },
+  ...Object.entries(CONDITION_CONFIG).map(([value, cfg]) => ({ value, label: cfg.label })),
+];
+
+function getWishlistPreferenceStorageKey(userId) {
+  return `wishlist-preferences:${userId}`;
+}
+
+function loadStoredWishlistPreferences(userId) {
+  if (!userId) return DEFAULT_WISHLIST_PREFERENCES;
+  try {
+    const raw = localStorage.getItem(getWishlistPreferenceStorageKey(userId));
+    if (!raw) return DEFAULT_WISHLIST_PREFERENCES;
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_WISHLIST_PREFERENCES,
+      ...parsed,
+      format_preferences: Array.isArray(parsed?.format_preferences) ? parsed.format_preferences : [],
+    };
+  } catch {
+    return DEFAULT_WISHLIST_PREFERENCES;
+  }
+}
+
+function saveWishlistPreferences(userId, preferences) {
+  if (!userId) return;
+  try {
+    localStorage.setItem(getWishlistPreferenceStorageKey(userId), JSON.stringify(preferences));
+  } catch {
+    // Ignore storage failures and continue with server updates.
+  }
+}
+
 export default function PublicProfile() {
+  const queryClient = useQueryClient();
   const { id } = useParams();
   const { user, isAuthenticated } = useAuth();
   const isOwnProfile = isAuthenticated && user?.id != null && String(user.id) === String(id);
+  const [wishlistPreferences, setWishlistPreferences] = useState(DEFAULT_WISHLIST_PREFERENCES);
+  const [wishlistPrefMessage, setWishlistPrefMessage] = useState(null);
+  const [wishlistPrefError, setWishlistPrefError] = useState(null);
 
   const { data: profile, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['publicProfile', id],
@@ -38,6 +99,74 @@ export default function PublicProfile() {
     enabled: isOwnProfile,
   });
 
+  const { data: wishlistData } = useQuery({
+    queryKey: ['profileWishlist', id],
+    queryFn: () => wishlistApi.list({ page: 1, page_size: 100 }).then((r) => r.data),
+    enabled: isOwnProfile,
+  });
+
+  const wishlistItems = useMemo(() => wishlistData?.results ?? [], [wishlistData]);
+
+  useEffect(() => {
+    if (!isOwnProfile) return;
+    const stored = loadStoredWishlistPreferences(user?.id);
+    if (wishlistItems.length > 0) {
+      const first = wishlistItems[0];
+      setWishlistPreferences({
+        min_condition: first.min_condition ?? DEFAULT_WISHLIST_PREFERENCES.min_condition,
+        edition_preference: first.edition_preference ?? DEFAULT_WISHLIST_PREFERENCES.edition_preference,
+        allow_translations: Boolean(first.allow_translations),
+        exclude_abridged: first.exclude_abridged !== false,
+        format_preferences: Array.isArray(first.format_preferences) ? first.format_preferences : [],
+      });
+      return;
+    }
+    setWishlistPreferences(stored);
+  }, [isOwnProfile, user?.id, wishlistItems]);
+
+  const saveWishlistPreferencesMutation = useMutation({
+    mutationFn: async (nextPreferences) => {
+      saveWishlistPreferences(user?.id, nextPreferences);
+
+      if (wishlistItems.length === 0) {
+        return;
+      }
+
+      const payload = {
+        min_condition:
+          nextPreferences.min_condition === 'any' ? 'acceptable' : nextPreferences.min_condition,
+        edition_preference: nextPreferences.edition_preference,
+      };
+
+      if (nextPreferences.edition_preference === 'custom') {
+        payload.allow_translations = nextPreferences.allow_translations;
+        payload.exclude_abridged = nextPreferences.exclude_abridged;
+        payload.format_preferences = nextPreferences.format_preferences;
+      }
+
+      await Promise.all(
+        wishlistItems.map((item) => wishlistApi.update(item.id, payload))
+      );
+    },
+    onSuccess: async () => {
+      setWishlistPrefError(null);
+      setWishlistPrefMessage(
+        wishlistItems.length > 0
+          ? 'Wishlist match preferences updated for your current wishlist items.'
+          : 'Wishlist match defaults saved. New wishlist items will use these defaults.'
+      );
+      await queryClient.invalidateQueries({ queryKey: ['profileWishlist', id] });
+      await queryClient.invalidateQueries({ queryKey: ['wishlist'] });
+    },
+    onError: (mutationError) => {
+      const detail = mutationError?.response?.data?.detail;
+      setWishlistPrefError(
+        typeof detail === 'string' ? detail : 'Could not save wishlist match preferences.'
+      );
+      setWishlistPrefMessage(null);
+    },
+  });
+
   if (isLoading) return <LoadingSpinner center size="lg" />;
   if (isError) return <ErrorMessage error={error} onRetry={refetch} />;
   if (!profile) return null;
@@ -49,6 +178,34 @@ export default function PublicProfile() {
     meData?.address_line_1 && meData?.city && meData?.state && meData?.zip_code
   );
   const ownAddressStatus = meData?.address_verification_status;
+
+  function setPreferenceField(field, value) {
+    setWishlistPrefMessage(null);
+    setWishlistPrefError(null);
+    setWishlistPreferences((current) => ({ ...current, [field]: value }));
+  }
+
+  function toggleFormatPreference(formatValue) {
+    setWishlistPrefMessage(null);
+    setWishlistPrefError(null);
+    setWishlistPreferences((current) => {
+      if (current.format_preferences.includes(formatValue)) {
+        return {
+          ...current,
+          format_preferences: current.format_preferences.filter((value) => value !== formatValue),
+        };
+      }
+      return {
+        ...current,
+        format_preferences: [...current.format_preferences, formatValue],
+      };
+    });
+  }
+
+  function handleWishlistPreferenceSubmit(event) {
+    event.preventDefault();
+    saveWishlistPreferencesMutation.mutate(wishlistPreferences);
+  }
 
   return (
     <div className={styles.page}>
@@ -227,6 +384,101 @@ export default function PublicProfile() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {isOwnProfile && (
+          <div className={`card ${styles.section}`}>
+            <div className={styles.addressHeader}>
+              <h2 className={styles.sectionTitle}>Wishlist Match Preferences</h2>
+              <span className={`${styles.preferenceScopeChip} ${wishlistItems.length > 0 ? styles.preferenceScopeChipApplied : styles.preferenceScopeChipDefaults}`}>
+                {wishlistItems.length > 0
+                  ? `Applied to ${wishlistItems.length} current item${wishlistItems.length === 1 ? '' : 's'}`
+                  : 'Defaults for future items'}
+              </span>
+            </div>
+            <p className={styles.sectionSubtitle}>
+              Control how flexible matching should be for your wishlist. If you have no wishlist items yet, these will be saved as your defaults.
+            </p>
+
+            {wishlistPrefError && <div className="alert alert-error">{wishlistPrefError}</div>}
+            {wishlistPrefMessage && <div className="alert alert-success">{wishlistPrefMessage}</div>}
+
+            <form onSubmit={handleWishlistPreferenceSubmit} className={styles.preferencesForm}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="wishlistMinCondition">Minimum acceptable condition</label>
+                <select
+                  id="wishlistMinCondition"
+                  className="form-input"
+                  value={wishlistPreferences.min_condition}
+                  onChange={(event) => setPreferenceField('min_condition', event.target.value)}
+                >
+                  {CONDITION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="wishlistEditionPreference">Edition matching</label>
+                <select
+                  id="wishlistEditionPreference"
+                  className="form-input"
+                  value={wishlistPreferences.edition_preference}
+                  onChange={(event) => setPreferenceField('edition_preference', event.target.value)}
+                >
+                  {EDITION_PREFERENCE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {wishlistPreferences.edition_preference === 'custom' && (
+                <div className={styles.customRulesBlock}>
+                  <label className={styles.inlineCheckbox}>
+                    <input
+                      type="checkbox"
+                      checked={wishlistPreferences.allow_translations}
+                      onChange={(event) => setPreferenceField('allow_translations', event.target.checked)}
+                    />
+                    Include translations
+                  </label>
+                  <label className={styles.inlineCheckbox}>
+                    <input
+                      type="checkbox"
+                      checked={wishlistPreferences.exclude_abridged}
+                      onChange={(event) => setPreferenceField('exclude_abridged', event.target.checked)}
+                    />
+                    Exclude abridged versions
+                  </label>
+
+                  <div>
+                    <p className={styles.formLabel}>Allowed formats</p>
+                    <div className={styles.formatButtonRow}>
+                      {FORMAT_OPTIONS.map((format) => {
+                        const active = wishlistPreferences.format_preferences.includes(format.value);
+                        return (
+                          <button
+                            key={format.value}
+                            type="button"
+                            className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => toggleFormatPreference(format.value)}
+                          >
+                            {format.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className={styles.actionsRow}>
+                <button type="submit" className="btn btn-primary" disabled={saveWishlistPreferencesMutation.isPending}>
+                  {saveWishlistPreferencesMutation.isPending ? 'Saving...' : 'Save wishlist preferences'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>

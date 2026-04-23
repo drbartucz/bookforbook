@@ -156,6 +156,26 @@
   font-weight: 600;
 }
 
+.preferenceScopeChip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.preferenceScopeChipApplied {
+  background: rgba(22, 163, 74, 0.14);
+  color: #166534;
+}
+
+.preferenceScopeChipDefaults {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
 .addressLine {
   margin: 0;
   color: var(--color-gray-700);
@@ -166,6 +186,48 @@
   margin-top: 0.5rem;
   font-size: 0.8125rem;
   color: var(--color-gray-500);
+}
+
+.preferencesForm {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.customRulesBlock {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-gray-100);
+  border-radius: var(--radius-md);
+  background: var(--color-gray-50);
+}
+
+.inlineCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--color-gray-700);
+  font-size: 0.9rem;
+}
+
+.formLabel {
+  margin: 0 0 0.45rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-gray-500);
+}
+
+.formatButtonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.actionsRow {
+  margin-top: 0.4rem;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .emptyText {
