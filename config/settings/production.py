@@ -1,6 +1,7 @@
 import re
+from urllib.parse import urlparse
 
-from decouple import config
+from decouple import Csv, config
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401, F403
@@ -25,6 +26,40 @@ if _railway_domain:
     _allowed.append(_railway_domain)
 ALLOWED_HOSTS = _allowed
 
+
+def _origin_hostname(origin: str) -> str:
+    parsed = urlparse(origin)
+    return (parsed.hostname or "").lower()
+
+
+if not CORS_ALLOWED_ORIGINS:  # noqa: F405
+    raise ImproperlyConfigured(
+        "CORS_ALLOWED_ORIGINS must be explicitly set in production."
+    )
+
+_invalid_cors_origins = []
+for _origin in CORS_ALLOWED_ORIGINS:  # noqa: F405
+    _host = _origin_hostname(_origin)
+    if not _host or _host in {"localhost", "127.0.0.1", "0.0.0.0"}:
+        _invalid_cors_origins.append(_origin)
+
+if _invalid_cors_origins:
+    raise ImproperlyConfigured(
+        "CORS_ALLOWED_ORIGINS cannot include localhost/loopback in production: "
+        f"{', '.join(_invalid_cors_origins)}"
+    )
+
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default=",".join(CORS_ALLOWED_ORIGINS),  # noqa: F405
+    cast=Csv(),
+)
+
+if not CSRF_TRUSTED_ORIGINS:
+    raise ImproperlyConfigured(
+        "CSRF_TRUSTED_ORIGINS must be explicitly set in production."
+    )
+
 # WhiteNoise — serve and compress static files directly from gunicorn
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
@@ -36,6 +71,10 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
 
 # Railway terminates TLS at the proxy — tell Django to trust the forwarded header
@@ -79,8 +118,12 @@ DATABASES = {"default": _parse_db_url(DATABASE_URL)}
 
 # Email — Resend via django-anymail (HTTP API, no SMTP port restrictions)
 EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+RESEND_API_KEY = config("RESEND_API_KEY", default="")
+if not RESEND_API_KEY:
+    raise ImproperlyConfigured("RESEND_API_KEY must be set in production.")
+
 ANYMAIL = {
-    "RESEND_API_KEY": config("RESEND_API_KEY", default=""),
+    "RESEND_API_KEY": RESEND_API_KEY,
 }
 DEFAULT_FROM_EMAIL = config(
     "DEFAULT_FROM_EMAIL", default="Book for Book <noreply@bookforbook.com>"
@@ -88,6 +131,9 @@ DEFAULT_FROM_EMAIL = config(
 
 # Frontend URL (for email links)
 FRONTEND_URL = config("FRONTEND_URL", default="https://bookforbook.com")
+_frontend_url = urlparse(FRONTEND_URL)
+if _frontend_url.scheme != "https" or not _frontend_url.netloc:
+    raise ImproperlyConfigured("FRONTEND_URL must be a valid HTTPS URL in production.")
 
 # Logging
 LOGGING = {
