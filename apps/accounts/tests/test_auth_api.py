@@ -7,10 +7,17 @@ import pytest
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 
 from apps.accounts.tokens import email_verification_token
-from apps.tests.factories import UserFactory
+from apps.tests.factories import (
+    BookFactory,
+    UserBookFactory,
+    UserFactory,
+    WishlistItemFactory,
+)
 
 
 @pytest.mark.django_db
@@ -305,3 +312,88 @@ class TestAddressVerification:
 
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
         assert resp.data["code"] == "address_verification_failed"
+
+
+@pytest.mark.django_db
+class TestLogoutView:
+    url = "/api/v1/auth/logout/"
+
+    def test_logout_blacklists_refresh_token(self, auth_api_client, verified_user):
+        refresh = RefreshToken.for_user(verified_user)
+
+        resp = auth_api_client.post(self.url, {"refresh": str(refresh)})
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["detail"] == "Logged out."
+        assert BlacklistedToken.objects.filter(token__jti=refresh["jti"]).exists()
+
+
+@pytest.mark.django_db
+class TestUserExportView:
+    url = "/api/v1/users/me/export/"
+
+    def test_export_structure_snapshot_like(self, auth_api_client, verified_user):
+        verified_user.full_name = "Reader Example"
+        verified_user.address_line_1 = "123 Main St"
+        verified_user.city = "Denver"
+        verified_user.state = "CO"
+        verified_user.zip_code = "80202"
+        verified_user.save(
+            update_fields=[
+                "full_name",
+                "address_line_1",
+                "city",
+                "state",
+                "zip_code",
+            ]
+        )
+
+        book = BookFactory(isbn_13="9780141187761", title="1984")
+        UserBookFactory(user=verified_user, book=book, condition="good")
+        WishlistItemFactory(user=verified_user, book=book, min_condition="acceptable")
+
+        resp = auth_api_client.get(self.url)
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert set(resp.data.keys()) == {
+            "profile",
+            "address",
+            "books",
+            "wishlist",
+            "ratings_given",
+            "ratings_received",
+        }
+        assert set(resp.data["profile"].keys()) == {
+            "id",
+            "email",
+            "username",
+            "account_type",
+            "created_at",
+            "total_trades",
+            "avg_recent_rating",
+        }
+        assert set(resp.data["address"].keys()) == {
+            "full_name",
+            "address_line_1",
+            "address_line_2",
+            "city",
+            "state",
+            "zip_code",
+        }
+        assert len(resp.data["books"]) == 1
+        assert set(resp.data["books"][0].keys()) == {
+            "id",
+            "isbn_13",
+            "title",
+            "condition",
+            "status",
+            "created_at",
+        }
+        assert len(resp.data["wishlist"]) == 1
+        assert set(resp.data["wishlist"][0].keys()) == {
+            "id",
+            "isbn_13",
+            "title",
+            "min_condition",
+            "is_active",
+        }
