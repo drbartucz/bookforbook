@@ -1,4 +1,25 @@
+import sys
+
 import pytest
+
+# ---------------------------------------------------------------------------
+# Python 3.14 compatibility: object gained __copy__ / __deepcopy__ methods.
+# Calling super().__copy__() inside BaseContext.__copy__ now returns the super
+# proxy rather than the actual instance, causing an AttributeError.
+# This patch replaces the broken method with an equivalent that works on all
+# supported Python versions.  It can be removed once Django ships the fix in
+# the 5.1.x series.
+# ---------------------------------------------------------------------------
+if sys.version_info >= (3, 14):
+    from django.template.context import BaseContext
+
+    def _patched_base_context_copy(self):
+        duplicate = self.__class__.__new__(self.__class__)
+        duplicate.__dict__ = self.__dict__.copy()
+        duplicate.dicts = self.dicts[:]
+        return duplicate
+
+    BaseContext.__copy__ = _patched_base_context_copy
 
 from apps.accounts.models import User
 from apps.tests.factories import (
