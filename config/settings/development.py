@@ -92,3 +92,7 @@ LOGGING = {
 # Disable throttling in development / tests so the full test suite doesn't
 # hit rate limits when many tests call the token endpoint in the same hour.
 REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
+
+# ─── django-dbbackup (local filesystem) ─────────────────────────────────────
+# Backups land in <project_root>/backups/ — already set in base.py.
+# Nothing extra needed; the directory is created automatically by dbbackup.

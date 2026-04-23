@@ -29,6 +29,8 @@ THIRD_PARTY_APPS = [
     "anymail",
     "django_q",
     "django_filters",
+    "dbbackup",
+    "storages",
 ]
 
 LOCAL_APPS = [
@@ -41,6 +43,7 @@ LOCAL_APPS = [
     "apps.ratings",
     "apps.notifications",
     "apps.messaging",
+    "apps.backups",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -198,6 +201,14 @@ AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default="")
 AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default="")
 AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="")
 AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="us-east-1")
+
+# ─── django-dbbackup ────────────────────────────────────────────────────────
+# Keep the 7 most recent database backups; overridden per environment.
+DBBACKUP_CLEANUP_KEEP = 7
+DBBACKUP_CLEANUP_KEEP_MEDIA = 3
+# Default to filesystem storage (overridden to S3 in production).
+DBBACKUP_STORAGE = "django.core.files.storage.FileSystemStorage"
+DBBACKUP_STORAGE_OPTIONS = {"location": str(BASE_DIR / "backups")}
 
 # USPS Developer API (OAuth2 + Addresses v3)
 USPS_CLIENT_ID = config("USPS_CLIENT_ID", default="")

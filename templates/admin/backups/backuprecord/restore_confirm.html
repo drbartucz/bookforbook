@@ -1,0 +1,78 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Confirm Database Restore{% endblock %}
+
+{% block content %}
+<div style="max-width:680px;">
+
+  <h1>Confirm Database Restore</h1>
+
+  <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;
+              padding:16px 20px;margin-bottom:24px;">
+    <strong>⚠ This action is destructive and irreversible.</strong>
+    <ul style="margin:8px 0 0 20px;">
+      <li>The <em>entire</em> current database will be overwritten.</li>
+      <li>All data created after this backup was taken will be permanently lost.</li>
+      <li>The application should be restarted after the restore completes.</li>
+      <li>Active user sessions will be invalidated.</li>
+    </ul>
+  </div>
+
+  <table>
+    <tr>
+      <th style="text-align:left;padding:4px 12px 4px 0;">Backup ID</th>
+      <td>{{ record.pk }}</td>
+    </tr>
+    <tr>
+      <th style="text-align:left;padding:4px 12px 4px 0;">Created at</th>
+      <td>{{ record.created_at }}</td>
+    </tr>
+    <tr>
+      <th style="text-align:left;padding:4px 12px 4px 0;">File</th>
+      <td><code>{{ record.file_name }}</code></td>
+    </tr>
+    {% if record.file_size_mb %}
+    <tr>
+      <th style="text-align:left;padding:4px 12px 4px 0;">Size</th>
+      <td>{{ record.file_size_mb }} MB</td>
+    </tr>
+    {% endif %}
+  </table>
+
+  <hr style="margin:24px 0;">
+
+  <p>
+    To confirm, type <strong>CONFIRM</strong> in the box below and click
+    <em>Restore Database</em>.
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    <div style="margin-bottom:16px;">
+      <label for="confirmation" style="display:block;margin-bottom:4px;">
+        Type <strong>CONFIRM</strong> to proceed:
+      </label>
+      <input
+        type="text"
+        id="confirmation"
+        name="confirmation"
+        autocomplete="off"
+        style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;
+               font-size:14px;width:220px;"
+        placeholder="CONFIRM"
+        required
+      >
+    </div>
+    <button
+      type="submit"
+      style="background:#c62828;color:#fff;padding:8px 18px;border:none;
+             border-radius:4px;cursor:pointer;font-size:14px;margin-right:10px;"
+    >
+      Restore Database
+    </button>
+    <a href="../../" style="font-size:13px;">Cancel</a>
+  </form>
+
+</div>
+{% endblock %}
