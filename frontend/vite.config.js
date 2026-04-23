@@ -39,12 +39,16 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/covers\.openlibrary\.org\/.*/i,
+            // Match covers served through our Cloudflare Pages proxy (/covers/*)
+            // AND direct Open Library URLs as a fallback for any cached raw URLs.
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/covers/') ||
+              url.hostname === 'covers.openlibrary.org',
             handler: 'CacheFirst',
             options: {
               cacheName: 'book-covers-cache',
               expiration: {
-                maxEntries: 200,
+                maxEntries: 500,
                 maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
               },
             },
@@ -58,6 +62,12 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+      },
+      // Mirrors the Cloudflare Pages Function so /covers/* works in dev.
+      '/covers': {
+        target: 'https://covers.openlibrary.org',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/covers/, ''),
       },
     },
   },

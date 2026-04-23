@@ -23,12 +23,33 @@ export function getBookPrimaryAuthor(book) {
   return null;
 }
 
+/**
+ * Rewrite an Open Library cover URL to go through our Cloudflare Pages proxy
+ * (/covers/*) so images are served from the edge cache instead of hitting
+ * covers.openlibrary.org on every cold load.
+ *
+ * Any other URL (e.g. S3, Google Books) is returned unchanged.
+ */
+function proxyCoverUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'covers.openlibrary.org') {
+      // e.g. /b/isbn/9780201616224-M.jpg
+      return `/covers${parsed.pathname}`;
+    }
+  } catch {
+    // Not a valid absolute URL — return as-is.
+  }
+  return url;
+}
+
 export function getBookCoverUrl(book) {
   if (!book) {
     return null;
   }
 
-  return book.cover_image_url ?? book.cover_url ?? book.thumbnail ?? null;
+  const raw = book.cover_image_url ?? book.cover_url ?? book.thumbnail ?? null;
+  return raw ? proxyCoverUrl(raw) : null;
 }
 
 export function getBookIsbn(book) {
