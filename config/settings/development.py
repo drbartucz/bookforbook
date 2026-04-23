@@ -59,8 +59,7 @@ else:
 # Email backend — print to console in development
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-# Less strict CORS in development
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS: use explicit allowlist from base settings (CORS_ALLOWED_ORIGINS)
 
 # Logging
 LOGGING = {
