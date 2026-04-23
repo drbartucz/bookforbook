@@ -10,7 +10,11 @@ Covers:
   books already in active matches, fewer than 3 eligible users.
 """
 
+import uuid
+from datetime import timedelta
+
 import pytest
+from django.utils import timezone
 
 from apps.inventory.models import UserBook
 from apps.matching.models import Match, MatchLeg
@@ -252,6 +256,76 @@ class TestBuildTradeGraph:
         graph, _ = _build_trade_graph()
         neighbors_of_a = [n for n, _ in graph.get(str(a.pk), [])]
         assert str(b.pk) not in neighbors_of_a
+
+    def test_edge_order_prefers_oldest_wishlist(self):
+        contested = BookFactory()
+        a = UserFactory()
+        b = UserFactory()
+        c = UserFactory()
+
+        UserBookFactory(user=a, book=contested, condition="good")
+
+        wish_b = WishlistItemFactory(user=b, book=contested, min_condition="acceptable")
+        wish_c = WishlistItemFactory(user=c, book=contested, min_condition="acceptable")
+
+        older = timezone.now() - timedelta(days=2)
+        newer = timezone.now() - timedelta(days=1)
+        type(wish_c).objects.filter(pk=wish_c.pk).update(created_at=older)
+        type(wish_b).objects.filter(pk=wish_b.pk).update(created_at=newer)
+
+        graph, _ = _build_trade_graph()
+        neighbors_of_a = [n for n, _ in graph.get(str(a.pk), [])]
+        assert neighbors_of_a[0] == str(c.pk)
+
+    def test_edge_order_tie_break_prefers_stricter_condition(self):
+        contested = BookFactory()
+        a = UserFactory()
+        b = UserFactory()
+        c = UserFactory()
+
+        UserBookFactory(user=a, book=contested, condition="very_good")
+
+        wish_b = WishlistItemFactory(user=b, book=contested, min_condition="acceptable")
+        wish_c = WishlistItemFactory(user=c, book=contested, min_condition="very_good")
+
+        same_time = timezone.now() - timedelta(days=1)
+        type(wish_b).objects.filter(pk=wish_b.pk).update(created_at=same_time)
+        type(wish_c).objects.filter(pk=wish_c.pk).update(created_at=same_time)
+
+        graph, _ = _build_trade_graph()
+        neighbors_of_a = [n for n, _ in graph.get(str(a.pk), [])]
+        assert neighbors_of_a[0] == str(c.pk)
+
+    def test_edge_order_tie_break_prefers_lower_wishlist_id(self):
+        contested = BookFactory()
+        a = UserFactory()
+        b = UserFactory()
+        c = UserFactory()
+
+        UserBookFactory(user=a, book=contested, condition="good")
+
+        low_id = uuid.UUID("00000000-0000-0000-0000-000000000011")
+        high_id = uuid.UUID("00000000-0000-0000-0000-000000000022")
+        wish_b = WishlistItemFactory(
+            id=low_id,
+            user=b,
+            book=contested,
+            min_condition="acceptable",
+        )
+        wish_c = WishlistItemFactory(
+            id=high_id,
+            user=c,
+            book=contested,
+            min_condition="acceptable",
+        )
+
+        same_time = timezone.now() - timedelta(days=1)
+        type(wish_b).objects.filter(pk=wish_b.pk).update(created_at=same_time)
+        type(wish_c).objects.filter(pk=wish_c.pk).update(created_at=same_time)
+
+        graph, _ = _build_trade_graph()
+        neighbors_of_a = [n for n, _ in graph.get(str(a.pk), [])]
+        assert neighbors_of_a[0] == str(b.pk)
 
 
 # ---------------------------------------------------------------------------

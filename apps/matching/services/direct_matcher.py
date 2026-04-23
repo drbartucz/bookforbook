@@ -9,36 +9,13 @@ import logging
 from typing import Optional
 
 from django.db import transaction
-from django.db.models import Case, IntegerField, Value, When
 
 from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg
+from apps.matching.services.prioritization import priority_ordered_wishlist_entries
 from apps.matching.services.preference_filters import wishlist_allows_book
 
 logger = logging.getLogger(__name__)
-
-
-def _priority_ordered_wishlist_entries(queryset):
-    """
-    Order wishlist entries for deterministic scarce-copy allocation.
-
-    Priority policy:
-    1) oldest wishlist first (created_at ASC)
-    2) stricter minimum condition first
-    3) stable tie-break by wishlist id
-    """
-    condition_rank = Case(
-        When(min_condition="like_new", then=Value(0)),
-        When(min_condition="very_good", then=Value(1)),
-        When(min_condition="good", then=Value(2)),
-        When(min_condition="acceptable", then=Value(3)),
-        default=Value(4),
-        output_field=IntegerField(),
-    )
-
-    return queryset.annotate(_condition_rank=condition_rank).order_by(
-        "created_at", "_condition_rank", "id"
-    )
 
 
 def count_active_matches_for_user(user) -> int:
@@ -137,7 +114,7 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
             .select_related("user", "book")
             .exclude(user=user_a)
         )
-        wishlist_entries = _priority_ordered_wishlist_entries(wishlist_entries)
+        wishlist_entries = priority_ordered_wishlist_entries(wishlist_entries)
 
         for wish_b in wishlist_entries:
             user_b = wish_b.user
@@ -206,7 +183,7 @@ def _find_book_for_trade(user_a, user_b) -> Optional[UserBook]:
         user=user_a,
         is_active=True,
     ).select_related("book")
-    wishlist_a = _priority_ordered_wishlist_entries(wishlist_a)
+    wishlist_a = priority_ordered_wishlist_entries(wishlist_a)
 
     candidates = UserBook.objects.filter(
         user=user_b,
