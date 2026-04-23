@@ -1,0 +1,139 @@
+.page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.statusCard {
+  min-width: 260px;
+  max-width: 360px;
+  padding: 1rem 1.125rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(12, 74, 110, 0.08), rgba(20, 83, 45, 0.08));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.statusVerified {
+  background: rgba(22, 163, 74, 0.14);
+  color: #166534;
+}
+
+.statusPending {
+  background: rgba(245, 158, 11, 0.16);
+  color: #92400e;
+}
+
+.statusText {
+  margin: 0.75rem 0 0;
+  color: var(--color-gray-600);
+  line-height: 1.5;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.4fr);
+  gap: 1.5rem;
+}
+
+.panel {
+  padding: 1.5rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.helperText {
+  margin: 0 0 1rem;
+  color: var(--color-gray-600);
+  line-height: 1.5;
+}
+
+.infoList {
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.infoList div {
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.infoList dt {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-gray-500);
+  margin-bottom: 0.35rem;
+}
+
+.infoList dd {
+  margin: 0;
+  color: var(--color-gray-800);
+  font-weight: 600;
+}
+
+.form {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(110px, 0.7fr) minmax(130px, 0.9fr);
+  gap: 0.75rem;
+}
+
+.actions {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 880px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .statusCard {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 1.125rem;
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions :global(.btn) {
+    width: 100%;
+  }
+}
