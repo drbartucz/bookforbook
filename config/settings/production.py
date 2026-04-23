@@ -1,10 +1,22 @@
 import re
 
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401, F403
 
 DEBUG = False
+
+_INSECURE_DEFAULT_SECRET_KEY = "django-insecure-change-me-in-production"
+_INSECURE_DEFAULT_FIELD_ENCRYPTION_KEY = "NmzoBw3C4Rvblhs8AsAsnF-GYGVQatPZnEuvj_aZZUE="
+
+if SECRET_KEY == _INSECURE_DEFAULT_SECRET_KEY:  # noqa: F405
+    raise ImproperlyConfigured("SECRET_KEY must be set via environment in production.")
+
+if FIELD_ENCRYPTION_KEY == _INSECURE_DEFAULT_FIELD_ENCRYPTION_KEY:  # noqa: F405
+    raise ImproperlyConfigured(
+        "FIELD_ENCRYPTION_KEY must be set via environment in production."
+    )
 
 # Allow the custom domain, the Railway-assigned domain, and localhost for health checks
 _allowed = ["bookforbook.com", "www.bookforbook.com", "api.bookforbook.com"]
