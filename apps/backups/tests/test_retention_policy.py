@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import types
 
 import pytest
 
@@ -12,6 +13,11 @@ class DummyStorage:
 
     def delete(self, file_name):
         self.deleted.append(file_name)
+
+
+def patch_dbbackup_storage(monkeypatch, storage):
+    fake_module = types.SimpleNamespace(get_storage=lambda: storage)
+    monkeypatch.setitem(__import__("sys").modules, "dbbackup.storage", fake_module)
 
 
 @pytest.mark.django_db
@@ -31,7 +37,7 @@ class TestRetentionPolicy:
         storage = DummyStorage()
 
         monkeypatch.setattr(retention_policy.tz, "now", lambda: now)
-        monkeypatch.setattr("dbbackup.storage.get_storage", lambda: storage)
+        patch_dbbackup_storage(monkeypatch, storage)
 
         self._create_backup("daily-1", now - timedelta(days=1))
         self._create_backup("daily-7", now - timedelta(days=7))
@@ -47,7 +53,7 @@ class TestRetentionPolicy:
         storage = DummyStorage()
 
         monkeypatch.setattr(retention_policy.tz, "now", lambda: now)
-        monkeypatch.setattr("dbbackup.storage.get_storage", lambda: storage)
+        patch_dbbackup_storage(monkeypatch, storage)
 
         # Same ISO week: keep oldest (earliest date)
         self._create_backup(
@@ -72,7 +78,7 @@ class TestRetentionPolicy:
         storage = DummyStorage()
 
         monkeypatch.setattr(retention_policy.tz, "now", lambda: now)
-        monkeypatch.setattr("dbbackup.storage.get_storage", lambda: storage)
+        patch_dbbackup_storage(monkeypatch, storage)
 
         # Same month bucket (January): keep oldest
         self._create_backup(
@@ -97,7 +103,7 @@ class TestRetentionPolicy:
         storage = DummyStorage()
 
         monkeypatch.setattr(retention_policy.tz, "now", lambda: now)
-        monkeypatch.setattr("dbbackup.storage.get_storage", lambda: storage)
+        patch_dbbackup_storage(monkeypatch, storage)
 
         self._create_backup("too-old", now - timedelta(days=366))
         self._create_backup("boundary-365", now - timedelta(days=365))

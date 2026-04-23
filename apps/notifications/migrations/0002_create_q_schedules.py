@@ -72,7 +72,7 @@ def remove_schedules(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [
         ("notifications", "0001_initial"),
-        ("django_q", "0001_initial"),
+        ("django_q", "0006_auto_20150805_1817"),
     ]
     operations = [
         migrations.RunPython(create_schedules, remove_schedules),
