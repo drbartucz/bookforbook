@@ -520,3 +520,92 @@ class TestRunRingDetection:
         for ub in user_books:
             ub.refresh_from_db()
             assert ub.status == UserBook.Status.AVAILABLE
+
+    def test_competing_rings_sharing_same_book_create_only_one_ring(self):
+        """
+        If two candidate rings share one scarce outgoing book, only one ring
+        can be created because that book is committed to the first active ring.
+        """
+        scarce = BookFactory()
+        book_b = BookFactory()
+        book_c = BookFactory()
+        book_d = BookFactory()
+        book_e = BookFactory()
+
+        a = UserFactory()
+        b = UserFactory()
+        c = UserFactory()
+        d = UserFactory()
+        e = UserFactory()
+
+        ub_a = UserBookFactory(user=a, book=scarce, condition="good")
+        UserBookFactory(user=b, book=book_b, condition="good")
+        UserBookFactory(user=c, book=book_c, condition="good")
+        UserBookFactory(user=d, book=book_d, condition="good")
+        UserBookFactory(user=e, book=book_e, condition="good")
+
+        # Ring candidate 1: A -> B -> C -> A
+        WishlistItemFactory(user=b, book=scarce, min_condition="acceptable")
+        WishlistItemFactory(user=c, book=book_b, min_condition="acceptable")
+        WishlistItemFactory(user=a, book=book_c, min_condition="acceptable")
+
+        # Ring candidate 2: A -> D -> E -> A (shares A's scarce book)
+        WishlistItemFactory(user=d, book=scarce, min_condition="acceptable")
+        WishlistItemFactory(user=e, book=book_d, min_condition="acceptable")
+        WishlistItemFactory(user=a, book=book_e, min_condition="acceptable")
+
+        matches = run_ring_detection()
+
+        assert len(matches) == 1
+        ring = matches[0]
+        legs = list(ring.legs.all())
+        scarce_legs = [leg for leg in legs if leg.user_book_id == ub_a.pk]
+        assert len(scarce_legs) == 1
+
+    def test_competing_rings_produce_one_coherent_cycle_not_hybrid(self):
+        """
+        With two competing candidate rings sharing one scarce leg, ring detection
+        should create one complete candidate cycle, not a mixed hybrid of both.
+        """
+        scarce = BookFactory()
+        book_b = BookFactory()
+        book_c = BookFactory()
+        book_d = BookFactory()
+        book_e = BookFactory()
+
+        a = UserFactory()
+        b = UserFactory()
+        c = UserFactory()
+        d = UserFactory()
+        e = UserFactory()
+
+        UserBookFactory(user=a, book=scarce, condition="good")
+        UserBookFactory(user=b, book=book_b, condition="good")
+        UserBookFactory(user=c, book=book_c, condition="good")
+        UserBookFactory(user=d, book=book_d, condition="good")
+        UserBookFactory(user=e, book=book_e, condition="good")
+
+        # Candidate ring A -> B -> C -> A
+        wish_b = WishlistItemFactory(user=b, book=scarce, min_condition="acceptable")
+        WishlistItemFactory(user=c, book=book_b, min_condition="acceptable")
+        WishlistItemFactory(user=a, book=book_c, min_condition="acceptable")
+
+        # Candidate ring A -> D -> E -> A
+        wish_d = WishlistItemFactory(user=d, book=scarce, min_condition="acceptable")
+        WishlistItemFactory(user=e, book=book_d, min_condition="acceptable")
+        WishlistItemFactory(user=a, book=book_e, min_condition="acceptable")
+
+        older = timezone.now() - timedelta(days=3)
+        newer = timezone.now() - timedelta(days=1)
+        type(wish_b).objects.filter(pk=wish_b.pk).update(created_at=older)
+        type(wish_d).objects.filter(pk=wish_d.pk).update(created_at=newer)
+
+        matches = run_ring_detection()
+
+        assert len(matches) == 1
+        participant_ids = {
+            str(pid) for pid in matches[0].legs.values_list("sender_id", flat=True)
+        }
+        cycle_1 = {str(a.pk), str(b.pk), str(c.pk)}
+        cycle_2 = {str(a.pk), str(d.pk), str(e.pk)}
+        assert participant_ids in (cycle_1, cycle_2)
