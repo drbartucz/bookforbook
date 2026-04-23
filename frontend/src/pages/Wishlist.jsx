@@ -7,6 +7,7 @@ import ConditionBadge, { CONDITION_CONFIG } from '../components/common/Condition
 import ISBNInput from '../components/common/ISBNInput.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import AddressPromptModal from '../components/common/AddressPromptModal.jsx';
+import useAuth from '../hooks/useAuth.js';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './Wishlist.module.css';
 
@@ -43,22 +44,54 @@ const FORMAT_OPTIONS = [
   { value: 'audiobook', label: 'Audiobook' },
 ];
 
+const DEFAULT_WISHLIST_PREFERENCES = {
+  min_condition: 'any',
+  edition_preference: 'same_language',
+  allow_translations: false,
+  exclude_abridged: true,
+  format_preferences: [],
+};
+
+function getWishlistPreferenceStorageKey(userId) {
+  return `wishlist-preferences:${userId}`;
+}
+
+function loadStoredWishlistPreferences(userId) {
+  if (!userId) return DEFAULT_WISHLIST_PREFERENCES;
+  try {
+    const raw = localStorage.getItem(getWishlistPreferenceStorageKey(userId));
+    if (!raw) return DEFAULT_WISHLIST_PREFERENCES;
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_WISHLIST_PREFERENCES,
+      ...parsed,
+      format_preferences: Array.isArray(parsed?.format_preferences) ? parsed.format_preferences : [],
+    };
+  } catch {
+    return DEFAULT_WISHLIST_PREFERENCES;
+  }
+}
+
 function getEditionPreferenceLabel(preference) {
   const found = EDITION_PREFERENCE_OPTIONS.find((opt) => opt.value === preference);
   return found?.label ?? 'Same work, same language';
 }
 
 export default function Wishlist() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isbn, setIsbn] = useState('');
   const [foundBook, setFoundBook] = useState(null);
-  const [minCondition, setMinCondition] = useState('any');
-  const [editionPreference, setEditionPreference] = useState('same_language');
-  const [allowTranslations, setAllowTranslations] = useState(false);
-  const [excludeAbridged, setExcludeAbridged] = useState(true);
-  const [formatPreferences, setFormatPreferences] = useState([]);
+  const [wishlistDefaults, setWishlistDefaults] = useState(() =>
+    loadStoredWishlistPreferences(user?.id)
+  );
+  const [minCondition, setMinCondition] = useState(wishlistDefaults.min_condition);
+  const [editionPreference, setEditionPreference] = useState(wishlistDefaults.edition_preference);
+  const [allowTranslations, setAllowTranslations] = useState(wishlistDefaults.allow_translations);
+  const [excludeAbridged, setExcludeAbridged] = useState(wishlistDefaults.exclude_abridged);
+  const [formatPreferences, setFormatPreferences] = useState(wishlistDefaults.format_preferences);
   const [addError, setAddError] = useState(null);
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
@@ -70,6 +103,16 @@ export default function Wishlist() {
     queryFn: () => wishlistApi.list({ page, page_size: PAGE_SIZE, sort_by: sortBy, sort_order: sortOrder }).then((r) => r.data),
   });
 
+  useEffect(() => {
+    const nextDefaults = loadStoredWishlistPreferences(user?.id);
+    setWishlistDefaults(nextDefaults);
+    setMinCondition(nextDefaults.min_condition);
+    setEditionPreference(nextDefaults.edition_preference);
+    setAllowTranslations(nextDefaults.allow_translations);
+    setExcludeAbridged(nextDefaults.exclude_abridged);
+    setFormatPreferences(nextDefaults.format_preferences);
+  }, [user?.id]);
+
   const addMutation = useMutation({
     mutationFn: (itemData) => wishlistApi.add(itemData),
     onSuccess: (response) => {
@@ -78,11 +121,11 @@ export default function Wishlist() {
       setShowEditionPrompt(false);
       setIsbn('');
       setFoundBook(null);
-      setMinCondition('any');
-      setEditionPreference('same_language');
-      setAllowTranslations(false);
-      setExcludeAbridged(true);
-      setFormatPreferences([]);
+      setMinCondition(wishlistDefaults.min_condition);
+      setEditionPreference(wishlistDefaults.edition_preference);
+      setAllowTranslations(wishlistDefaults.allow_translations);
+      setExcludeAbridged(wishlistDefaults.exclude_abridged);
+      setFormatPreferences(wishlistDefaults.format_preferences);
       setAddError(null);
       if (response?.headers?.['x-address-prompt'] === 'add_now') {
         setShowAddressPrompt(true);
