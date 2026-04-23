@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -28,6 +29,12 @@ from apps.tests.factories import (
     UserFactory,
     WishlistItemFactory,
 )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_staticfiles_dir():
+    # Keep tests quiet when WhiteNoise middleware checks STATIC_ROOT.
+    Path("staticfiles").mkdir(exist_ok=True)
 
 
 @pytest.fixture
