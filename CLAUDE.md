@@ -20,6 +20,7 @@ BookForBook is a book bartering platform where users in the continental USA trad
 | Notifications | Inbound email via Proton Mail (custom domain, MX records); outbound transactional email via Resend (HTTP API); optional SMS via Twilio |
 | Search | PostgreSQL full-text search (upgrade to Meilisearch later if needed) |
 | File storage | S3-compatible (AWS S3, Backblaze B2, or local dev) |
+| Database backups | Backblaze B2 (S3-compatible, ~75% cheaper than AWS S3); local filesystem in dev |
 | Auth | JWT via `djangorestframework-simplejwt` |
 | Deployment | Railway (API + Q2 worker), Cloudflare Pages (frontend) |
 
@@ -35,7 +36,8 @@ bookforbook/
 ├── requirements.txt
 ├── .env.example
 ├── docs/
-│   └── bookswap-architecture.md     # Full architecture spec (read this first)
+│   ├── bookswap-architecture.md     # Full architecture spec (read this first)
+│   └── backups.md                   # Database backups & disaster recovery
 │
 ├── config/                          # Django project config
 │   ├── settings/
@@ -54,7 +56,8 @@ bookforbook/
 │   ├── donations/                   # Institutional donation workflow
 │   ├── ratings/                     # Rating system + rolling average
 │   ├── notifications/               # Email/in-app notifications, Django-Q2 tasks
-│   └── messaging/                   # Structured trade messages
+│   ├── messaging/                   # Structured trade messages
+│   └── backups/                     # Database backups, audit log, restore UI
 │
 ├── frontend/                        # React PWA (Vite + vite-plugin-pwa)
 │   ├── src/
@@ -261,6 +264,29 @@ No API key required. Rate-limit requests to avoid abuse. Cache all results local
 
 ---
 
+## Backups & Disaster Recovery
+
+BookForBook includes automated nightly database backups with admin-controlled triggers and a tiered retention policy. **See `docs/backups.md` for full details.**
+
+**Quick facts:**
+- **Storage**: Backblaze B2 in production (~75% cheaper than AWS S3), local filesystem in dev
+- **Frequency**: Automatic nightly at 2 AM UTC; manual triggers available from Django admin
+- **Restoration**: One-click restore from admin with safety confirmation
+- **Audit**: Every backup run logged to `BackupRecord` with status, size, duration, and triggering user
+- **Retention policy**:
+  - **0–14 days**: Keep all daily backups
+  - **14–60 days**: Keep one per week
+  - **60–365 days**: Keep one per month
+  - **1 year+**: Delete automatically
+- **Configuration** (Railway env vars):
+  ```
+  B2_APPLICATION_KEY_ID=<key>
+  B2_APPLICATION_KEY=<secret>
+  B2_BUCKET_NAME=<bucket>
+  ```
+
+---
+
 ## Development Setup (When Code Exists)
 
 ```bash
@@ -314,9 +340,13 @@ See `docs/bookswap-architecture.md` for full details.
 | File | Purpose |
 |------|---------|
 | `docs/bookswap-architecture.md` | Complete architecture specification — read before implementing anything |
+| `docs/backups.md` | Database backups and disaster recovery setup |
 | `config/settings/base.py` | Django base settings (to be created) |
 | `apps/matching/services/direct_matcher.py` | Direct match detection logic (to be created) |
 | `apps/matching/services/ring_detector.py` | Exchange ring cycle detection (to be created) |
 | `apps/books/services/openlibrary.py` | Open Library API client (to be created) |
 | `apps/ratings/services/rolling_average.py` | Rolling average recomputation (to be created) |
 | `apps/notifications/tasks.py` | All notification tasks (to be created) |
+| `apps/backups/admin.py` | Backup admin interface with trigger & restore buttons |
+| `apps/backups/services/backup_service.py` | Backup and restore logic |
+| `apps/backups/services/retention_policy.py` | Backup retention policy enforcement |

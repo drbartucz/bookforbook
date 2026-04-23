@@ -1,0 +1,20 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+  <li>
+    <form method="post" action="trigger-backup/" style="display:inline;">
+      {% csrf_token %}
+      <button
+        type="submit"
+        class="button"
+        style="background:#2e7d32;color:#fff;padding:5px 12px;border:none;
+               border-radius:4px;cursor:pointer;font-size:13px;"
+        onclick="return confirm('Queue a manual database backup now?');"
+      >
+        ⬆ Trigger Backup Now
+      </button>
+    </form>
+  </li>
+  {{ block.super }}
+{% endblock %}
