@@ -6,14 +6,20 @@ import pytest
 from datetime import timedelta
 from unittest.mock import patch, call
 
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.inventory.models import UserBook
+from apps.matching.models import Match, MatchLeg
 from apps.notifications.models import Notification
 from apps.ratings.models import Rating
 from apps.tests.factories import BookFactory, UserBookFactory, UserFactory
 from apps.trading.models import Trade, TradeShipment
 from apps.trading.models import TradeProposal
+from apps.trading.services.trade_workflow import (
+    create_trade_from_match,
+    create_trade_from_proposal,
+)
 from apps.trading.tasks import auto_close_trades, send_rating_reminders
 
 
@@ -258,6 +264,86 @@ class TestSendRatingReminders:
             send_rating_reminders()
 
         mock_task.assert_not_called()
+
+
+class TestTradeUniquenessAndIdempotency:
+    def test_trade_source_unique_constraint_blocks_duplicates(self):
+        proposal = TradeProposal.objects.create(
+            proposer=UserFactory(),
+            recipient=UserFactory(),
+            status=TradeProposal.Status.COMPLETED,
+        )
+        Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=proposal.pk,
+            status=Trade.Status.CONFIRMED,
+        )
+
+        with pytest.raises(IntegrityError):
+            Trade.objects.create(
+                source_type=Trade.SourceType.PROPOSAL,
+                source_id=proposal.pk,
+                status=Trade.Status.CONFIRMED,
+            )
+
+    def test_create_trade_from_match_is_idempotent(self):
+        user_a = UserFactory()
+        user_b = UserFactory()
+        book_a = UserBookFactory(user=user_a, book=BookFactory())
+        book_b = UserBookFactory(user=user_b, book=BookFactory())
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT,
+            status=Match.Status.PENDING,
+        )
+        MatchLeg.objects.create(
+            match=match, sender=user_a, receiver=user_b, user_book=book_a, position=0
+        )
+        MatchLeg.objects.create(
+            match=match, sender=user_b, receiver=user_a, user_book=book_b, position=1
+        )
+
+        first = create_trade_from_match(match)
+        second = create_trade_from_match(match)
+
+        assert first.pk == second.pk
+        assert (
+            Trade.objects.filter(
+                source_type=Trade.SourceType.MATCH,
+                source_id=match.pk,
+            ).count()
+            == 1
+        )
+
+    def test_create_trade_from_proposal_is_idempotent(self):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        proposal = TradeProposal.objects.create(
+            proposer=proposer,
+            recipient=recipient,
+            status=TradeProposal.Status.ACCEPTED,
+        )
+        proposer_book = UserBookFactory(user=proposer, book=BookFactory())
+        recipient_book = UserBookFactory(user=recipient, book=BookFactory())
+        proposal.items.create(
+            direction="proposer_sends",
+            user_book=proposer_book,
+        )
+        proposal.items.create(
+            direction="recipient_sends",
+            user_book=recipient_book,
+        )
+
+        first = create_trade_from_proposal(proposal)
+        second = create_trade_from_proposal(proposal)
+
+        assert first.pk == second.pk
+        assert (
+            Trade.objects.filter(
+                source_type=Trade.SourceType.PROPOSAL,
+                source_id=proposal.pk,
+            ).count()
+            == 1
+        )
 
     def test_no_reminder_for_completed_trade_with_max_reminders(self):
         a = UserFactory()

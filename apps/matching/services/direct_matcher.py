@@ -63,6 +63,17 @@ def _active_match_exists_for_user_book(user_book_id) -> bool:
     ).exists()
 
 
+def _lock_user_books(*book_ids: int) -> dict[int, UserBook]:
+    """Lock user-book rows in deterministic order and return by id."""
+    unique_ids = sorted(set(book_ids))
+    locked_books = (
+        UserBook.objects.select_for_update()
+        .select_related("user", "book")
+        .filter(pk__in=unique_ids)
+    )
+    return {book.pk: book for book in locked_books}
+
+
 def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
     """
     Run direct match detection.
@@ -139,16 +150,10 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
             if match_book_b is None:
                 continue
 
-            # Skip if book_b is already in an active match
-            if _active_match_exists_for_user_book(match_book_b.pk):
-                continue
-
-            # Check for duplicate active match
-            if _duplicate_match_exists(user_a, user_b, book_a, match_book_b):
-                continue
-
-            # Create the direct match
-            match = _create_direct_match(user_a, user_b, book_a, match_book_b)
+            # Create the direct match under row locks to avoid races across workers.
+            match = _create_direct_match_with_locks(
+                user_a, user_b, book_a, match_book_b
+            )
             if match:
                 created_matches.append(match)
                 logger.info(
@@ -214,6 +219,39 @@ def _duplicate_match_exists(user_a, user_b, book_a: UserBook, book_b: UserBook) 
         receiver=user_b,
     ).exists()
     return existing
+
+
+@transaction.atomic
+def _create_direct_match_with_locks(
+    user_a, user_b, book_a: UserBook, book_b: UserBook
+) -> Optional[Match]:
+    """Re-check and create a direct match while holding row locks on both books."""
+    locked_books = _lock_user_books(book_a.pk, book_b.pk)
+    locked_book_a = locked_books.get(book_a.pk)
+    locked_book_b = locked_books.get(book_b.pk)
+
+    if not locked_book_a or not locked_book_b:
+        return None
+
+    if (
+        locked_book_a.status != UserBook.Status.AVAILABLE
+        or locked_book_b.status != UserBook.Status.AVAILABLE
+    ):
+        return None
+
+    if _active_match_exists_for_user_book(locked_book_a.pk):
+        return None
+
+    if _active_match_exists_for_user_book(locked_book_b.pk):
+        return None
+
+    if _duplicate_match_exists(user_a, user_b, locked_book_a, locked_book_b):
+        return None
+
+    if user_at_match_limit(user_a) or user_at_match_limit(user_b):
+        return None
+
+    return _create_direct_match(user_a, user_b, locked_book_a, locked_book_b)
 
 
 @transaction.atomic
