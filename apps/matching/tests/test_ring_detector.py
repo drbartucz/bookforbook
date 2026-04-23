@@ -457,23 +457,46 @@ class TestRunRingDetection:
         """If any participant is at their match limit, the ring is skipped."""
         users, user_books = self._setup_ring(3)
 
-        # Give users[0] rating_count=0 → max_active_matches=1
-        # Then put them in 1 existing active match to saturate the limit
+        # Give users[0] rating_count=0 → max_active_matches=2
+        # Then put them in 2 existing active matches to saturate the limit
         users[0].rating_count = 0
         users[0].save(update_fields=["rating_count"])
 
-        other_book = BookFactory()
-        other_user = UserFactory()
-        other_ub = UserBookFactory(user=users[0], book=other_book, condition="good")
-        existing_match = Match.objects.create(
+        other_book_1 = BookFactory()
+        other_user_1 = UserFactory()
+        other_ub_1 = UserBookFactory(
+            user=users[0],
+            book=other_book_1,
+            condition="good",
+        )
+        existing_match_1 = Match.objects.create(
             match_type=Match.MatchType.DIRECT,
             status=Match.Status.PROPOSED,
         )
         MatchLeg.objects.create(
-            match=existing_match,
+            match=existing_match_1,
             sender=users[0],
-            receiver=other_user,
-            user_book=other_ub,
+            receiver=other_user_1,
+            user_book=other_ub_1,
+            position=0,
+        )
+
+        other_book_2 = BookFactory()
+        other_user_2 = UserFactory()
+        other_ub_2 = UserBookFactory(
+            user=users[0],
+            book=other_book_2,
+            condition="good",
+        )
+        existing_match_2 = Match.objects.create(
+            match_type=Match.MatchType.DIRECT,
+            status=Match.Status.PROPOSED,
+        )
+        MatchLeg.objects.create(
+            match=existing_match_2,
+            sender=users[0],
+            receiver=other_user_2,
+            user_book=other_ub_2,
             position=0,
         )
 
