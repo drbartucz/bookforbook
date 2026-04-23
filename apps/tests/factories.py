@@ -13,11 +13,17 @@ from apps.trading.models import Trade, TradeShipment
 class UserFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = User
+        skip_postgeneration_save = True
 
     email = factory.Sequence(lambda n: f"user{n}@example.com")
     username = factory.Sequence(lambda n: f"user{n}")
     password = factory.PostGenerationMethodCall("set_password", "testpass123")
     email_verified = True
+
+    @factory.post_generation
+    def persist_password(self, create, extracted, **kwargs):
+        if create:
+            self.save(update_fields=["password"])
 
 
 class BookFactory(factory.django.DjangoModelFactory):
