@@ -187,4 +187,12 @@ export const browse = {
   shippingEstimate: (data) => apiClient.post('/browse/shipping-estimate/', data),
 };
 
+// ── Notifications ─────────────────────────────────────────────────────────────
+export const notifications = {
+  list: (params) => apiClient.get('/notifications/', { params }),
+  markRead: (id) => apiClient.post(`/notifications/${id}/read/`),
+  markAllRead: () => apiClient.post('/notifications/read-all/'),
+  counts: () => apiClient.get('/notifications/counts/'),
+};
+
 export default apiClient;

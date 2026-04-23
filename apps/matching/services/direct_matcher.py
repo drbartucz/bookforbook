@@ -9,6 +9,7 @@ import logging
 from typing import Optional
 
 from django.db import transaction
+from django.db.models import Q
 
 from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg
@@ -121,6 +122,13 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
                 is_active=True,
                 user__email_verified=True,
                 user__is_active=True,
+            )
+            .filter(
+                Q(
+                    edition_preference=WishlistItem.EditionPreference.EXACT,
+                    book=book_a.book,
+                )
+                | ~Q(edition_preference=WishlistItem.EditionPreference.EXACT)
             )
             .select_related("user", "book")
             .exclude(user=user_a)

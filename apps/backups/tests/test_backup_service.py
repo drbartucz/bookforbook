@@ -1,4 +1,3 @@
-import io
 import types
 
 import pytest
@@ -17,8 +16,8 @@ class DummyStorage:
             return ["existing.sql.gz", "new-backup.sql.gz"]
         return ["existing.sql.gz"]
 
-    def open(self, _filename):
-        return io.BytesIO(b"backup-bytes")
+    def size(self, _filename):
+        return len(b"backup-bytes")
 
 
 def patch_dbbackup_storage(monkeypatch, storage):
@@ -54,7 +53,7 @@ class TestBackupService:
         assert record.file_size_bytes == len(b"backup-bytes")
         assert record.completed_at is not None
 
-    def test_run_database_backup_succeeds_even_if_size_read_fails(self, monkeypatch):
+    def test_run_database_backup_succeeds_even_if_size_lookup_fails(self, monkeypatch):
         storage = DummyStorage()
         record = BackupRecord.objects.create(
             backup_type=BackupRecord.BackupType.DATABASE,
@@ -62,13 +61,13 @@ class TestBackupService:
             is_automatic=True,
         )
 
-        def fake_open(_filename):
-            raise OSError("cannot read file")
+        def fake_size(_filename):
+            raise OSError("cannot read file size")
 
         def fake_call_command(*_args, **_kwargs):
             storage.after_backup = True
 
-        storage.open = fake_open
+        storage.size = fake_size
 
         patch_dbbackup_storage(monkeypatch, storage)
         monkeypatch.setattr(backup_service, "call_command", fake_call_command)
