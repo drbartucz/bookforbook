@@ -304,3 +304,9 @@
   font-size: 0.875rem;
   min-height: 60px;
 }
+
+.characterCount {
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+  text-align: right;
+}

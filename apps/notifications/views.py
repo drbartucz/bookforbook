@@ -14,10 +14,37 @@ class NotificationListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        notifications = Notification.objects.filter(user=request.user).order_by(
-            "-created_at"
-        )[:50]
-        return Response(NotificationSerializer(notifications, many=True).data)
+        try:
+            page = int(request.query_params.get("page", 1))
+            page_size = int(request.query_params.get("page_size", 20))
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "page and page_size must be integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if page < 1 or page_size < 1:
+            return Response(
+                {"detail": "page and page_size must be greater than 0."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        page_size = min(page_size, 100)
+
+        base_qs = Notification.objects.filter(user=request.user).order_by("-created_at")
+        total_count = base_qs.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+
+        notifications = base_qs[start:end]
+        return Response(
+            {
+                "count": total_count,
+                "page": page,
+                "page_size": page_size,
+                "results": NotificationSerializer(notifications, many=True).data,
+            }
+        )
 
 
 class PendingCountsView(APIView):

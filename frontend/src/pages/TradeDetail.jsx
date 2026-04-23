@@ -11,6 +11,8 @@ import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import { buildTradeRatingPayload, mapTradeForView } from '../adapters/trades.js';
 import styles from './TradeDetail.module.css';
 
+const MESSAGE_MAX_LENGTH = 1000;
+
 const MESSAGE_TYPES = [
   { value: 'general', label: 'General' },
   { value: 'shipping_update', label: 'Shipping Update' },
@@ -50,7 +52,7 @@ export default function TradeDetail() {
   } = useQuery({
     queryKey: ['trade', id],
     queryFn: () => tradesApi.getDetail(id).then((r) => r.data),
-    refetchInterval: 30_000, // poll every 30s for updates
+    refetchInterval: () => (document.hidden ? false : 30_000),
   });
 
   const {
@@ -60,7 +62,7 @@ export default function TradeDetail() {
   } = useQuery({
     queryKey: ['trade-messages', id],
     queryFn: () => tradesApi.getMessages(id).then((r) => r.data),
-    refetchInterval: 30_000,
+    refetchInterval: () => (document.hidden ? false : 30_000),
   });
 
   const sendMessageMutation = useMutation({
@@ -68,6 +70,7 @@ export default function TradeDetail() {
     onSuccess: () => {
       setMsgContent('');
       queryClient.invalidateQueries({ queryKey: ['trade-messages', id] });
+      setActionError(null);
     },
     onError: (err) => setActionError(err?.response?.data?.detail || 'Failed to send message.'),
   });
@@ -138,6 +141,19 @@ export default function TradeDetail() {
   const canMarkShipped = ['confirmed', 'one_received'].includes(tradeView.status) && !tradeView.myShipped;
   const canMarkReceived = ['shipping', 'one_received'].includes(tradeView.status) && tradeView.theyShipped && !tradeView.iReceived;
   const canRate = isCompleted && !tradeView.iRated;
+  const messageLength = msgContent.length;
+
+  function submitMessageIfValid() {
+    const trimmed = msgContent.trim();
+    if (!trimmed) {
+      return;
+    }
+    if (trimmed.length > MESSAGE_MAX_LENGTH) {
+      setActionError(`Message must be ${MESSAGE_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+    sendMessageMutation.mutate({ content: trimmed, message_type: msgType });
+  }
 
   return (
     <div>
@@ -421,22 +437,20 @@ export default function TradeDetail() {
                   onChange={(e) => setMsgContent(e.target.value)}
                   placeholder="Type a message..."
                   rows={2}
+                  maxLength={MESSAGE_MAX_LENGTH}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      if (msgContent.trim()) {
-                        sendMessageMutation.mutate({ content: msgContent, message_type: msgType });
-                      }
+                      submitMessageIfValid();
                     }
                   }}
                 />
+                <div className={styles.characterCount}>
+                  {messageLength}/{MESSAGE_MAX_LENGTH}
+                </div>
                 <button
                   className="btn btn-primary"
-                  onClick={() => {
-                    if (msgContent.trim()) {
-                      sendMessageMutation.mutate({ content: msgContent, message_type: msgType });
-                    }
-                  }}
+                  onClick={submitMessageIfValid}
                   disabled={sendMessageMutation.isPending || !msgContent.trim()}
                   aria-label="Send message"
                 >
