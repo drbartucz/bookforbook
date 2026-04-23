@@ -106,6 +106,7 @@ export const auth = {
 export const users = {
   getMe: () => apiClient.get('/users/me/'),
   updateMe: (data) => apiClient.patch('/users/me/', data),
+  verifyAddress: (data) => apiClient.post('/users/me/address/verify/', data),
   exportData: () => apiClient.get('/users/me/export/', { responseType: 'blob' }),
   deleteAccount: () => apiClient.delete('/users/me/'),
   getPublicProfile: (userId) => apiClient.get(`/users/${userId}/`),

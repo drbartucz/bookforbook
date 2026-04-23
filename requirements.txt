@@ -12,6 +12,8 @@ pillow==11.0.0
 boto3==1.35.72
 whitenoise==6.8.2
 django-anymail[resend]
+django-dbbackup>=4.2
+django-storages[s3]>=1.14
 gunicorn==23.0.0
 django-filter==24.3
 pytest==8.3.3

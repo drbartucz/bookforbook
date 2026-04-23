@@ -12,6 +12,7 @@ from django.db import transaction
 
 from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg
+from apps.matching.services.preference_filters import wishlist_allows_book
 
 logger = logging.getLogger(__name__)
 
@@ -105,17 +106,19 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
         # Find users who want book_a (condition met)
         wishlist_entries = (
             WishlistItem.objects.filter(
-                book=book_a.book,
                 is_active=True,
                 user__email_verified=True,
                 user__is_active=True,
             )
-            .select_related("user")
+            .select_related("user", "book")
             .exclude(user=user_a)
         )
 
         for wish_b in wishlist_entries:
             user_b = wish_b.user
+
+            if not wishlist_allows_book(wish_b, book_a.book):
+                continue
 
             # Skip institutional users
             if user_b.is_institutional:
@@ -177,17 +180,19 @@ def _find_book_for_trade(user_a, user_b) -> Optional[UserBook]:
     wishlist_a = WishlistItem.objects.filter(
         user=user_a,
         is_active=True,
-    ).values_list("book_id", "min_condition")
+    ).select_related("book")
 
-    for book_id, min_condition in wishlist_a:
-        candidate = UserBook.objects.filter(
-            user=user_b,
-            book_id=book_id,
-            status=UserBook.Status.AVAILABLE,
-        ).first()
+    candidates = UserBook.objects.filter(
+        user=user_b,
+        status=UserBook.Status.AVAILABLE,
+    ).select_related("book")
 
-        if candidate and condition_meets_minimum(candidate.condition, min_condition):
-            return candidate
+    for wish in wishlist_a:
+        for candidate in candidates:
+            if not wishlist_allows_book(wish, candidate.book):
+                continue
+            if condition_meets_minimum(candidate.condition, wish.min_condition):
+                return candidate
 
     return None
 

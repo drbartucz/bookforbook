@@ -4,6 +4,7 @@ Open Library API service for ISBN lookups and book data enrichment.
 
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
@@ -14,7 +15,7 @@ OPEN_LIBRARY_COVER_URL = "https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg"
 OPEN_LIBRARY_SEARCH_URL = "https://openlibrary.org/search.json"
 OPEN_LIBRARY_WORKS_URL = "https://openlibrary.org{key}.json"
 
-REQUEST_TIMEOUT = 10  # seconds
+REQUEST_TIMEOUT = 5  # seconds — fail fast rather than hanging the UI
 
 
 def _response_json_object(resp: requests.Response, context: str) -> dict | None:
@@ -197,43 +198,62 @@ def _isbn13_check_digit(first12: str) -> int:
 def fetch_from_open_library(isbn_13: str) -> dict:
     """
     Fetch book data from the Open Library API.
+
+    Runs the ISBN endpoint and the search endpoint concurrently so the
+    total latency is the slower of the two rather than their sum.
+    Author name dereferencing (when the ISBN endpoint returns /authors/
+    keys instead of names) is also parallelized across all authors.
+
     Returns a dict with normalized fields; uses empty/None values on failure.
     """
-    data = {}
+    isbn_raw: dict = {}
+    search_data: dict = {}
 
-    # Try the ISBN endpoint first
-    try:
-        resp = requests.get(
-            OPEN_LIBRARY_ISBN_URL.format(isbn=isbn_13),
-            timeout=REQUEST_TIMEOUT,
-        )
-        if resp.status_code == 200:
-            raw = _response_json_object(resp, f"ISBN lookup for {isbn_13}")
-            if raw:
-                data = _parse_isbn_response(raw, isbn_13)
-                # If we got works key, try to enrich with work data
-                works = raw.get("works")
-                if isinstance(works, list) and works:
-                    first_work = works[0]
-                    if isinstance(first_work, dict) and first_work.get("key"):
-                        data.update(_fetch_work_data(first_work["key"]))
-    except requests.RequestException as e:
-        logger.warning("Open Library ISBN request failed for %s: %s", isbn_13, e)
+    def _do_isbn_fetch():
+        try:
+            resp = requests.get(
+                OPEN_LIBRARY_ISBN_URL.format(isbn=isbn_13),
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                return _response_json_object(resp, f"ISBN lookup for {isbn_13}") or {}
+        except requests.RequestException as e:
+            logger.warning("Open Library ISBN request failed for %s: %s", isbn_13, e)
+        return {}
 
-    if (
-        not data.get("title")
-        or not data.get("authors")
-        or not data.get("physical_format")
-    ):
-        search_data = _fetch_search_data(isbn_13)
-        if search_data:
-            data = _merge_book_data(data, search_data)
+    def _do_search_fetch():
+        return _fetch_search_data(isbn_13)
 
-            edition_key = search_data.get("edition_key")
-            if edition_key and not data.get("physical_format"):
-                data = _merge_book_data(data, _fetch_edition_data(edition_key))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        isbn_future = pool.submit(_do_isbn_fetch)
+        search_future = pool.submit(_do_search_fetch)
+        isbn_raw = isbn_future.result()
+        search_data = search_future.result()
 
-    # Always set the cover URL (may not exist, but that's okay)
+    # Parse ISBN response (may require author dereferencing — done in parallel below)
+    data: dict = {}
+    author_keys: list[str] = []  # /authors/OL123A keys to dereference
+
+    if isbn_raw:
+        data = _parse_isbn_response_collect_keys(isbn_raw, isbn_13, author_keys)
+
+    # Dereference any author keys in parallel
+    if author_keys:
+        names = _fetch_author_names_parallel(author_keys)
+        if names and not data.get("authors"):
+            data["authors"] = names
+
+    # Merge search data for any missing fields
+    if search_data:
+        data = _merge_book_data(data, search_data)
+
+    # Last resort: fetch edition record for physical_format if still missing
+    if not data.get("physical_format"):
+        edition_key = search_data.get("edition_key")
+        if edition_key:
+            data = _merge_book_data(data, _fetch_edition_data(edition_key))
+
+    # Always ensure cover URL
     if not data.get("cover_image_url"):
         data["cover_image_url"] = OPEN_LIBRARY_COVER_URL.format(isbn=isbn_13)
 
@@ -270,23 +290,28 @@ def _merge_book_data(primary: dict, fallback: dict) -> dict:
     return merged
 
 
-def _parse_isbn_response(raw: dict, isbn_13: str) -> dict:
-    """Parse the raw response from Open Library ISBN endpoint."""
-    data = {}
+def _parse_isbn_response_collect_keys(
+    raw: dict, isbn_13: str, author_keys: list
+) -> dict:
+    """
+    Parse the raw response from Open Library ISBN endpoint.
+    Instead of fetching author names inline (slow), collects /authors/ keys
+    into `author_keys` for parallel resolution by the caller.
+    """
+    data: dict = {}
 
     data["title"] = raw.get("title", "")
     data["open_library_key"] = raw.get("key", "")
 
-    # Authors: dereference if needed
-    authors = []
+    # Authors: collect keys for parallel resolution; use inline names when available
+    inline_authors = []
     for author_ref in raw.get("authors", []):
         if isinstance(author_ref, dict) and "key" in author_ref:
-            name = _fetch_author_name(author_ref["key"])
-            if name:
-                authors.append(name)
+            author_keys.append(author_ref["key"])
         elif isinstance(author_ref, dict) and "name" in author_ref:
-            authors.append(author_ref["name"])
-    data["authors"] = authors
+            inline_authors.append(author_ref["name"])
+    if inline_authors:
+        data["authors"] = inline_authors
 
     data["publisher"] = (
         raw.get("publishers", [None])[0] if raw.get("publishers") else None
@@ -296,7 +321,6 @@ def _parse_isbn_response(raw: dict, isbn_13: str) -> dict:
         raw.get("physical_format") or raw.get("format")
     )
 
-    # Publish year
     publish_date = raw.get("publish_date", "")
     if publish_date:
         year_match = re.search(r"\d{4}", publish_date)
@@ -305,7 +329,6 @@ def _parse_isbn_response(raw: dict, isbn_13: str) -> dict:
     subjects = raw.get("subjects", [])
     data["subjects"] = subjects[:20] if subjects else []
 
-    # Description
     desc = raw.get("description")
     if isinstance(desc, dict):
         data["description"] = desc.get("value", "")
@@ -313,6 +336,20 @@ def _parse_isbn_response(raw: dict, isbn_13: str) -> dict:
         data["description"] = desc
 
     return data
+
+
+def _fetch_author_names_parallel(author_keys: list[str]) -> list[str]:
+    """Fetch all author names concurrently; return list of resolved names."""
+    results: dict[str, str | None] = {}
+    with ThreadPoolExecutor(max_workers=min(len(author_keys), 5)) as pool:
+        future_to_key = {
+            pool.submit(_fetch_author_name, key): key for key in author_keys
+        }
+        for future in as_completed(future_to_key):
+            key = future_to_key[future]
+            results[key] = future.result()
+    # Preserve original order
+    return [results[k] for k in author_keys if results.get(k)]
 
 
 def _parse_search_result(doc: dict, isbn_13: str) -> dict:
@@ -345,31 +382,9 @@ def _normalize_physical_format(value) -> str | None:
     if value is None:
         return None
     text = str(value).strip()
+    if text.lower() in {"unknown", "n/a", "none", "null"}:
+        return None
     return text or None
-
-
-def _fetch_work_data(work_key: str) -> dict:
-    """Fetch additional data from the Open Library Works endpoint."""
-    data = {}
-    try:
-        resp = requests.get(
-            OPEN_LIBRARY_WORKS_URL.format(key=work_key),
-            timeout=REQUEST_TIMEOUT,
-        )
-        if resp.status_code == 200:
-            raw = _response_json_object(resp, f"work lookup for {work_key}")
-            if raw:
-                desc = raw.get("description")
-                if isinstance(desc, dict):
-                    data["description"] = desc.get("value", "")
-                elif isinstance(desc, str):
-                    data["description"] = desc
-                subjects = raw.get("subjects", [])
-                if subjects:
-                    data["subjects"] = subjects[:20]
-    except requests.RequestException as e:
-        logger.debug("Work data fetch failed for %s: %s", work_key, e)
-    return data
 
 
 def _fetch_edition_data(edition_key: str) -> dict:
@@ -386,14 +401,16 @@ def _fetch_edition_data(edition_key: str) -> dict:
                 data["physical_format"] = _normalize_physical_format(
                     raw.get("physical_format") or raw.get("format")
                 )
-                authors = []
+                author_keys = []
+                inline_authors = []
                 for author_ref in raw.get("authors", []):
                     if isinstance(author_ref, dict) and "key" in author_ref:
-                        name = _fetch_author_name(author_ref["key"])
-                        if name:
-                            authors.append(name)
+                        author_keys.append(author_ref["key"])
                     elif isinstance(author_ref, dict) and "name" in author_ref:
-                        authors.append(author_ref["name"])
+                        inline_authors.append(author_ref["name"])
+                authors = inline_authors or (
+                    _fetch_author_names_parallel(author_keys) if author_keys else []
+                )
                 if authors:
                     data["authors"] = authors
     except requests.RequestException as e:

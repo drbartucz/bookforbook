@@ -52,6 +52,64 @@ class TestMyBooksView:
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data["condition"] == "good"
 
+    def test_first_offer_listing_sets_address_prompt_header(
+        self, auth_api_client, book
+    ):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ):
+            resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book.isbn_13,
+                    "condition": "good",
+                },
+            )
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp["X-Address-Prompt"] == "add_now"
+
+    def test_second_listing_does_not_repeat_address_prompt_header(
+        self, auth_api_client, verified_user
+    ):
+        from unittest.mock import patch
+
+        book1 = BookFactory()
+        book2 = BookFactory()
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book1
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book1.isbn_13
+        ):
+            first_resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book1.isbn_13,
+                    "condition": "good",
+                },
+            )
+        assert first_resp.status_code == status.HTTP_201_CREATED
+        assert first_resp["X-Address-Prompt"] == "add_now"
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book2
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book2.isbn_13
+        ):
+            second_resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book2.isbn_13,
+                    "condition": "good",
+                },
+            )
+        assert second_resp.status_code == status.HTTP_201_CREATED
+        assert "X-Address-Prompt" not in second_resp
+
     def test_add_book_and_appears_in_list(self, auth_api_client, book):
         """Test the full flow: add a book to have-list and verify it appears in the list."""
         from unittest.mock import patch
@@ -243,6 +301,26 @@ class TestWishlistView:
             )
         assert resp.status_code == status.HTTP_201_CREATED
 
+    def test_first_wishlist_listing_sets_address_prompt_header(
+        self, auth_api_client, book
+    ):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ):
+            resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book.isbn_13,
+                    "min_condition": "good",
+                },
+            )
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp["X-Address-Prompt"] == "add_now"
+
     def test_add_wishlist_item_and_appears_in_list(self, auth_api_client, book):
         """Test the full flow: add an item to wishlist and verify it appears in the list."""
         from unittest.mock import patch
@@ -272,7 +350,39 @@ class TestWishlistView:
         item = list_resp.data["results"][0]
         assert item["book"]["isbn_13"] == book.isbn_13
         assert item["min_condition"] == "good"
+        assert item["edition_preference"] == "same_language"
+        assert item["allow_translations"] is False
+        assert item["exclude_abridged"] is True
+        assert item["format_preferences"] == []
         assert item["is_active"] is True
+
+    def test_add_wishlist_item_with_custom_edition_preferences(
+        self, auth_api_client, book
+    ):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ):
+            resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book.isbn_13,
+                    "min_condition": "good",
+                    "edition_preference": "custom",
+                    "allow_translations": True,
+                    "exclude_abridged": True,
+                    "format_preferences": ["hardcover", "paperback"],
+                },
+            )
+
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data["edition_preference"] == "custom"
+        assert resp.data["allow_translations"] is True
+        assert resp.data["exclude_abridged"] is True
+        assert resp.data["format_preferences"] == ["hardcover", "paperback"]
 
     def test_duplicate_wishlist_item_rejected(self, auth_api_client, wishlist_item):
         from unittest.mock import patch
@@ -304,6 +414,23 @@ class TestWishlistView:
             f"{self.url}{wishlist_item.id}/", {"min_condition": "very_good"}
         )
         assert resp.status_code == status.HTTP_200_OK
+
+    def test_patch_edition_preferences(self, auth_api_client, wishlist_item):
+        resp = auth_api_client.patch(
+            f"{self.url}{wishlist_item.id}/",
+            {
+                "edition_preference": "custom",
+                "allow_translations": True,
+                "exclude_abridged": False,
+                "format_preferences": ["paperback", "audiobook"],
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["edition_preference"] == "custom"
+        assert resp.data["allow_translations"] is True
+        assert resp.data["exclude_abridged"] is False
+        assert resp.data["format_preferences"] == ["paperback", "audiobook"]
 
     def test_sort_wishlist_by_title(self, auth_api_client, verified_user):
         """Test sorting wishlist items by title."""

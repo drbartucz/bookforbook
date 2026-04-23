@@ -114,6 +114,100 @@ class TestDirectMatcherService:
         matches = run_direct_matching(user_book=ub_a)
         assert len(matches) == 0
 
+    def test_exact_preference_blocks_related_edition(self, db):
+        wanted_by_b = BookFactory(
+            title="The Pragmatic Programmer", authors=["Andrew Hunt"]
+        )
+        related_from_a = BookFactory(
+            title="The Pragmatic Programmer", authors=["Andrew Hunt"]
+        )
+        wanted_by_a = BookFactory()
+        user_a = UserFactory()
+        user_b = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=related_from_a, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a, condition="good")
+        WishlistItemFactory(
+            user=user_b,
+            book=wanted_by_b,
+            min_condition="acceptable",
+            edition_preference="exact",
+        )
+        WishlistItemFactory(user=user_a, book=wanted_by_a, min_condition="acceptable")
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 0
+
+    def test_same_language_preference_allows_related_edition(self, db):
+        wanted_by_b = BookFactory(title="Refactoring", authors=["Martin Fowler"])
+        related_from_a = BookFactory(title="Refactoring", authors=["Martin Fowler"])
+        wanted_by_a = BookFactory()
+        user_a = UserFactory()
+        user_b = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=related_from_a, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a, condition="good")
+        WishlistItemFactory(
+            user=user_b,
+            book=wanted_by_b,
+            min_condition="acceptable",
+            edition_preference="same_language",
+        )
+        WishlistItemFactory(user=user_a, book=wanted_by_a, min_condition="acceptable")
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 1
+
+    def test_custom_format_preference_filters_related_edition(self, db):
+        wanted_by_b = BookFactory(title="Clean Code", authors=["Robert C. Martin"])
+        paperback_from_a = BookFactory(
+            title="Clean Code",
+            authors=["Robert C. Martin"],
+            physical_format="Paperback",
+        )
+        wanted_by_a = BookFactory()
+        user_a = UserFactory()
+        user_b = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=paperback_from_a, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a, condition="good")
+        WishlistItemFactory(
+            user=user_b,
+            book=wanted_by_b,
+            min_condition="acceptable",
+            edition_preference="custom",
+            format_preferences=["hardcover"],
+        )
+        WishlistItemFactory(user=user_a, book=wanted_by_a, min_condition="acceptable")
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 0
+
+    def test_exclude_abridged_blocks_related_edition(self, db):
+        wanted_by_b = BookFactory(title="War and Peace", authors=["Leo Tolstoy"])
+        abridged_from_a = BookFactory(
+            title="War and Peace",
+            authors=["Leo Tolstoy"],
+            description="Abridged edition for students",
+        )
+        wanted_by_a = BookFactory()
+        user_a = UserFactory()
+        user_b = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=abridged_from_a, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a, condition="good")
+        WishlistItemFactory(
+            user=user_b,
+            book=wanted_by_b,
+            min_condition="acceptable",
+            edition_preference="same_language",
+            exclude_abridged=True,
+        )
+        WishlistItemFactory(user=user_a, book=wanted_by_a, min_condition="acceptable")
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 0
+
 
 @pytest.mark.django_db
 class TestCountActiveMatches:
@@ -135,6 +229,14 @@ class TestCountActiveMatches:
 @pytest.mark.django_db
 class TestMatchAPI:
     def test_accept_match_sets_leg_accepted(self, auth_api_client, verified_user, db):
+        verified_user.full_name = "Reader One"
+        verified_user.address_line_1 = "123 Main St"
+        verified_user.city = "Denver"
+        verified_user.state = "CO"
+        verified_user.zip_code = "80202"
+        verified_user.address_verification_status = "verified"
+        verified_user.save()
+
         other = UserFactory()
         book_a = BookFactory()
         book_b = BookFactory()
@@ -155,6 +257,29 @@ class TestMatchAPI:
         assert resp.status_code == 200
         leg_a.refresh_from_db()
         assert leg_a.status == MatchLeg.Status.ACCEPTED
+
+    def test_accept_match_requires_verified_address(
+        self, auth_api_client, verified_user, db
+    ):
+        other = UserFactory()
+        book_a = BookFactory()
+        book_b = BookFactory()
+        ub_a = UserBookFactory(user=verified_user, book=book_a, condition="good")
+        ub_b = UserBookFactory(user=other, book=book_b, condition="good")
+
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        MatchLeg.objects.create(
+            match=match, sender=verified_user, receiver=other, user_book=ub_a
+        )
+        MatchLeg.objects.create(
+            match=match, sender=other, receiver=verified_user, user_book=ub_b
+        )
+
+        resp = auth_api_client.post(f"/api/v1/matches/{match.id}/accept/")
+        assert resp.status_code == 409
+        assert resp.data["code"] == "address_verification_required"
 
     def test_decline_match_sets_expired(self, auth_api_client, verified_user, db):
         other = UserFactory()

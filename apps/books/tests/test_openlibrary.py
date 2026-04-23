@@ -12,7 +12,7 @@ from apps.books.services.openlibrary import (
     isbn13_to_isbn10,
     normalize_isbn,
     _normalize_physical_format,
-    _parse_isbn_response,
+    _parse_isbn_response_collect_keys,
     _parse_search_result,
     _validate_isbn10,
     _validate_isbn13,
@@ -77,14 +77,19 @@ class TestOpenLibraryFormatParsing:
     def test_normalize_physical_format_dict(self):
         assert _normalize_physical_format({"name": "Hardcover"}) == "Hardcover"
 
+    def test_normalize_physical_format_unknown_placeholder(self):
+        assert _normalize_physical_format("unknown") is None
+
     def test_parse_isbn_response_extracts_physical_format(self):
         raw = {
             "title": "Example",
             "physical_format": "Mass Market Paperback",
             "authors": [],
         }
-        parsed = _parse_isbn_response(raw, "9780201616224")
+        author_keys: list = []
+        parsed = _parse_isbn_response_collect_keys(raw, "9780201616224", author_keys)
         assert parsed["physical_format"] == "Mass Market Paperback"
+        assert author_keys == []
 
     def test_parse_search_result_extracts_physical_format(self):
         doc = {
@@ -104,42 +109,94 @@ def test_fetch_from_open_library_enriches_missing_author_and_format_from_search_
         def json(self):
             return self._payload
 
-    with patch(
-        "apps.books.services.openlibrary.requests.get",
-        side_effect=[
-            FakeResponse(
+    def mock_get(url, **kwargs):
+        if "isbn/9780393081084.json" in url:
+            return FakeResponse(
                 200,
                 {
                     "title": "The Food Lab: Better Home Cooking Through Science",
                     "authors": [],
-                    "works": [],
                 },
-            ),
-            FakeResponse(
+            )
+        if "search.json" in url:
+            return FakeResponse(
                 200,
                 {
                     "docs": [
                         {
                             "title": "The Food Lab",
-                            "author_name": ["J. Kenji L\u00f3pez-Alt"],
+                            "author_name": ["J. Kenji López-Alt"],
                             "cover_edition_key": "OL26629978M",
                         }
                     ]
                 },
-            ),
-            FakeResponse(
+            )
+        if "/books/OL26629978M.json" in url:
+            return FakeResponse(
                 200,
                 {
                     "physical_format": "Hardcover",
                     "authors": [{"key": "/authors/OL7442728A"}],
                 },
-            ),
-            FakeResponse(200, {"name": "J. Kenji L\u00f3pez-Alt"}),
-        ],
-    ):
+            )
+        if "/authors/OL7442728A.json" in url:
+            return FakeResponse(200, {"name": "J. Kenji López-Alt"})
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
         data = fetch_from_open_library("9780393081084")
 
-    assert data["authors"] == ["J. Kenji L\u00f3pez-Alt"]
+    assert data["authors"] == ["J. Kenji López-Alt"]
+    assert data["physical_format"] == "Hardcover"
+
+
+def test_fetch_from_open_library_ignores_unknown_format_and_uses_edition_fallback():
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def mock_get(url, **kwargs):
+        if "isbn/9780393081084.json" in url:
+            return FakeResponse(
+                200,
+                {
+                    "title": "The Food Lab: Better Home Cooking Through Science",
+                    "physical_format": "unknown",
+                    "authors": [],
+                },
+            )
+        if "search.json" in url:
+            return FakeResponse(
+                200,
+                {
+                    "docs": [
+                        {
+                            "title": "The Food Lab",
+                            "author_name": ["J. Kenji López-Alt"],
+                            "cover_edition_key": "OL26629978M",
+                        }
+                    ]
+                },
+            )
+        if "/books/OL26629978M.json" in url:
+            return FakeResponse(
+                200,
+                {
+                    "physical_format": "Hardcover",
+                    "authors": [{"key": "/authors/OL7442728A"}],
+                },
+            )
+        if "/authors/OL7442728A.json" in url:
+            return FakeResponse(200, {"name": "J. Kenji López-Alt"})
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780393081084")
+
     assert data["physical_format"] == "Hardcover"
 
 
@@ -153,20 +210,22 @@ def test_get_or_create_book_ignores_malformed_author_payload():
         def json(self):
             return self._payload
 
-    with patch(
-        "apps.books.services.openlibrary.requests.get",
-        side_effect=[
-            FakeResponse(
+    def mock_get(url, **kwargs):
+        if "isbn/9780201616224.json" in url:
+            return FakeResponse(
                 200,
                 {
                     "title": "Example Book",
                     "authors": [{"key": "/authors/OL1A"}],
                 },
-            ),
-            FakeResponse(200, ["unexpected"]),
-            FakeResponse(200, {"docs": []}),
-        ],
-    ):
+            )
+        if "search.json" in url:
+            return FakeResponse(200, {"docs": []})
+        if "/authors/OL1A.json" in url:
+            return FakeResponse(200, ["unexpected"])
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
         book = get_or_create_book("9780201616224")
 
     assert book.title == "Example Book"
