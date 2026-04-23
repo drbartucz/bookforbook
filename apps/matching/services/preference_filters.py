@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 from apps.inventory.models import WishlistItem
 
@@ -10,7 +11,9 @@ def normalize_title(value: str | None) -> str:
     if not value:
         return ""
     base = value.split(":", 1)[0]
-    normalized = re.sub(r"[^a-z0-9\s]", "", base.lower())
+    decomposed = unicodedata.normalize("NFKD", base)
+    ascii_only = decomposed.encode("ascii", "ignore").decode("ascii")
+    normalized = re.sub(r"[^a-z0-9\s]", "", ascii_only.lower())
     return re.sub(r"\s+", " ", normalized).strip()
 
 

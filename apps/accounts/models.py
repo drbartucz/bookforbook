@@ -178,7 +178,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def max_active_matches(self):
         """Compute match capacity based on rating count."""
-        return min(max(self.rating_count, 1), 10)
+        return min(max(self.rating_count, 2), 10)
 
     @property
     def is_institutional(self):

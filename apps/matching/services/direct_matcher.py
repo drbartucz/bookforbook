@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 
 from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg
@@ -31,24 +31,32 @@ def count_active_matches_for_user(user) -> int:
         .count()
     )
 
-    proposal_count = 0
-    try:
-        from apps.trading.models import TradeProposal
+    from apps.trading.models import Trade, TradeProposal
 
-        proposal_count = (
-            TradeProposal.objects.filter(
-                proposer=user,
-                status__in=["pending", "accepted"],
-            ).count()
-            + TradeProposal.objects.filter(
-                recipient=user,
-                status__in=["pending", "accepted"],
-            ).count()
+    user_proposals = TradeProposal.objects.filter(Q(proposer=user) | Q(recipient=user))
+
+    active_proposals = user_proposals.filter(
+        status__in=[
+            TradeProposal.Status.PENDING,
+            TradeProposal.Status.COUNTERED,
+        ]
+    ).count()
+
+    accepted_without_trade = (
+        user_proposals.filter(status=TradeProposal.Status.ACCEPTED)
+        .annotate(
+            has_trade=Exists(
+                Trade.objects.filter(
+                    source_type=Trade.SourceType.PROPOSAL,
+                    source_id=OuterRef("pk"),
+                )
+            )
         )
-    except Exception:
-        pass
+        .filter(has_trade=False)
+        .count()
+    )
 
-    return match_count + proposal_count
+    return match_count + active_proposals + accepted_without_trade
 
 
 def user_at_match_limit(user) -> bool:
