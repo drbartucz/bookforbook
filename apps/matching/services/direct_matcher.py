@@ -171,6 +171,10 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
                         "Failed to queue match notification for %s", match.pk
                     )
 
+                # book_a is now committed to this match — stop looking for
+                # further recipients so one copy is never double-matched.
+                break
+
     return created_matches
 
 
