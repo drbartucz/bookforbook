@@ -17,9 +17,15 @@ This plan turns the current testing gaps into executable phases with clear compl
     - `apps/matching/tests/test_preference_filters.py` added dedicated `wishlist_allows_book` unit tests for accented titles, mixed-case authors, and NOT-abridged phrasing.
     - `apps/matching/services/preference_filters.py` now treats explicit non-abridged phrasing as non-abridged.
     - `apps/matching/tests/test_direct_matcher_duplicates.py` added dedicated `_duplicate_match_exists` direction/asymmetry-focused unit coverage.
+  - Phase 4 additions:
+    - `apps/accounts/tests/test_auth_api.py` added `/auth/logout/` refresh-token blacklist test.
+    - `apps/accounts/tests/test_auth_api.py` added `/users/me/export/` structure-focused snapshot-like coverage.
+    - `apps/notifications/tasks.py` now excludes institutional users from inactivity warning/delisting pipeline.
+    - `apps/notifications/tests/test_tasks.py` added institutional inactivity exclusion test.
+    - `apps/notifications/tests/test_tasks.py` added verification-email HTML username escaping test.
 
 - Remaining:
-  - Execute Phases 4 through 7.
+  - Execute Phases 5 through 7.
 
 Notes:
 - In this environment, focused Django test runs may require `--reuse-db` if another session is holding the test database.

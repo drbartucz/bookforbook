@@ -172,6 +172,7 @@ def check_inactivity():
     # Users inactive for 3+ months → delist (regardless of whether warning emails were sent)
     to_delist = User.objects.filter(
         is_active=True,
+        account_type=User.AccountType.INDIVIDUAL,
         last_active_at__lt=three_months_ago,
         books_delisted_at__isnull=True,
     )
@@ -189,6 +190,7 @@ def check_inactivity():
     # Users inactive for 2+ months with 1m warning sent → send 2m warning
     to_warn_2m = User.objects.filter(
         is_active=True,
+        account_type=User.AccountType.INDIVIDUAL,
         last_active_at__lt=two_months_ago,
         inactivity_warned_1m__isnull=False,
         inactivity_warned_2m__isnull=True,
@@ -201,6 +203,7 @@ def check_inactivity():
     # Users inactive for 1+ month with no warning sent → send 1m warning
     to_warn_1m = User.objects.filter(
         is_active=True,
+        account_type=User.AccountType.INDIVIDUAL,
         last_active_at__lt=one_month_ago,
         inactivity_warned_1m__isnull=True,
         books_delisted_at__isnull=True,

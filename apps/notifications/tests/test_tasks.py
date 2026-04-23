@@ -84,6 +84,23 @@ class TestEmailTemplateFunctions:
         assert "someuid" in mail.outbox[0].body
         assert "sometoken" in mail.outbox[0].body
 
+    def test_send_verification_email_escapes_html_in_username(self, settings):
+        settings.FRONTEND_URL = "https://app.bookforbook.com"
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+        user = UserFactory(
+            email="xss@example.com", username="<script>alert(1)</script>"
+        )
+
+        result = send_verification_email(user, "someuid", "sometoken")
+
+        assert result is True
+        assert len(mail.outbox) == 1
+        html_alternatives = [alt[0] for alt in mail.outbox[0].alternatives]
+        assert html_alternatives
+        html_body = html_alternatives[0]
+        assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html_body
+        assert "<script>alert(1)</script>" not in html_body
+
     def test_send_match_notification_email_direct(self, settings):
         settings.FRONTEND_URL = "https://app.bookforbook.com"
         settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
@@ -404,3 +421,31 @@ class TestCheckInactivityTask:
         mock_async.assert_any_call(
             "apps.notifications.tasks.send_books_delisted_notification", str(user.pk)
         )
+
+    @patch("django_q.tasks.async_task")
+    def test_institutional_users_are_excluded_from_inactivity_pipeline(
+        self, mock_async
+    ):
+        """Institutional accounts should never receive inactivity warnings or delisting."""
+        library_user = UserFactory(
+            account_type="library",
+            inactivity_warned_1m=None,
+            inactivity_warned_2m=None,
+            books_delisted_at=None,
+        )
+        _set_last_active(library_user, 95)
+        book = UserBookFactory(user=library_user, status=UserBook.Status.AVAILABLE)
+
+        from apps.notifications.tasks import check_inactivity
+
+        check_inactivity()
+
+        calls_str = str(mock_async.call_args_list)
+        assert "send_inactivity_warning_1m" not in calls_str
+        assert "send_inactivity_warning_2m" not in calls_str
+        assert "send_books_delisted_notification" not in calls_str
+
+        book.refresh_from_db()
+        library_user.refresh_from_db()
+        assert book.status == UserBook.Status.AVAILABLE
+        assert library_user.books_delisted_at is None
