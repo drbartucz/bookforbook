@@ -19,7 +19,9 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.matching.models import Match, MatchLeg
 from apps.notifications.models import Notification
+from apps.trading.models import TradeProposal
 from apps.tests.factories import (
     NotificationFactory,
     TradeFactory,
@@ -106,6 +108,60 @@ class TestNotificationListView:
         resp = auth_client(user).get("/api/v1/notifications/")
         read_flags = {n["is_read"] for n in resp.data}
         assert read_flags == {True, False}
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/notifications/counts/
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestNotificationCountsView:
+    def test_returns_pending_match_and_proposal_counts(self):
+        user = UserFactory()
+        other = UserFactory()
+
+        pending_match = Match.objects.create(match_type="direct", status="pending")
+        MatchLeg.objects.create(
+            match=pending_match,
+            sender=user,
+            receiver=other,
+            user_book=UserBookFactory(user=user),
+        )
+
+        proposed_match = Match.objects.create(match_type="direct", status="proposed")
+        MatchLeg.objects.create(
+            match=proposed_match,
+            sender=other,
+            receiver=user,
+            user_book=UserBookFactory(user=other),
+        )
+
+        ignored_match = Match.objects.create(match_type="direct", status="completed")
+        MatchLeg.objects.create(
+            match=ignored_match,
+            sender=user,
+            receiver=other,
+            user_book=UserBookFactory(user=user),
+        )
+
+        TradeProposal.objects.create(recipient=user, proposer=other, status="pending")
+        TradeProposal.objects.create(recipient=user, proposer=other, status="accepted")
+        TradeProposal.objects.create(recipient=other, proposer=user, status="pending")
+
+        NotificationFactory(user=user, is_read=False)
+        NotificationFactory(user=user, is_read=True)
+
+        resp = auth_client(user).get("/api/v1/notifications/counts/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["pending_matches"] == 2
+        assert resp.data["pending_proposals"] == 1
+        assert resp.data["unread_notifications"] == 1
+        assert resp.data["total_pending"] == 3
+
+    def test_unauthenticated_gets_401(self):
+        resp = APIClient().get("/api/v1/notifications/counts/")
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 # ---------------------------------------------------------------------------

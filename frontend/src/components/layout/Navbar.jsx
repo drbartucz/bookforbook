@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import useAuth from '../../hooks/useAuth.js';
-import { matches as matchesApi, proposals as proposalsApi } from '../../services/api.js';
+import { notifications as notificationsApi } from '../../services/api.js';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
@@ -11,28 +11,18 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Fetch pending counts for notification badge
-  const { data: pendingMatches } = useQuery({
-    queryKey: ['matches', 'pending-count'],
+  // Fetch consolidated pending counts for navbar badges.
+  const { data: pendingCounts } = useQuery({
+    queryKey: ['notifications', 'counts'],
     queryFn: async () => {
-      const res = await matchesApi.list({ status: 'pending', page_size: 1 });
-      return res.data?.count ?? 0;
+      const res = await notificationsApi.counts();
+      return res.data ?? {};
     },
     enabled: isAuthenticated,
     refetchInterval: 60_000, // refresh every minute
   });
 
-  const { data: pendingProposals } = useQuery({
-    queryKey: ['proposals', 'pending-count'],
-    queryFn: async () => {
-      const res = await proposalsApi.list({ status: 'pending', direction: 'received', page_size: 1 });
-      return res.data?.count ?? 0;
-    },
-    enabled: isAuthenticated,
-    refetchInterval: 60_000,
-  });
-
-  const totalPending = (pendingMatches ?? 0) + (pendingProposals ?? 0);
+  const totalPending = pendingCounts?.total_pending ?? 0;
 
   function handleLogout() {
     logout();
