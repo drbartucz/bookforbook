@@ -15,6 +15,7 @@ vi.mock('./pages/Login.jsx', () => ({ default: () => <div data-testid="login-pag
 vi.mock('./pages/Register.jsx', () => ({ default: () => <div data-testid="register-page" /> }));
 vi.mock('./pages/VerifyEmail.jsx', () => ({ default: () => <div data-testid="verify-email-page" /> }));
 vi.mock('./pages/Dashboard.jsx', () => ({ default: () => <div data-testid="dashboard-page" /> }));
+vi.mock('./pages/AccountSettings.jsx', () => ({ default: () => <div data-testid="account-settings-page" /> }));
 vi.mock('./pages/MyBooks.jsx', () => ({ default: () => <div data-testid="my-books-page" /> }));
 vi.mock('./pages/Wishlist.jsx', () => ({ default: () => <div data-testid="wishlist-page" /> }));
 vi.mock('./pages/Matches.jsx', () => ({ default: () => <div data-testid="matches-page" /> }));
@@ -72,6 +73,16 @@ describe('ProtectedRoute', () => {
 
     it('redirects unauthenticated user from /my-books to /login', () => {
         renderApp('/my-books', { isAuthenticated: false });
+        expect(screen.getByTestId('login-page')).toBeInTheDocument();
+    });
+
+    it('renders account settings for authenticated user', () => {
+        renderApp('/account', { isAuthenticated: true });
+        expect(screen.getByTestId('account-settings-page')).toBeInTheDocument();
+    });
+
+    it('redirects unauthenticated user from /account to /login', () => {
+        renderApp('/account', { isAuthenticated: false });
         expect(screen.getByTestId('login-page')).toBeInTheDocument();
     });
 });
