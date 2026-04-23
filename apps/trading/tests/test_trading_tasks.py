@@ -226,6 +226,19 @@ class TestAutoCloseTrades:
         assert a.total_trades == 0
         assert b.total_trades == 0
 
+    def test_confirmed_auto_close_does_not_mark_shipments_received(self):
+        """Regression lock: CONFIRMED auto-close must not force shipment RECEIVED state."""
+        a = UserFactory()
+        b = UserFactory()
+        _trade, s1, s2 = _make_trade(a, b, Trade.Status.CONFIRMED, overdue=True)
+
+        auto_close_trades()
+
+        s1.refresh_from_db()
+        s2.refresh_from_db()
+        assert s1.status == TradeShipment.Status.PENDING
+        assert s2.status == TradeShipment.Status.PENDING
+
     def test_shipping_auto_close_marks_books_traded(self):
         """Books in transit (SHIPPING) should still be marked TRADED on auto-close."""
         a = UserFactory()
