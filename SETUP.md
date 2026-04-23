@@ -238,6 +238,7 @@ In Railway, go to your **web service** > **Variables** and add:
 | `FIELD_ENCRYPTION_KEY` | *(generate with Fernet)* |
 | `ALLOWED_HOSTS` | `bookforbook.com,www.bookforbook.com,api.bookforbook.com` |
 | `CORS_ALLOWED_ORIGINS` | `https://bookforbook.com,https://www.bookforbook.com` |
+| `CSRF_TRUSTED_ORIGINS` | `https://bookforbook.com,https://www.bookforbook.com,https://api.bookforbook.com` |
 | `FRONTEND_URL` | `https://bookforbook.com` |
 | `RESEND_API_KEY` | *(your Resend API key, starts with `re_`)* |
 | `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
