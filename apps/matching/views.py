@@ -111,9 +111,8 @@ class MatchAcceptView(APIView):
             leg.status = MatchLeg.Status.ACCEPTED
             leg.save(update_fields=["status"])
 
-            # Check if all legs are accepted
-            all_legs = list(match.legs.all())
-            if all(l.status == MatchLeg.Status.ACCEPTED for l in all_legs):
+            # Use a fresh DB-backed check to avoid stale prefetched leg states.
+            if not match.legs.exclude(status=MatchLeg.Status.ACCEPTED).exists():
                 match.status = Match.Status.COMPLETED
                 match.save(update_fields=["status"])
 
