@@ -83,6 +83,7 @@ BASE_BOOKS = [
         "publisher": "Addison-Wesley",
         "publish_year": 1999,
         "page_count": 352,
+        "cover_image_url": "https://covers.openlibrary.org/b/isbn/9780201616224-M.jpg",
     },
     {
         "isbn_13": "9780596007645",
@@ -92,6 +93,7 @@ BASE_BOOKS = [
         "publisher": "O'Reilly Media",
         "publish_year": 2004,
         "page_count": 620,
+        "cover_image_url": "https://covers.openlibrary.org/b/isbn/9780596007645-M.jpg",
     },
     {
         "isbn_13": "9780735619678",
@@ -101,6 +103,7 @@ BASE_BOOKS = [
         "publisher": "Microsoft Press",
         "publish_year": 2004,
         "page_count": 960,
+        "cover_image_url": "https://covers.openlibrary.org/b/isbn/9780735619678-M.jpg",
     },
     {
         "isbn_13": "9780316769174",
@@ -110,6 +113,7 @@ BASE_BOOKS = [
         "publisher": "Little, Brown",
         "publish_year": 1951,
         "page_count": 277,
+        "cover_image_url": "https://covers.openlibrary.org/b/isbn/9780316769174-M.jpg",
     },
     {
         "isbn_13": "9780062315007",
@@ -119,6 +123,7 @@ BASE_BOOKS = [
         "publisher": "Harper",
         "publish_year": 2015,
         "page_count": 464,
+        "cover_image_url": "https://covers.openlibrary.org/b/isbn/9780062315007-M.jpg",
     },
 ]
 
@@ -316,6 +321,7 @@ class Command(BaseCommand):
                 "publisher": data.get("publisher"),
                 "publish_year": data.get("publish_year"),
                 "page_count": data.get("page_count"),
+                "cover_image_url": data.get("cover_image_url"),
             },
         )
         return book
