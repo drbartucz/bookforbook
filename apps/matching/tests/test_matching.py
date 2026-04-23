@@ -2,7 +2,11 @@
 Tests for the direct match detection service and matching API.
 """
 
+import uuid
+from datetime import timedelta
+
 import pytest
+from django.utils import timezone
 
 from apps.inventory.models import UserBook
 from apps.matching.models import Match, MatchLeg
@@ -207,6 +211,115 @@ class TestDirectMatcherService:
 
         matches = run_direct_matching(user_book=ub_a)
         assert len(matches) == 0
+
+    def test_scarce_copy_prefers_oldest_wishlist(self, db):
+        """When one copy can satisfy multiple users, oldest wishlist wins."""
+        contested_book = BookFactory()
+        wanted_by_a_1 = BookFactory()
+        wanted_by_a_2 = BookFactory()
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+        user_c = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=contested_book, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a_1, condition="good")
+        UserBookFactory(user=user_c, book=wanted_by_a_2, condition="good")
+
+        # A can trade with either B or C
+        WishlistItemFactory(user=user_a, book=wanted_by_a_1, min_condition="acceptable")
+        WishlistItemFactory(user=user_a, book=wanted_by_a_2, min_condition="acceptable")
+
+        wish_b = WishlistItemFactory(
+            user=user_b, book=contested_book, min_condition="acceptable"
+        )
+        wish_c = WishlistItemFactory(
+            user=user_c, book=contested_book, min_condition="acceptable"
+        )
+
+        older = timezone.now() - timedelta(days=2)
+        newer = timezone.now() - timedelta(days=1)
+        type(wish_b).objects.filter(pk=wish_b.pk).update(created_at=older)
+        type(wish_c).objects.filter(pk=wish_c.pk).update(created_at=newer)
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 1
+        leg = matches[0].legs.get(sender=user_a)
+        assert leg.receiver_id == user_b.id
+
+    def test_scarce_copy_tie_break_prefers_stricter_condition(self, db):
+        """With equal age, stricter min_condition is preferred."""
+        contested_book = BookFactory()
+        wanted_by_a_1 = BookFactory()
+        wanted_by_a_2 = BookFactory()
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+        user_c = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=contested_book, condition="very_good")
+        UserBookFactory(user=user_b, book=wanted_by_a_1, condition="good")
+        UserBookFactory(user=user_c, book=wanted_by_a_2, condition="good")
+
+        WishlistItemFactory(user=user_a, book=wanted_by_a_1, min_condition="acceptable")
+        WishlistItemFactory(user=user_a, book=wanted_by_a_2, min_condition="acceptable")
+
+        wish_b = WishlistItemFactory(
+            user=user_b, book=contested_book, min_condition="acceptable"
+        )
+        wish_c = WishlistItemFactory(
+            user=user_c, book=contested_book, min_condition="very_good"
+        )
+
+        same_time = timezone.now() - timedelta(days=1)
+        type(wish_b).objects.filter(pk=wish_b.pk).update(created_at=same_time)
+        type(wish_c).objects.filter(pk=wish_c.pk).update(created_at=same_time)
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 1
+        leg = matches[0].legs.get(sender=user_a)
+        assert leg.receiver_id == user_c.id
+
+    def test_scarce_copy_tie_break_prefers_lowest_wishlist_id(self, db):
+        """With equal age and condition, stable tie-break is wishlist id."""
+        contested_book = BookFactory()
+        wanted_by_a_1 = BookFactory()
+        wanted_by_a_2 = BookFactory()
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+        user_c = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=contested_book, condition="good")
+        UserBookFactory(user=user_b, book=wanted_by_a_1, condition="good")
+        UserBookFactory(user=user_c, book=wanted_by_a_2, condition="good")
+
+        WishlistItemFactory(user=user_a, book=wanted_by_a_1, min_condition="acceptable")
+        WishlistItemFactory(user=user_a, book=wanted_by_a_2, min_condition="acceptable")
+
+        lower_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+        higher_id = uuid.UUID("00000000-0000-0000-0000-000000000002")
+        wish_b = WishlistItemFactory(
+            id=lower_id,
+            user=user_b,
+            book=contested_book,
+            min_condition="acceptable",
+        )
+        wish_c = WishlistItemFactory(
+            id=higher_id,
+            user=user_c,
+            book=contested_book,
+            min_condition="acceptable",
+        )
+
+        same_time = timezone.now() - timedelta(days=1)
+        type(wish_b).objects.filter(pk=wish_b.pk).update(created_at=same_time)
+        type(wish_c).objects.filter(pk=wish_c.pk).update(created_at=same_time)
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 1
+        leg = matches[0].legs.get(sender=user_a)
+        assert leg.receiver_id == user_b.id
 
 
 @pytest.mark.django_db

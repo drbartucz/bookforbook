@@ -12,6 +12,7 @@ from django.db import transaction
 
 from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg
+from apps.matching.services.prioritization import priority_ordered_wishlist_entries
 from apps.matching.services.preference_filters import wishlist_allows_book
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,7 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
             .select_related("user", "book")
             .exclude(user=user_a)
         )
+        wishlist_entries = priority_ordered_wishlist_entries(wishlist_entries)
 
         for wish_b in wishlist_entries:
             user_b = wish_b.user
@@ -169,6 +171,10 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
                         "Failed to queue match notification for %s", match.pk
                     )
 
+                # book_a is now committed to this match — stop looking for
+                # further recipients so one copy is never double-matched.
+                break
+
     return created_matches
 
 
@@ -181,6 +187,7 @@ def _find_book_for_trade(user_a, user_b) -> Optional[UserBook]:
         user=user_a,
         is_active=True,
     ).select_related("book")
+    wishlist_a = priority_ordered_wishlist_entries(wishlist_a)
 
     candidates = UserBook.objects.filter(
         user=user_b,

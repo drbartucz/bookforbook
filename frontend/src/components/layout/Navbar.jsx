@@ -112,7 +112,7 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                     <Link
-                      to={`/profile/${user?.id}`}
+                      to="/account"
                       className={styles.dropdownItem}
                       onClick={() => setMenuOpen(false)}
                     >
@@ -197,7 +197,7 @@ export default function Navbar() {
               <NavLink to="/donations" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 Donations
               </NavLink>
-              <NavLink to={`/profile/${user?.id}`} className={navLinkClass} onClick={() => setMobileOpen(false)}>
+              <NavLink to="/account" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 My Profile
               </NavLink>
               <button

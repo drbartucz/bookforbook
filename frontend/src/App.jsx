@@ -6,6 +6,7 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import AccountSettings from './pages/AccountSettings.jsx';
 import MyBooks from './pages/MyBooks.jsx';
 import Wishlist from './pages/Wishlist.jsx';
 import Matches from './pages/Matches.jsx';
@@ -67,6 +68,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <AccountSettings />
             </ProtectedRoute>
           }
         />
