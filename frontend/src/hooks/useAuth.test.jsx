@@ -35,43 +35,18 @@ describe('useAuth', () => {
         expect(result.current.isInstitution).toBe(false);
     });
 
-    it('isInstitution is true for library account_type', () => {
+    it.each([
+        ['individual', false],
+        ['library', true],
+        ['bookstore', true],
+    ])('isInstitution is %s for account_type=%s', (accountType, expectedIsInstitution) => {
         useAuthStore.getState().login(
             { access: 'tok', refresh: 'ref' },
-            { id: 'u1', username: 'lib', account_type: 'library' }
+            { id: 'u1', username: 'user', account_type: accountType }
         );
         const { result } = renderHook(() => useAuth());
-        expect(result.current.isInstitution).toBe(true);
-        expect(result.current.isIndividual).toBe(false);
-    });
-
-    it('isInstitution is true for bookstore account_type', () => {
-        useAuthStore.getState().login(
-            { access: 'tok', refresh: 'ref' },
-            { id: 'u1', username: 'store', account_type: 'bookstore' }
-        );
-        const { result } = renderHook(() => useAuth());
-        expect(result.current.isInstitution).toBe(true);
-        expect(result.current.isIndividual).toBe(false);
-    });
-
-    it('isInstitution is false for individual account_type', () => {
-        useAuthStore.getState().login(
-            { access: 'tok', refresh: 'ref' },
-            { id: 'u1', username: 'alice', account_type: 'individual' }
-        );
-        const { result } = renderHook(() => useAuth());
-        expect(result.current.isInstitution).toBe(false);
-    });
-
-    it('isInstitution reflects account_type (legacy test updated)', () => {
-        useAuthStore.getState().login(
-            { access: 'tok', refresh: 'ref' },
-            { id: 'u1', username: 'lib', account_type: 'library' }
-        );
-        const { result } = renderHook(() => useAuth());
-        expect(result.current.isInstitution).toBe(true);
-        expect(result.current.isIndividual).toBe(false);
+        expect(result.current.isInstitution).toBe(expectedIsInstitution);
+        expect(result.current.isIndividual).toBe(accountType === 'individual');
     });
 
     it('listens for auth:logout event and clears state', async () => {

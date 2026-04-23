@@ -2,11 +2,19 @@
 API tests for inventory: my-books (have-list) and wishlist (want-list).
 """
 
+import uuid
+
 import pytest
 from rest_framework import status
 
 from apps.inventory.models import UserBook, WishlistItem
-from apps.tests.factories import BookFactory, UserBookFactory, WishlistItemFactory
+from apps.tests.factories import (
+    BookFactory,
+    UserBookFactory,
+    UserFactory,
+    WishlistItemFactory,
+)
+from apps.trading.models import Trade, TradeShipment
 
 
 @pytest.mark.django_db
@@ -621,3 +629,60 @@ class TestBrowseAvailableView:
         titles = [r["book"]["title"] for r in resp.data["results"]]
         assert "Dune" in titles
         assert "Foundation" not in titles
+
+
+@pytest.mark.django_db
+class TestPartnerBooksView:
+    def test_confirmed_trade_partner_can_browse_books(self, verified_user):
+        from rest_framework.test import APIClient
+
+        partner = UserFactory(email_verified=True)
+        outsider = UserFactory(email_verified=True)
+
+        visible_book = UserBookFactory(
+            user=partner,
+            status=UserBook.Status.AVAILABLE,
+        )
+        UserBookFactory(
+            user=partner,
+            status=UserBook.Status.REMOVED,
+        )
+        UserBookFactory(
+            user=outsider,
+            status=UserBook.Status.AVAILABLE,
+        )
+
+        trade = Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=uuid.uuid4(),
+            status=Trade.Status.CONFIRMED,
+        )
+        TradeShipment.objects.create(
+            trade=trade,
+            sender=partner,
+            receiver=verified_user,
+            user_book=visible_book,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=verified_user)
+
+        resp = client.get(f"/api/v1/browse/partner/{partner.id}/books/")
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert len(resp.data) == 1
+        assert resp.data[0]["id"] == str(visible_book.id)
+
+    def test_outsider_cannot_browse_partner_books(self, verified_user):
+        from rest_framework.test import APIClient
+
+        partner = UserFactory(email_verified=True)
+        UserBookFactory(user=partner, status=UserBook.Status.AVAILABLE)
+
+        client = APIClient()
+        client.force_authenticate(user=verified_user)
+
+        resp = client.get(f"/api/v1/browse/partner/{partner.id}/books/")
+
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert "confirmed trade partners" in resp.data["detail"]

@@ -21,6 +21,7 @@ from apps.matching.models import Match, MatchLeg
 from apps.matching.services.ring_detector import (
     _build_trade_graph,
     _find_cycles_from,
+    retry_ring_after_decline,
     run_ring_detection,
 )
 from apps.tests.factories import (
@@ -632,3 +633,90 @@ class TestRunRingDetection:
         cycle_1 = {str(a.pk), str(b.pk), str(c.pk)}
         cycle_2 = {str(a.pk), str(d.pk), str(e.pk)}
         assert participant_ids in (cycle_1, cycle_2)
+
+
+@pytest.mark.django_db
+class TestRetryRingAfterDecline:
+    def test_reforms_ring_without_declining_user(self):
+        user_a = UserFactory()
+        user_b = UserFactory()
+        user_c = UserFactory()
+        user_d = UserFactory()
+
+        # Books used by the original ring (these become unavailable while match is active).
+        book_ab = BookFactory()
+        book_bc = BookFactory()
+        book_cd = BookFactory()
+        book_da = BookFactory()
+
+        ub_ab = UserBookFactory(user=user_a, book=book_ab, condition="good")
+        ub_bc = UserBookFactory(user=user_b, book=book_bc, condition="good")
+        ub_cd = UserBookFactory(user=user_c, book=book_cd, condition="good")
+        ub_da = UserBookFactory(user=user_d, book=book_da, condition="good")
+
+        ring = Match.objects.create(
+            match_type=Match.MatchType.RING,
+            status=Match.Status.PROPOSED,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_a,
+            receiver=user_b,
+            user_book=ub_ab,
+            position=0,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_b,
+            receiver=user_c,
+            user_book=ub_bc,
+            position=1,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_c,
+            receiver=user_d,
+            user_book=ub_cd,
+            position=2,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_d,
+            receiver=user_a,
+            user_book=ub_da,
+            position=3,
+        )
+
+        # Alternative 3-cycle among remaining users: B -> C -> D -> B.
+        replacement_book_b = BookFactory()
+        replacement_book_c = BookFactory()
+        replacement_book_d = BookFactory()
+
+        UserBookFactory(user=user_b, book=replacement_book_b, condition="good")
+        UserBookFactory(user=user_c, book=replacement_book_c, condition="good")
+        UserBookFactory(user=user_d, book=replacement_book_d, condition="good")
+
+        WishlistItemFactory(
+            user=user_c,
+            book=replacement_book_b,
+            min_condition="acceptable",
+        )
+        WishlistItemFactory(
+            user=user_d,
+            book=replacement_book_c,
+            min_condition="acceptable",
+        )
+        WishlistItemFactory(
+            user=user_b,
+            book=replacement_book_d,
+            min_condition="acceptable",
+        )
+
+        new_ring = retry_ring_after_decline(ring, user_a)
+
+        assert new_ring is not None
+        assert new_ring.match_type == Match.MatchType.RING
+        sender_ids = set(new_ring.legs.values_list("sender_id", flat=True))
+        assert sender_ids == {user_b.pk, user_c.pk, user_d.pk}
+        assert user_a.pk not in sender_ids
+        assert new_ring.legs.count() == 3

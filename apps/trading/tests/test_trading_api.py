@@ -8,6 +8,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.inventory.models import UserBook
+from apps.matching.models import Match, MatchLeg
+from apps.ratings.models import Rating
 from apps.tests.factories import BookFactory, UserBookFactory, UserFactory
 from apps.trading.models import Trade, TradeProposal, TradeShipment
 
@@ -750,3 +752,139 @@ class TestTradeRate:
             format="json",
         )
         assert resp.status_code == 400
+
+
+@pytest.mark.slow
+class TestTradePipelineIntegration:
+    def test_match_to_completed_trade_with_mutual_ratings_recomputes_averages(
+        self, api_client
+    ):
+        from rest_framework.test import APIClient
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+        client_a = APIClient()
+        client_b = APIClient()
+        client_a.force_authenticate(user=user_a)
+        client_b.force_authenticate(user=user_b)
+
+        for user, full_name, street, city, state, zip_code in [
+            (user_a, "Reader A", "123 Main St", "Denver", "CO", "80202"),
+            (user_b, "Reader B", "456 Oak Ave", "Austin", "TX", "73301"),
+        ]:
+            user.full_name = full_name
+            user.address_line_1 = street
+            user.city = city
+            user.state = state
+            user.zip_code = zip_code
+            user.address_verification_status = "verified"
+            user.save()
+
+        book_a = UserBookFactory(user=user_a, book=BookFactory(), condition="good")
+        book_b = UserBookFactory(user=user_b, book=BookFactory(), condition="very_good")
+
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT,
+            status=Match.Status.PENDING,
+        )
+        MatchLeg.objects.create(
+            match=match,
+            sender=user_a,
+            receiver=user_b,
+            user_book=book_a,
+            position=0,
+        )
+        MatchLeg.objects.create(
+            match=match,
+            sender=user_b,
+            receiver=user_a,
+            user_book=book_b,
+            position=1,
+        )
+
+        # Both parties accept the match, which should create a trade from the match.
+        accept_a = client_a.post(f"/api/v1/matches/{match.id}/accept/")
+        assert accept_a.status_code == 200
+
+        accept_b = client_b.post(f"/api/v1/matches/{match.id}/accept/")
+        assert accept_b.status_code == 200
+
+        match.refresh_from_db()
+        assert match.status == Match.Status.COMPLETED
+
+        trade = Trade.objects.get(
+            source_type=Trade.SourceType.MATCH,
+            source_id=match.pk,
+        )
+        assert trade.status == Trade.Status.CONFIRMED
+
+        # Both users ship.
+        ship_a = client_a.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "A-TRACK-001", "shipping_method": "USPS"},
+            format="json",
+        )
+        assert ship_a.status_code == 200
+
+        ship_b = client_b.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "B-TRACK-002", "shipping_method": "USPS"},
+            format="json",
+        )
+        assert ship_b.status_code == 200
+
+        # Both users confirm receipt.
+        receive_b = client_b.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+        assert receive_b.status_code == 200
+
+        receive_a = client_a.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+        assert receive_a.status_code == 200
+
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.COMPLETED
+
+        # Books transitioned to traded.
+        book_a.refresh_from_db()
+        book_b.refresh_from_db()
+        assert book_a.status == UserBook.Status.TRADED
+        assert book_b.status == UserBook.Status.TRADED
+
+        # Both parties rate each other.
+        rate_a = client_a.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(user_b.id),
+                "score": 5,
+                "comment": "Great trade",
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert rate_a.status_code == 201
+
+        rate_b = client_b.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(user_a.id),
+                "score": 4,
+                "comment": "Smooth exchange",
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert rate_b.status_code == 201
+
+        assert Rating.objects.filter(trade=trade).count() == 2
+
+        user_a.refresh_from_db()
+        user_b.refresh_from_db()
+        assert user_a.rating_count == 1
+        assert user_b.rating_count == 1
+        assert float(user_a.avg_recent_rating) == pytest.approx(4.0)
+        assert float(user_b.avg_recent_rating) == pytest.approx(5.0)
