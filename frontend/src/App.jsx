@@ -1,10 +1,13 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/layout/Layout.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
+import NotFound from './pages/NotFound.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import AccountSettings from './pages/AccountSettings.jsx';
 import MyBooks from './pages/MyBooks.jsx';
@@ -20,8 +23,9 @@ import useAuth from './hooks/useAuth.js';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
   return children;
 }
@@ -57,6 +61,22 @@ export default function App() {
           element={
             <GuestRoute>
               <Register />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <GuestRoute>
+              <ForgotPassword />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <GuestRoute>
+              <ResetPassword />
             </GuestRoute>
           }
         />
@@ -137,7 +157,7 @@ export default function App() {
         />
 
         {/* 404 fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   );

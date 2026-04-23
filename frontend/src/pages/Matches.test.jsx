@@ -83,4 +83,46 @@ describe('Matches page', () => {
             expect(matches.accept).toHaveBeenCalledWith('match-1');
         });
     });
+
+    it('shows verify address CTA when accept fails with address verification required', async () => {
+        matches.list.mockResolvedValue({
+            data: {
+                count: 1,
+                results: [
+                    {
+                        id: 'match-1',
+                        status: 'pending',
+                        match_type: 'direct',
+                        legs: [
+                            {
+                                sender: { id: 'user-1', username: 'bart0605' },
+                                receiver: { id: 'user-2', username: 'alice' },
+                                user_book: { condition: 'good', book: { id: 'book-1', title: 'Kindred', authors: ['Octavia E. Butler'] } },
+                            },
+                            {
+                                sender: { id: 'user-2', username: 'alice' },
+                                receiver: { id: 'user-1', username: 'bart0605' },
+                                user_book: { condition: 'very_good', book: { id: 'book-2', title: 'The Dispossessed', authors: ['Ursula K. Le Guin'] } },
+                            },
+                        ],
+                    },
+                ],
+            },
+        });
+        matches.accept.mockRejectedValue({
+            response: {
+                data: {
+                    detail: 'You need a USPS-verified shipping address before accepting a match.',
+                    code: 'address_verification_required',
+                    verification_url: '/account',
+                },
+            },
+        });
+
+        renderWithProviders(<Matches />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Accept Match' }));
+
+        expect(await screen.findByText(/USPS-verified shipping address/i)).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /verify address now/i })).toHaveAttribute('href', '/account');
+    });
 });

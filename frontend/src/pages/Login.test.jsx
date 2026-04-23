@@ -24,11 +24,13 @@ import { auth as authApi, users as usersApi } from '../services/api.js';
 import useAuth from '../hooks/useAuth.js';
 
 const mockLogin = vi.fn();
+const mockUpdateUser = vi.fn();
 
 beforeEach(() => {
     vi.clearAllMocks();
     useAuth.mockReturnValue({
         login: mockLogin,
+        updateUser: mockUpdateUser,
         isAuthenticated: false,
     });
 });
@@ -70,8 +72,13 @@ describe('Login page', () => {
             });
             expect(mockLogin).toHaveBeenCalledWith(
                 { access: 'access-token', refresh: 'refresh-token' },
-                { id: '1', username: 'alice', account_type: 'individual' }
+                null
             );
+            expect(mockUpdateUser).toHaveBeenCalledWith({
+                id: '1',
+                username: 'alice',
+                account_type: 'individual',
+            });
         });
     });
 
