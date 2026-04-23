@@ -52,6 +52,30 @@ class TestMyBooksView:
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data["condition"] == "good"
 
+    def test_add_book_enqueues_matching_task_once(self, auth_api_client, book):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ), patch(
+            "django_q.tasks.async_task"
+        ) as mock_async_task:
+            resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book.isbn_13,
+                    "condition": "good",
+                },
+            )
+
+        assert resp.status_code == status.HTTP_201_CREATED
+        mock_async_task.assert_called_once()
+        args, kwargs = mock_async_task.call_args
+        assert args == ("apps.matching.tasks.run_matching_for_new_item",)
+        assert kwargs == {"user_book_id": resp.data["id"]}
+
     def test_first_offer_listing_sets_address_prompt_header(
         self, auth_api_client, book
     ):
@@ -157,6 +181,29 @@ class TestMyBooksView:
                 },
             )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_invalid_book_submission_does_not_enqueue_matching_task(
+        self, auth_api_client, book
+    ):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ), patch(
+            "django_q.tasks.async_task"
+        ) as mock_async_task:
+            resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book.isbn_13,
+                    "condition": "terrible",
+                },
+            )
+
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        mock_async_task.assert_not_called()
 
     def test_removed_books_excluded_from_list(
         self, auth_api_client, verified_user, book
@@ -301,6 +348,30 @@ class TestWishlistView:
             )
         assert resp.status_code == status.HTTP_201_CREATED
 
+    def test_add_wishlist_item_enqueues_matching_task_once(self, auth_api_client, book):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ), patch(
+            "django_q.tasks.async_task"
+        ) as mock_async_task:
+            resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": book.isbn_13,
+                    "min_condition": "good",
+                },
+            )
+
+        assert resp.status_code == status.HTTP_201_CREATED
+        mock_async_task.assert_called_once()
+        args, kwargs = mock_async_task.call_args
+        assert args == ("apps.matching.tasks.run_matching_for_new_item",)
+        assert kwargs == {"wishlist_item_id": resp.data["id"]}
+
     def test_first_wishlist_listing_sets_address_prompt_header(
         self, auth_api_client, book
     ):
@@ -403,6 +474,31 @@ class TestWishlistView:
             )
         # Should fail — unique_together constraint
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_duplicate_wishlist_item_does_not_enqueue_matching_task(
+        self, auth_api_client, wishlist_item
+    ):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book",
+            return_value=wishlist_item.book,
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn",
+            return_value=wishlist_item.book.isbn_13,
+        ), patch(
+            "django_q.tasks.async_task"
+        ) as mock_async_task:
+            resp = auth_api_client.post(
+                self.url,
+                {
+                    "isbn": wishlist_item.book.isbn_13,
+                    "min_condition": "acceptable",
+                },
+            )
+
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        mock_async_task.assert_not_called()
 
     def test_delete_wishlist_item(self, auth_api_client, wishlist_item):
         resp = auth_api_client.delete(f"{self.url}{wishlist_item.id}/")
