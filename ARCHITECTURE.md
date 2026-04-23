@@ -1,4 +1,4 @@
-# CLAUDE.md — BookForBook
+# ARCHITECTURE.md — BookForBook
 
 ## Project Overview
 
@@ -30,7 +30,7 @@ BookForBook is a book bartering platform where users in the continental USA trad
 
 ```
 bookforbook/
-├── CLAUDE.md
+├── ARCHITECTURE.md
 ├── README.md
 ├── manage.py
 ├── requirements.txt
