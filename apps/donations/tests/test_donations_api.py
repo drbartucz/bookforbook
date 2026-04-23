@@ -133,6 +133,40 @@ class TestDonationAccept:
         user_book.refresh_from_db()
         assert user_book.status == UserBook.Status.RESERVED
 
+    def test_trade_creation_failure_rolls_back_acceptance(self, api_client):
+        """If trade creation raises, the whole transaction must roll back (no silent 200)."""
+        from unittest.mock import patch
+
+        donor = UserFactory()
+        institution = _make_institution()
+        user_book = UserBookFactory(user=donor, book=BookFactory())
+
+        client = _auth(api_client, donor)
+        offer_resp = _offer_donation(client, user_book, institution)
+        donation_id = offer_resp.data["id"]
+
+        client = _auth(api_client, institution)
+        # Allow Django to return 500 instead of re-raising the exception in the test runner
+        client.raise_request_exception = False
+        with patch(
+            "apps.trading.models.Trade.objects.create",
+            side_effect=Exception("DB error"),
+        ):
+            resp = client.post(
+                reverse("donation-accept", kwargs={"pk": donation_id}), format="json"
+            )
+
+        # Must not silently succeed
+        assert resp.status_code == 500
+
+        # Donation status must still be OFFERED (rolled back)
+        donation = Donation.objects.get(pk=donation_id)
+        assert donation.status == Donation.Status.OFFERED
+
+        # Book must still be AVAILABLE (rolled back)
+        user_book.refresh_from_db()
+        assert user_book.status == UserBook.Status.AVAILABLE
+
     def test_donor_cannot_accept_own_donation(self, api_client):
         donor = UserFactory()
         institution = _make_institution()

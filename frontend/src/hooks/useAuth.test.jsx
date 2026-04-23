@@ -35,10 +35,39 @@ describe('useAuth', () => {
         expect(result.current.isInstitution).toBe(false);
     });
 
-    it('isInstitution reflects account_type', () => {
+    it('isInstitution is true for library account_type', () => {
         useAuthStore.getState().login(
             { access: 'tok', refresh: 'ref' },
-            { id: 'u1', username: 'lib', account_type: 'institution' }
+            { id: 'u1', username: 'lib', account_type: 'library' }
+        );
+        const { result } = renderHook(() => useAuth());
+        expect(result.current.isInstitution).toBe(true);
+        expect(result.current.isIndividual).toBe(false);
+    });
+
+    it('isInstitution is true for bookstore account_type', () => {
+        useAuthStore.getState().login(
+            { access: 'tok', refresh: 'ref' },
+            { id: 'u1', username: 'store', account_type: 'bookstore' }
+        );
+        const { result } = renderHook(() => useAuth());
+        expect(result.current.isInstitution).toBe(true);
+        expect(result.current.isIndividual).toBe(false);
+    });
+
+    it('isInstitution is false for individual account_type', () => {
+        useAuthStore.getState().login(
+            { access: 'tok', refresh: 'ref' },
+            { id: 'u1', username: 'alice', account_type: 'individual' }
+        );
+        const { result } = renderHook(() => useAuth());
+        expect(result.current.isInstitution).toBe(false);
+    });
+
+    it('isInstitution reflects account_type (legacy test updated)', () => {
+        useAuthStore.getState().login(
+            { access: 'tok', refresh: 'ref' },
+            { id: 'u1', username: 'lib', account_type: 'library' }
         );
         const { result } = renderHook(() => useAuth());
         expect(result.current.isInstitution).toBe(true);

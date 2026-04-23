@@ -23,7 +23,7 @@ def send_rating_reminders():
     trades = Trade.objects.filter(
         status__in=active_statuses,
         rating_reminders_sent__lt=3,
-    ).prefetch_related('shipments__sender', 'shipments__receiver')
+    ).prefetch_related("shipments__sender", "shipments__receiver")
 
     for trade in trades:
         # Get all parties
@@ -34,21 +34,28 @@ def send_rating_reminders():
 
         # Find who hasn't rated yet
         rated_user_ids = set(
-            str(uid) for uid in Rating.objects.filter(
-                trade=trade
-            ).values_list('rater_id', flat=True)
+            str(uid)
+            for uid in Rating.objects.filter(trade=trade).values_list(
+                "rater_id", flat=True
+            )
         )
 
         unrated_user_ids = user_ids - rated_user_ids
 
         for uid in unrated_user_ids:
             try:
-                async_task('apps.notifications.tasks.send_rating_reminder', str(trade.pk), uid)
+                async_task(
+                    "apps.notifications.tasks.send_rating_reminder", str(trade.pk), uid
+                )
             except Exception:
-                logger.exception('Failed to queue rating reminder for trade %s, user %s', trade.pk, uid)
+                logger.exception(
+                    "Failed to queue rating reminder for trade %s, user %s",
+                    trade.pk,
+                    uid,
+                )
 
         trade.rating_reminders_sent += 1
-        trade.save(update_fields=['rating_reminders_sent'])
+        trade.save(update_fields=["rating_reminders_sent"])
 
 
 def auto_close_trades():
@@ -63,57 +70,70 @@ def auto_close_trades():
 
     now = timezone.now()
     trades_to_close = Trade.objects.filter(
-        status__in=[Trade.Status.CONFIRMED, Trade.Status.SHIPPING, Trade.Status.ONE_RECEIVED],
+        status__in=[
+            Trade.Status.CONFIRMED,
+            Trade.Status.SHIPPING,
+            Trade.Status.ONE_RECEIVED,
+        ],
         auto_close_at__lt=now,
-    ).prefetch_related('shipments')
+    ).prefetch_related("shipments")
 
     for trade in trades_to_close:
         try:
             all_shipments = list(trade.shipments.all())
-
-            # Mark all pending/shipped shipments as received
-            TradeShipment.objects.filter(
-                trade=trade,
-                status__in=[TradeShipment.Status.PENDING, TradeShipment.Status.SHIPPED],
-            ).update(
-                status=TradeShipment.Status.RECEIVED,
-                received_at=now,
-            )
-
-            # Mark all books as traded
             book_ids = [s.user_book_id for s in all_shipments]
-            UserBook.objects.filter(pk__in=book_ids).update(status=UserBook.Status.TRADED)
-
-            # Update trade counts
             user_ids = set()
             for s in all_shipments:
                 user_ids.add(s.sender_id)
                 user_ids.add(s.receiver_id)
 
-            User.objects.filter(pk__in=user_ids).update(total_trades=F('total_trades') + 1)
+            if trade.status == Trade.Status.CONFIRMED:
+                # Nothing was shipped — restore books to available, don't count as a trade
+                UserBook.objects.filter(pk__in=book_ids).update(
+                    status=UserBook.Status.AVAILABLE
+                )
+            else:
+                # Books are in transit (SHIPPING / ONE_RECEIVED) — treat as delivered
+                TradeShipment.objects.filter(
+                    trade=trade,
+                    status__in=[
+                        TradeShipment.Status.PENDING,
+                        TradeShipment.Status.SHIPPED,
+                    ],
+                ).update(
+                    status=TradeShipment.Status.RECEIVED,
+                    received_at=now,
+                )
+                UserBook.objects.filter(pk__in=book_ids).update(
+                    status=UserBook.Status.TRADED
+                )
+                User.objects.filter(pk__in=user_ids).update(
+                    total_trades=F("total_trades") + 1
+                )
 
             # Close trade
             trade.status = Trade.Status.AUTO_CLOSED
             trade.completed_at = now
-            trade.save(update_fields=['status', 'completed_at'])
+            trade.save(update_fields=["status", "completed_at"])
 
             # Notify
             for uid in user_ids:
                 try:
                     from apps.notifications.models import Notification
+
                     Notification.objects.create(
                         user_id=uid,
-                        notification_type='trade_auto_closed',
-                        title='Trade auto-closed',
+                        notification_type="trade_auto_closed",
+                        title="Trade auto-closed",
                         body=(
-                            'Your trade has been automatically closed after 3 weeks. '
-                            'The book has been marked as received.'
+                            "Your trade has been automatically closed after 3 weeks. "
+                            "The book has been marked as received."
                         ),
-                        metadata={'trade_id': str(trade.pk)},
+                        metadata={"trade_id": str(trade.pk)},
                     )
                 except Exception:
-                    logger.exception('Failed to notify user %s of auto-close', uid)
+                    logger.exception("Failed to notify user %s of auto-close", uid)
 
-            logger.info('Auto-closed trade %s', trade.pk)
+            logger.info("Auto-closed trade %s", trade.pk)
         except Exception:
-            logger.exception('Failed to auto-close trade %s', trade.pk)
+            logger.exception("Failed to auto-close trade %s", trade.pk)

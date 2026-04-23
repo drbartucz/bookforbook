@@ -15,7 +15,6 @@ const PAGE_SIZE = 20;
 
 const CONDITION_OPTIONS = [
   { value: '', label: 'Any condition' },
-  { value: 'new', label: 'New' },
   { value: 'like_new', label: 'Like New' },
   { value: 'very_good', label: 'Very Good' },
   { value: 'good', label: 'Good' },
