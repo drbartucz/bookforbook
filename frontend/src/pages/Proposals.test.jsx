@@ -31,26 +31,36 @@ describe('Proposals page', () => {
                         id: 'proposal-1',
                         status: 'pending',
                         proposer: { id: 'user-2', username: 'alice' },
-                        receiver: { id: 'user-1', username: 'bart0605' },
-                        note: 'Interested in trading?',
-                        offered_book: {
-                            condition: 'good',
-                            book: {
-                                id: 'book-1',
-                                title: 'The Dispossessed',
-                                authors: ['Ursula K. Le Guin'],
-                                cover_image_url: 'https://example.com/dispossessed.jpg',
+                        recipient: { id: 'user-1', username: 'bart0605' },
+                        message: 'Interested in trading?',
+                        items: [
+                            {
+                                direction: 'proposer_sends',
+                                user_book: {
+                                    id: 'ub-1',
+                                    condition: 'good',
+                                    book: {
+                                        id: 'book-1',
+                                        title: 'The Dispossessed',
+                                        authors: ['Ursula K. Le Guin'],
+                                        cover_image_url: 'https://example.com/dispossessed.jpg',
+                                    },
+                                },
                             },
-                        },
-                        requested_book: {
-                            condition: 'very_good',
-                            book: {
-                                id: 'book-2',
-                                title: 'Kindred',
-                                authors: ['Octavia E. Butler'],
-                                cover_image_url: 'https://example.com/kindred.jpg',
+                            {
+                                direction: 'recipient_sends',
+                                user_book: {
+                                    id: 'ub-2',
+                                    condition: 'very_good',
+                                    book: {
+                                        id: 'book-2',
+                                        title: 'Kindred',
+                                        authors: ['Octavia E. Butler'],
+                                        cover_image_url: 'https://example.com/kindred.jpg',
+                                    },
+                                },
                             },
-                        },
+                        ],
                     },
                 ],
             },
