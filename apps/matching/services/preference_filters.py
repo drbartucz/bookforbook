@@ -5,6 +5,9 @@ from apps.inventory.models import WishlistItem
 
 
 ABRIDGED_PATTERN = re.compile(r"\babridg(?:ed|ement)\b", re.IGNORECASE)
+NON_ABRIDGED_PATTERN = re.compile(
+    r"\b(?:not|unabridged)\s+abridg(?:ed|ement)\b", re.IGNORECASE
+)
 
 
 def normalize_title(value: str | None) -> str:
@@ -52,6 +55,8 @@ def is_abridged(book) -> bool:
             str(book.physical_format or ""),
         ]
     )
+    if NON_ABRIDGED_PATTERN.search(text):
+        return False
     return bool(ABRIDGED_PATTERN.search(text))
 
 
