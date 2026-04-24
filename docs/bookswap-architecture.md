@@ -746,15 +746,23 @@ bookforbook/
 │   │       └── rolling_average.py
 │   │
 │   ├── notifications/          # Email, in-app notifications
+│   │   ├── models.py
+│   │   ├── tasks.py            # background tasks
+│   │   └── templates/          # Email templates
+│   │
+│   ├── messaging/              # Structured trade messages
+│   │   ├── models.py
+│   │   ├── serializers.py
+│   │   ├── views.py
+│   │   └── urls.py
+│   │
+│   └── backups/                # Database backups, audit log, restore UI
 │       ├── models.py
-│       ├── tasks.py            # background tasks
-│       └── templates/          # Email templates
-│
-│   └── messaging/              # Structured trade messages
-│       ├── models.py
-│       ├── serializers.py
-│       ├── views.py
-│       └── urls.py
+│       ├── admin.py
+│       ├── tasks.py
+│       └── services/
+│           ├── backup_service.py
+│           └── retention_policy.py
 │
 ├── frontend/                   # React PWA (Vite + vite-plugin-pwa)
 │   ├── src/

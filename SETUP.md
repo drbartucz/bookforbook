@@ -444,7 +444,8 @@ bookforbook/
 │   ├── donations/           # Institutional donation workflow
 │   ├── ratings/             # 1-5 star ratings with rolling average
 │   ├── notifications/       # Email/in-app notifications via Django-Q2
-│   └── messaging/           # Structured trade messages
+│   ├── messaging/           # Structured trade messages
+│   └── backups/             # Database backups, audit log, restore UI
 ├── frontend/                # React PWA (Vite)
 ├── scripts/                 # Dev utilities (seed data)
 └── docs/                    # Architecture specification
