@@ -14,9 +14,17 @@ export default function useAuth() {
       const message = event.detail?.message || 'You have been logged out.';
       addNotification(message, 'warning', 5000);
     };
+
+    const handleSessionInvalid = (event) => {
+      const message = event.detail?.message || 'You were logged out because your session expired. Please sign in again.';
+      addNotification(message, 'warning', 5000);
+    };
+
     window.addEventListener('auth:logout', handleLogout);
+    window.addEventListener('auth:session-invalid', handleSessionInvalid);
     return () => {
       window.removeEventListener('auth:logout', handleLogout);
+      window.removeEventListener('auth:session-invalid', handleSessionInvalid);
     };
   }, [logout, addNotification]);
 
