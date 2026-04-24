@@ -18,13 +18,19 @@ vi.mock('../services/api.js', () => ({
     trades: {
         list: vi.fn(),
     },
+    myBooks: {
+        list: vi.fn(),
+    },
+    wishlist: {
+        list: vi.fn(),
+    },
 }));
 
 vi.mock('../hooks/useAuth.js', () => ({
     default: vi.fn(),
 }));
 
-import { matches, proposals, trades, users } from '../services/api.js';
+import { matches, myBooks, proposals, trades, users, wishlist } from '../services/api.js';
 import useAuth from '../hooks/useAuth.js';
 
 describe('Dashboard page', () => {
@@ -76,6 +82,8 @@ describe('Dashboard page', () => {
                 ],
             },
         });
+        myBooks.list.mockResolvedValue({ data: { count: 5, results: [] } });
+        wishlist.list.mockResolvedValue({ data: { count: 8, results: [] } });
 
         renderWithProviders(<Dashboard />);
 
@@ -89,6 +97,8 @@ describe('Dashboard page', () => {
         expect(screen.getByText('Sapiens')).toBeInTheDocument();
         expect(screen.getByText('Code Complete')).toBeInTheDocument();
         expect(screen.getByText('The Pragmatic Programmer')).toBeInTheDocument();
+        expect(screen.getByText('Books Offered')).toBeInTheDocument();
+        expect(screen.getByText('Books Wanted')).toBeInTheDocument();
     });
 
     it('renders empty activity state when there are no recent items', async () => {
@@ -100,6 +110,8 @@ describe('Dashboard page', () => {
         matches.list.mockResolvedValue({ data: { count: 0, results: [] } });
         proposals.list.mockResolvedValue({ data: { count: 0, results: [] } });
         trades.list.mockResolvedValue({ data: { count: 0, results: [] } });
+        myBooks.list.mockResolvedValue({ data: { count: 0, results: [] } });
+        wishlist.list.mockResolvedValue({ data: { count: 0, results: [] } });
 
         renderWithProviders(<Dashboard />);
 
