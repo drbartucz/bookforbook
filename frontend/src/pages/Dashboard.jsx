@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { matches as matchesApi, proposals as proposalsApi, trades as tradesApi, users as usersApi } from '../services/api.js';
+import { matches as matchesApi, myBooks as myBooksApi, proposals as proposalsApi, trades as tradesApi, users as usersApi, wishlist as wishlistApi } from '../services/api.js';
 import useAuth from '../hooks/useAuth.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import styles from './Dashboard.module.css';
@@ -32,16 +32,28 @@ export default function Dashboard() {
       tradesApi.list({ status: 'active', page_size: 5 }).then((r) => r.data),
   });
 
+  const { data: myBooksData, isLoading: myBooksLoading } = useQuery({
+    queryKey: ['myBooks', 'count'],
+    queryFn: () => myBooksApi.list({ page_size: 1 }).then((r) => r.data),
+  });
+
+  const { data: wishlistData, isLoading: wishlistLoading } = useQuery({
+    queryKey: ['wishlist', 'count'],
+    queryFn: () => wishlistApi.list({ page_size: 1 }).then((r) => r.data),
+  });
+
   const displayUser = meData ?? user;
   const activeMatchesCount = matchesData?.count ?? 0;
   const pendingProposalsCount = proposalsData?.count ?? 0;
   const activeTradesCount = tradesData?.count ?? 0;
+  const booksOfferedCount = myBooksData?.count ?? 0;
+  const booksWantedCount = wishlistData?.count ?? 0;
 
   const recentMatches = matchesData?.results ?? [];
   const recentProposals = proposalsData?.results ?? [];
   const recentTrades = tradesData?.results ?? [];
 
-  const isLoading = matchesLoading || proposalsLoading || tradesLoading;
+  const isLoading = matchesLoading || proposalsLoading || tradesLoading || myBooksLoading || wishlistLoading;
 
   return (
     <div>
@@ -118,6 +130,30 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
+
+            <Link to="/my-books" className={styles.summaryCard}>
+              <div className={styles.summaryIcon} style={{ background: 'var(--color-info-light, #eff6ff)', color: 'var(--color-info, #3b82f6)' }}>
+                <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                  <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                </svg>
+              </div>
+              <div>
+                <p className={styles.summaryValue}>{booksOfferedCount}</p>
+                <p className={styles.summaryLabel}>Books Offered</p>
+              </div>
+            </Link>
+
+            <Link to="/wishlist" className={styles.summaryCard}>
+              <div className={styles.summaryIcon} style={{ background: 'var(--color-purple-light, #f5f3ff)', color: 'var(--color-purple, #8b5cf6)' }}>
+                <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                  <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <p className={styles.summaryValue}>{booksWantedCount}</p>
+                <p className={styles.summaryLabel}>Books Wanted</p>
+              </div>
+            </Link>
           </div>
 
           {/* Activity feed */}
