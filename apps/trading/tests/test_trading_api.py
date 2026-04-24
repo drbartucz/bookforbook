@@ -7,6 +7,7 @@ from datetime import timedelta
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.accounts.models import User
 from apps.inventory.models import UserBook
 from apps.matching.models import Match, MatchLeg
 from apps.ratings.models import Rating
@@ -777,7 +778,7 @@ class TestTradePipelineIntegration:
             user.city = city
             user.state = state
             user.zip_code = zip_code
-            user.address_verification_status = "verified"
+            user.address_verification_status = User.AddressVerificationStatus.VERIFIED
             user.save()
 
         book_a = UserBookFactory(user=user_a, book=BookFactory(), condition="good")

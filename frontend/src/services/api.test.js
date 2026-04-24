@@ -1,10 +1,36 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
 
-import apiClient, { books } from './api';
-import useAuthStore from '../store/authStore';
+let apiClient;
+let books;
+let useAuthStore;
+let getAuthRefreshState;
+let resetAuthRefreshState;
+
+async function loadFreshApiModule() {
+  vi.resetModules();
+  ({ default: useAuthStore } = await import('../store/authStore'));
+  ({
+    __getAuthRefreshStateForTests: getAuthRefreshState,
+    __resetAuthRefreshStateForTests: resetAuthRefreshState,
+    default: apiClient,
+    books,
+  } = await import('./api'));
+}
 
 describe('api client request interceptor', () => {
+  beforeEach(async () => {
+    await loadFreshApiModule();
+    localStorage.clear();
+    resetAuthRefreshState();
+    useAuthStore.setState({ user: null, accessToken: null, refreshToken: null });
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('attaches authorization header when access token exists', async () => {
     useAuthStore.setState({
       accessToken: 'token-123',
@@ -59,8 +85,10 @@ describe('api client request interceptor', () => {
 // ---------------------------------------------------------------------------
 
 describe('api client response interceptor', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await loadFreshApiModule();
     localStorage.clear();
+    resetAuthRefreshState();
     useAuthStore.setState({ user: null, accessToken: null, refreshToken: null });
     vi.restoreAllMocks();
   });
@@ -211,7 +239,13 @@ describe('api client response interceptor', () => {
     };
 
     const reqA = apiClient.get('/protected/a', { adapter });
+    await vi.waitFor(() => {
+      expect(getAuthRefreshState().isRefreshing).toBe(true);
+    });
     const reqB = apiClient.get('/protected/b', { adapter });
+    await vi.waitFor(() => {
+      expect(getAuthRefreshState().failedQueueLength).toBe(1);
+    });
 
     resolveRefresh({ data: { access: 'new-access' } });
     const [resA, resB] = await Promise.all([reqA, reqB]);

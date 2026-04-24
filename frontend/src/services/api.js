@@ -27,6 +27,19 @@ apiClient.interceptors.request.use(
 let isRefreshing = false;
 let failedQueue = [];
 
+export function __resetAuthRefreshStateForTests() {
+  isRefreshing = false;
+  failedQueue = [];
+  delete apiClient.defaults.headers.common.Authorization;
+}
+
+export function __getAuthRefreshStateForTests() {
+  return {
+    isRefreshing,
+    failedQueueLength: failedQueue.length,
+  };
+}
+
 function processQueue(error, token = null) {
   failedQueue.forEach((prom) => {
     if (error) {

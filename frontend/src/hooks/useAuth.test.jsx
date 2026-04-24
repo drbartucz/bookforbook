@@ -36,10 +36,10 @@ describe('useAuth', () => {
     });
 
     it.each([
-        ['individual', false],
-        ['library', true],
-        ['bookstore', true],
-    ])('isInstitution is %s for account_type=%s', (accountType, expectedIsInstitution) => {
+        [false, 'individual'],
+        [true, 'library'],
+        [true, 'bookstore'],
+    ])('isInstitution is %s for account_type=%s', (expectedIsInstitution, accountType) => {
         useAuthStore.getState().login(
             { access: 'tok', refresh: 'ref' },
             { id: 'u1', username: 'user', account_type: accountType }
