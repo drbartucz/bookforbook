@@ -1,11 +1,13 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar.jsx';
+import Toast from '../common/Toast.jsx';
 import styles from './Layout.module.css';
 
 export default function Layout() {
   return (
     <div className={styles.layoutRoot}>
+      <Toast />
       <Navbar />
       <main className={styles.main}>
         <div className="container">
