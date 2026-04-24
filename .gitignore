@@ -213,3 +213,7 @@ frontend/node_modules/
 
 # ignore the claude config file
 CLAUDE.md
+
+frontend/playwright-report/data/*
+frontend/test-results/*
+
