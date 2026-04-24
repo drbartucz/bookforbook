@@ -1,14 +1,14 @@
 /**
- * Cloudflare Pages Function — Open Library cover image proxy.
+ * Cloudflare Pages Function - Open Library cover image proxy.
  *
  * Sits at /covers/* and forwards requests to covers.openlibrary.org,
  * using Cloudflare's cf fetch options so the edge caches the upstream
- * response for 30 days.  The browser Service Worker then applies its own
+ * response for 30 days. The browser Service Worker then applies its own
  * CacheFirst layer on top.
  *
  * URL mapping:
  *   /covers/b/isbn/9780201616224-M.jpg
- *   → https://covers.openlibrary.org/b/isbn/9780201616224-M.jpg
+ *   -> https://covers.openlibrary.org/b/isbn/9780201616224-M.jpg
  */
 export async function onRequest(context) {
   // Strip the leading /covers segment to get the upstream path.
@@ -47,7 +47,7 @@ export async function onRequest(context) {
     'Cache-Control': 'public, max-age=2592000, s-maxage=2592000, immutable',
     // Allow the frontend origin to load images (CORS).
     'Access-Control-Allow-Origin': '*',
-    'Vary': 'Accept-Encoding',
+    Vary: 'Accept-Encoding',
   });
 
   return new Response(upstream.body, { status: 200, headers });
