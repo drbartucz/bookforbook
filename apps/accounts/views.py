@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [RegisterRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -74,6 +75,7 @@ class VerifyEmailView(APIView):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
@@ -114,6 +116,7 @@ class LogoutView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetRateThrottle]
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)

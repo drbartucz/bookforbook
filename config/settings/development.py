@@ -90,7 +90,18 @@ LOGGING = {
 
 # Disable throttling in development / tests so the full test suite doesn't
 # hit rate limits when many tests call the token endpoint in the same hour.
+# DEFAULT_THROTTLE_CLASSES only controls the global fallback — per-view
+# throttle_classes overrides are silenced by using DummyCache below, which
+# prevents throttle counts from being stored or read.
 REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
+
+# Use a no-op cache so throttle counters never accumulate across test runs.
+# Throttle-specific tests override this to LocMemCache via the settings fixture.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+    }
+}
 
 # ─── django-dbbackup (local filesystem) ─────────────────────────────────────
 # Backups land in <project_root>/backups/ — already set in base.py.

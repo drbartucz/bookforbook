@@ -6,9 +6,12 @@ A ring match: A→B→C→A (3-5 participants), where each sends a book the next
 
 import logging
 from collections import defaultdict
+from datetime import timedelta
 from typing import Optional
 
+from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg
@@ -28,6 +31,12 @@ MIN_RING_SIZE = 3
 MAX_RING_SIZE = 5
 
 
+def _get_age_cutoff():
+    """Return the earliest created_at timestamp that qualifies for matching."""
+    hours = getattr(settings, "MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS", 48)
+    return timezone.now() - timedelta(hours=hours)
+
+
 def _build_trade_graph() -> tuple[dict, dict]:
     """
     Build a directed graph where edge A→B means A has a book that B wants.
@@ -36,12 +45,15 @@ def _build_trade_graph() -> tuple[dict, dict]:
         graph: dict mapping user_id → list of (user_id, user_book_id, wishlist_item_id)
         user_books: dict mapping user_id → list of available UserBook objects
     """
-    # Fetch all active wishlists (excluding institutional users)
+    cutoff = _get_age_cutoff()
+
+    # Fetch all active wishlists (excluding institutional users and new accounts)
     wishlist_items = WishlistItem.objects.filter(
         is_active=True,
         user__email_verified=True,
         user__is_active=True,
         user__account_type="individual",
+        user__created_at__lte=cutoff,
     ).select_related("user", "book")
     wishlist_items = priority_ordered_wishlist_entries(wishlist_items)
 
@@ -50,12 +62,13 @@ def _build_trade_graph() -> tuple[dict, dict]:
     for w in wishlist_items:
         wants[str(w.user_id)].append(w)
 
-    # Fetch all available books for individual users
+    # Fetch all available books for individual users (excluding new accounts)
     available_books = UserBook.objects.filter(
         status=UserBook.Status.AVAILABLE,
         user__email_verified=True,
         user__is_active=True,
         user__account_type="individual",
+        user__created_at__lte=cutoff,
     ).select_related("user", "book")
 
     # Index by user_id → list of UserBook

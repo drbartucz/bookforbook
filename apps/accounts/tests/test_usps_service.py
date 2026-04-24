@@ -13,7 +13,16 @@ from apps.accounts.services.usps import (
 
 
 @pytest.fixture(autouse=True)
-def clear_usps_token_cache():
+def clear_usps_token_cache(settings):
+    # USPS service caches OAuth tokens in Django's cache backend.
+    # Switch to LocMemCache so the cache actually works in tests
+    # (development.py uses DummyCache to prevent throttle count accumulation).
+    settings.CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "usps-oauth-test",
+        }
+    }
     cache.delete(TOKEN_CACHE_KEY)
     yield
     cache.delete(TOKEN_CACHE_KEY)

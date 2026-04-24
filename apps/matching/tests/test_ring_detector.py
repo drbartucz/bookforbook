@@ -133,6 +133,10 @@ class TestFindCyclesFrom:
 
 @pytest.mark.django_db
 class TestBuildTradeGraph:
+    @pytest.fixture(autouse=True)
+    def _zero_age_gate(self, settings):
+        settings.MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 0
+
     def test_basic_three_user_graph(self):
         """Three users forming a potential ring should all appear as graph nodes."""
         # A has book1 that B wants; B has book2 that C wants; C has book3 that A wants
@@ -336,6 +340,10 @@ class TestBuildTradeGraph:
 
 @pytest.mark.django_db
 class TestRunRingDetection:
+    @pytest.fixture(autouse=True)
+    def _zero_age_gate(self, settings):
+        settings.MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 0
+
     def _setup_ring(self, size: int):
         """
         Create `size` users with books forming a clean ring:
@@ -637,6 +645,10 @@ class TestRunRingDetection:
 
 @pytest.mark.django_db
 class TestRetryRingAfterDecline:
+    @pytest.fixture(autouse=True)
+    def _zero_age_gate(self, settings):
+        settings.MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 0
+
     def test_returns_none_when_no_replacement_cycle_exists(self):
         user_a = UserFactory()
         user_b = UserFactory()

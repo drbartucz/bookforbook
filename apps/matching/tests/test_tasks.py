@@ -21,6 +21,10 @@ from apps.tests.factories import (
 
 @pytest.mark.django_db
 class TestMatchingTasks:
+    @pytest.fixture(autouse=True)
+    def _zero_age_gate(self, settings):
+        settings.MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 0
+
     def test_replaying_user_book_task_does_not_create_duplicate_match(self):
         book_for_b = BookFactory()
         book_for_a = BookFactory()
