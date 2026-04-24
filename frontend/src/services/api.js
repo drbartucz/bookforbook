@@ -127,6 +127,8 @@ export const users = {
   deleteAccount: () => apiClient.delete('/users/me/'),
   getPublicProfile: (userId) => apiClient.get(`/users/${userId}/`),
   getUserRatings: (userId, params) => apiClient.get(`/users/${userId}/ratings/`, { params }),
+  getUserOfferedBooks: (userId, params) => apiClient.get(`/users/${userId}/offered/`, { params }),
+  getUserWantedBooks: (userId, params) => apiClient.get(`/users/${userId}/wanted/`, { params }),
 };
 
 // ── Books ─────────────────────────────────────────────────────────────────────

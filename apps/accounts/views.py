@@ -289,6 +289,58 @@ class UserRatingsView(APIView):
         return Response(serializer.data)
 
 
+class UserOfferedBooksView(APIView):
+    """
+    GET /api/v1/users/:id/offered/
+    Public endpoint returning a user's available books (have-list).
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, id):
+        try:
+            user = User.objects.get(pk=id, is_active=True)
+        except User.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        from apps.inventory.models import UserBook
+        from apps.inventory.serializers import UserBookSerializer
+
+        books = (
+            UserBook.objects.filter(user=user, status=UserBook.Status.AVAILABLE)
+            .select_related("book")
+            .order_by("-created_at")
+        )
+        serializer = UserBookSerializer(books, many=True)
+        return Response(serializer.data)
+
+
+class UserWantedBooksView(APIView):
+    """
+    GET /api/v1/users/:id/wanted/
+    Public endpoint returning a user's active wishlist items (want-list).
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, id):
+        try:
+            user = User.objects.get(pk=id, is_active=True)
+        except User.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        from apps.inventory.models import WishlistItem
+        from apps.inventory.serializers import WishlistItemSerializer
+
+        items = (
+            WishlistItem.objects.filter(user=user, is_active=True)
+            .select_related("book")
+            .order_by("-created_at")
+        )
+        serializer = WishlistItemSerializer(items, many=True)
+        return Response(serializer.data)
+
+
 class InstitutionListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = UserPublicProfileSerializer
