@@ -25,6 +25,8 @@ vi.mock('../services/api.js', () => ({
         getPublicProfile: vi.fn(),
         getUserRatings: vi.fn(),
         getMe: vi.fn(),
+        getUserOfferedBooks: vi.fn(),
+        getUserWantedBooks: vi.fn(),
     },
     institutions: {
         getWantedList: vi.fn(),
@@ -43,6 +45,8 @@ describe('PublicProfile page', () => {
         useParams.mockReturnValue({ id: 'institution-1' });
         useAuth.mockReturnValue({ isAuthenticated: false, user: null });
         wishlist.list.mockResolvedValue({ data: { count: 0, results: [] } });
+        users.getUserOfferedBooks.mockResolvedValue({ data: [] });
+        users.getUserWantedBooks.mockResolvedValue({ data: [] });
     });
 
     it('renders institution wanted books from the current API shape', async () => {
@@ -276,4 +280,78 @@ describe('PublicProfile page', () => {
             })
         );
     });
-});
+
+    it('shows offered books on any user profile', async () => {
+        useParams.mockReturnValue({ id: 'user-2' });
+        useAuth.mockReturnValue({ isAuthenticated: false, user: null });
+
+        users.getPublicProfile.mockResolvedValue({
+            data: {
+                id: 'user-2',
+                username: 'reader2',
+                account_type: 'individual',
+                is_verified: false,
+                total_trades: 1,
+            },
+        });
+        users.getUserRatings.mockResolvedValue({ data: [] });
+        users.getUserOfferedBooks.mockResolvedValue({
+            data: [
+                {
+                    id: 'ub-1',
+                    condition: 'good',
+                    condition_notes: '',
+                    status: 'available',
+                    book: {
+                        id: 'book-1',
+                        title: 'Moby Dick',
+                        authors: ['Herman Melville'],
+                        cover_image_url: 'https://example.com/moby.jpg',
+                    },
+                },
+            ],
+        });
+
+        renderWithProviders(<PublicProfile />);
+
+        expect(await screen.findByText('Offered Books')).toBeInTheDocument();
+        expect(await screen.findByText('Moby Dick')).toBeInTheDocument();
+        expect(screen.getByText('Herman Melville')).toBeInTheDocument();
+        expect(screen.getByAltText('Moby Dick')).toHaveAttribute('src', 'https://example.com/moby.jpg');
+    });
+
+    it('shows wanted books on an individual user profile', async () => {
+        useParams.mockReturnValue({ id: 'user-2' });
+        useAuth.mockReturnValue({ isAuthenticated: false, user: null });
+
+        users.getPublicProfile.mockResolvedValue({
+            data: {
+                id: 'user-2',
+                username: 'reader2',
+                account_type: 'individual',
+                is_verified: false,
+                total_trades: 1,
+            },
+        });
+        users.getUserRatings.mockResolvedValue({ data: [] });
+        users.getUserWantedBooks.mockResolvedValue({
+            data: [
+                {
+                    id: 'wish-2',
+                    min_condition: 'acceptable',
+                    book: {
+                        id: 'book-2',
+                        title: 'The Great Gatsby',
+                        authors: ['F. Scott Fitzgerald'],
+                        cover_image_url: null,
+                    },
+                },
+            ],
+        });
+
+        renderWithProviders(<PublicProfile />);
+
+        expect(await screen.findByText('Wanted Books')).toBeInTheDocument();
+        expect(await screen.findByText('The Great Gatsby')).toBeInTheDocument();
+        expect(screen.getByText('F. Scott Fitzgerald')).toBeInTheDocument();
+    });});

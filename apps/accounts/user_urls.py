@@ -14,4 +14,6 @@ urlpatterns = [
         "<uuid:id>/", views.UserPublicProfileView.as_view(), name="user-public-profile"
     ),
     path("<uuid:id>/ratings/", views.UserRatingsView.as_view(), name="user-ratings"),
+    path("<uuid:id>/offered/", views.UserOfferedBooksView.as_view(), name="user-offered-books"),
+    path("<uuid:id>/wanted/", views.UserWantedBooksView.as_view(), name="user-wanted-books"),
 ]
