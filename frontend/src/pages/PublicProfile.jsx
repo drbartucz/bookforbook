@@ -93,6 +93,18 @@ export default function PublicProfile() {
     enabled: !!profile && profile.account_type === 'institution',
   });
 
+  const { data: offeredBooksData } = useQuery({
+    queryKey: ['userOfferedBooks', id],
+    queryFn: () => usersApi.getUserOfferedBooks(id).then((r) => r.data),
+    enabled: !!profile,
+  });
+
+  const { data: publicWantedData } = useQuery({
+    queryKey: ['userWantedBooks', id],
+    queryFn: () => usersApi.getUserWantedBooks(id).then((r) => r.data),
+    enabled: !!profile && profile.account_type !== 'institution',
+  });
+
   const { data: meData } = useQuery({
     queryKey: ['me'],
     queryFn: () => usersApi.getMe().then((r) => r.data),
@@ -173,6 +185,8 @@ export default function PublicProfile() {
 
   const ratings = ratingsData?.results ?? ratingsData ?? [];
   const wantedBooks = wantedData?.results ?? wantedData ?? [];
+  const offeredBooks = offeredBooksData ?? [];
+  const publicWantedBooks = publicWantedData ?? [];
   const isInstitution = profile.account_type === 'institution';
   const hasOwnAddress = Boolean(
     meData?.address_line_1 && meData?.city && meData?.state && meData?.zip_code
@@ -377,6 +391,74 @@ export default function PublicProfile() {
                         )}
                         {item.quantity_needed && (
                           <p className={styles.wantedQty}>Need: {item.quantity_needed}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Offered books (all users) */}
+        <div className={`card ${styles.section}`}>
+          <h2 className={styles.sectionTitle}>Offered Books</h2>
+          <p className={styles.sectionSubtitle}>
+            Books this user is currently offering for trade.
+          </p>
+          {offeredBooks.length === 0 ? (
+            <p className={styles.emptyText}>No books offered yet.</p>
+          ) : (
+            <div className={styles.wantedGrid}>
+              {offeredBooks.map((item, i) => {
+                const book = item.book ?? item;
+                return (
+                  <div key={item.id ?? i} className={styles.wantedItem}>
+                    {getBookCoverUrl(book) && (
+                      <img src={getBookCoverUrl(book)} alt={book.title} className={styles.wantedCover} />
+                    )}
+                    <div className={styles.wantedInfo}>
+                      <p className={styles.wantedTitle}>{book.title}</p>
+                      {getBookPrimaryAuthor(book) && <p className={styles.wantedAuthor}>{getBookPrimaryAuthor(book)}</p>}
+                      {item.condition && (
+                        <span>
+                          <ConditionBadge condition={item.condition} />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Wanted books (non-institution users) */}
+        {!isInstitution && (
+          <div className={`card ${styles.section}`}>
+            <h2 className={styles.sectionTitle}>Wanted Books</h2>
+            <p className={styles.sectionSubtitle}>
+              Books this user is looking to receive via trade.
+            </p>
+            {publicWantedBooks.length === 0 ? (
+              <p className={styles.emptyText}>No wanted books listed.</p>
+            ) : (
+              <div className={styles.wantedGrid}>
+                {publicWantedBooks.map((item, i) => {
+                  const book = item.book ?? item;
+                  return (
+                    <div key={item.id ?? i} className={styles.wantedItem}>
+                      {getBookCoverUrl(book) && (
+                        <img src={getBookCoverUrl(book)} alt={book.title} className={styles.wantedCover} />
+                      )}
+                      <div className={styles.wantedInfo}>
+                        <p className={styles.wantedTitle}>{book.title}</p>
+                        {getBookPrimaryAuthor(book) && <p className={styles.wantedAuthor}>{getBookPrimaryAuthor(book)}</p>}
+                        {item.min_condition && (
+                          <span>
+                            Min: <ConditionBadge condition={item.min_condition} />
+                          </span>
                         )}
                       </div>
                     </div>
