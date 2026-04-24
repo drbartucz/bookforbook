@@ -4,6 +4,7 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 
+from .disposable_email_domains import DISPOSABLE_EMAIL_DOMAINS
 from .models import CONTINENTAL_US_STATES, User
 from .tokens import email_verification_token
 
@@ -23,6 +24,15 @@ class RegisterSerializer(serializers.ModelSerializer):
             "institution_name",
             "institution_url",
         ]
+
+    def validate_email(self, value: str) -> str:
+        domain = value.rsplit("@", 1)[-1].lower()
+        if domain in DISPOSABLE_EMAIL_DOMAINS:
+            raise serializers.ValidationError(
+                "Registration with disposable email addresses is not allowed. "
+                "Please use a permanent email address."
+            )
+        return value
 
     def validate(self, attrs):
         if attrs["password"] != attrs["password2"]:

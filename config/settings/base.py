@@ -128,6 +128,10 @@ REST_FRAMEWORK = {
         "anon": "60/hour",
         "user": "1000/hour",
         "isbn_lookup": "30/hour",
+        # Bot mitigation: tight per-IP limits on sensitive auth endpoints
+        "auth_login": "10/hour",
+        "auth_register": "5/hour",
+        "auth_password_reset": "5/hour",
     },
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -220,4 +224,10 @@ USPS_OAUTH_BASE_URL = config(
 USPS_ADDRESSES_BASE_URL = config(
     "USPS_ADDRESSES_BASE_URL", default="https://apis.usps.com/addresses/v3"
 )
+
+# ─── Bot mitigation ─────────────────────────────────────────────────────────
+# Minimum account age (in hours) before a user is eligible to appear in match
+# detection. New accounts can still browse, list books, and configure their
+# profile — they simply will not be matched until this threshold has passed.
+MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 48
 USPS_API_TIMEOUT = config("USPS_API_TIMEOUT", default=8, cast=int)

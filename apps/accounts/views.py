@@ -24,6 +24,7 @@ from .serializers import (
     UserMeUpdateSerializer,
     UserPublicProfileSerializer,
 )
+from .throttles import LoginRateThrottle, PasswordResetRateThrottle, RegisterRateThrottle
 from .tokens import email_verification_token
 
 logger = logging.getLogger(__name__)
