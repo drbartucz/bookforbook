@@ -38,6 +38,22 @@ class TestWishlistAllowsBook:
 
         assert wishlist_allows_book(wish, offered)
 
+    def test_unabridged_title_does_not_trigger_abridged_rejection(self):
+        wanted = BookFactory(title="War and Peace", authors=["Leo Tolstoy"])
+        offered = BookFactory(
+            title="War and Peace: Unabridged edition",
+            authors=["Leo Tolstoy"],
+            description="Complete and unabridged text.",
+        )
+
+        wish = WishlistItemFactory(
+            book=wanted,
+            edition_preference="same_language",
+            exclude_abridged=True,
+        )
+
+        assert wishlist_allows_book(wish, offered)
+
     def test_mixed_case_author_names_still_match(self):
         wanted = BookFactory(title="Dune", authors=["Frank Herbert"])
         offered = BookFactory(title="Dune", authors=["FRANK HERBERT"])

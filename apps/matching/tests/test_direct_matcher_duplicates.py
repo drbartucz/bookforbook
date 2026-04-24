@@ -53,6 +53,9 @@ class TestDuplicateMatchExists:
             user_book=ub_a,
             position=0,
         )
+
+        assert not _duplicate_match_exists(user_b, user_a, ub_b, ub_a)
+
         MatchLeg.objects.create(
             match=match,
             sender=user_b,
