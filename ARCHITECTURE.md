@@ -4,7 +4,7 @@
 
 BookForBook is a book bartering platform where users in the continental USA trade books 1-for-1 without money changing hands. Users list books they want to give away (by ISBN) with condition ratings, and books they want to receive. The system auto-detects mutual matches and exchange rings, facilitates trade agreements, and reveals shipping addresses only after both parties confirm. Verified libraries and bookstores can receive donations.
 
-**Current status:** Early-stage — architecture fully documented, no source code yet. Follow the 8-phase build roadmap in `docs/bookswap-architecture.md`.
+**Current status:** All 8 phases complete — backend, frontend, and infrastructure are fully built and deployed. See `docs/bookswap-architecture.md` for the full architecture specification.
 
 ---
 
@@ -26,7 +26,7 @@ BookForBook is a book bartering platform where users in the continental USA trad
 
 ---
 
-## Repository Structure (Target — Not Yet Built)
+## Repository Structure
 
 ```
 bookforbook/
@@ -287,7 +287,7 @@ BookForBook includes automated nightly database backups with admin-controlled tr
 
 ---
 
-## Development Setup (When Code Exists)
+## Development Setup
 
 ```bash
 # Start PostgreSQL (must be installed and running natively)
@@ -331,7 +331,7 @@ See `docs/bookswap-architecture.md` for full details.
 | 7 | Inactivity management, GDPR export + deletion |
 | 8 | PWA frontend, email templates, rate limiting, production config |
 
-**Start at Phase 1 unless instructed otherwise.** Complete each phase fully before moving to the next.
+All 8 phases are complete. See `docs/bookswap-architecture.md` for the full specification and phase details.
 
 ---
 
@@ -341,12 +341,12 @@ See `docs/bookswap-architecture.md` for full details.
 |------|---------|
 | `docs/bookswap-architecture.md` | Complete architecture specification — read before implementing anything |
 | `docs/backups.md` | Database backups and disaster recovery setup |
-| `config/settings/base.py` | Django base settings (to be created) |
-| `apps/matching/services/direct_matcher.py` | Direct match detection logic (to be created) |
-| `apps/matching/services/ring_detector.py` | Exchange ring cycle detection (to be created) |
-| `apps/books/services/openlibrary.py` | Open Library API client (to be created) |
-| `apps/ratings/services/rolling_average.py` | Rolling average recomputation (to be created) |
-| `apps/notifications/tasks.py` | All notification tasks (to be created) |
+| `config/settings/base.py` | Django base settings |
+| `apps/matching/services/direct_matcher.py` | Direct match detection logic |
+| `apps/matching/services/ring_detector.py` | Exchange ring cycle detection |
+| `apps/books/services/openlibrary.py` | Open Library API client |
+| `apps/ratings/services/rolling_average.py` | Rolling average recomputation |
+| `apps/notifications/tasks.py` | All notification tasks |
 | `apps/backups/admin.py` | Backup admin interface with trigger & restore buttons |
 | `apps/backups/services/backup_service.py` | Backup and restore logic |
 | `apps/backups/services/retention_policy.py` | Backup retention policy enforcement |
