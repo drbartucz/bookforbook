@@ -11,12 +11,18 @@ const apiClient = axios.create({
   },
 });
 
+function isLikelyJwt(token) {
+  return typeof token === 'string' && token.split('.').length === 3;
+}
+
 // ── Request interceptor: attach JWT access token ──────────────────────────────
 apiClient.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().accessToken;
-    if (token) {
+    if (token && isLikelyJwt(token)) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (token) {
+      useAuthStore.getState().updateAccessToken(null);
     }
     return config;
   },
