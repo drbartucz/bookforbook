@@ -29,6 +29,10 @@ from apps.tests.factories import (
 
 @pytest.mark.django_db
 class TestDirectMatcherService:
+    @pytest.fixture(autouse=True)
+    def _zero_age_gate(self, settings):
+        settings.MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 0
+
     def _setup_direct_pair(self):
         """Create a classic direct-match pair: A has what B wants, B has what A wants."""
         book_for_b = BookFactory()

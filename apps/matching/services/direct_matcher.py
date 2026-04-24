@@ -6,10 +6,13 @@ Both books must meet the minimum condition requirement.
 """
 
 import logging
+from datetime import timedelta
 from typing import Optional
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
+from django.utils import timezone
 
 from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimum
 from apps.matching.models import Match, MatchLeg
@@ -64,6 +67,19 @@ def user_at_match_limit(user) -> bool:
     return count_active_matches_for_user(user) >= user.max_active_matches
 
 
+def user_is_match_eligible_by_age(user) -> bool:
+    """
+    Return True if the user's account is old enough to participate in matching.
+
+    The threshold is configured via MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS
+    (default: 48 hours). New accounts can still browse, add books, and set up
+    their profile — they simply will not appear in match detection until the
+    threshold has passed.
+    """
+    min_age_hours = getattr(settings, "MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS", 48)
+    return user.created_at <= timezone.now() - timedelta(hours=min_age_hours)
+
+
 def _active_match_exists_for_user_book(user_book_id) -> bool:
     """Check if the given UserBook is already in an active match."""
     return MatchLeg.objects.filter(
@@ -116,6 +132,10 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
         if user_a.is_institutional:
             continue
 
+        # Skip if account is too new to participate in matching
+        if not user_is_match_eligible_by_age(user_a):
+            continue
+
         # Skip if book is already in an active match
         if _active_match_exists_for_user_book(book_a.pk):
             continue
@@ -151,6 +171,10 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
 
             # Skip institutional users
             if user_b.is_institutional:
+                continue
+
+            # Skip if user_b's account is too new to participate in matching
+            if not user_is_match_eligible_by_age(user_b):
                 continue
 
             # Check if book_a meets user_b's minimum condition

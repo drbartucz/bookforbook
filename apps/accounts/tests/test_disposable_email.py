@@ -44,6 +44,7 @@ class TestDisposableEmailDomainsList:
             assert domain not in DISPOSABLE_EMAIL_DOMAINS
 
 
+@pytest.mark.django_db
 class TestRegisterSerializerDisposableEmailValidation:
     _base_data = {
         "username": "testuser",
