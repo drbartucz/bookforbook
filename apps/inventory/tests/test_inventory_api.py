@@ -643,6 +643,10 @@ class TestPartnerBooksView:
             user=partner,
             status=UserBook.Status.AVAILABLE,
         )
+        shipment_book = UserBookFactory(
+            user=partner,
+            status=UserBook.Status.RESERVED,
+        )
         UserBookFactory(
             user=partner,
             status=UserBook.Status.REMOVED,
@@ -661,7 +665,7 @@ class TestPartnerBooksView:
             trade=trade,
             sender=partner,
             receiver=verified_user,
-            user_book=visible_book,
+            user_book=shipment_book,
         )
 
         client = APIClient()

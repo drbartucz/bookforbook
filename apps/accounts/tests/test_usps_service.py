@@ -50,6 +50,33 @@ def test_get_oauth_token_raises_for_malformed_oauth_response():
             _get_oauth_token()
 
 
+@override_settings(USPS_CLIENT_ID="client-id", USPS_CLIENT_SECRET="client-secret")
+def test_get_oauth_token_fetches_new_token_when_cached_token_is_expired():
+    cache.set(
+        TOKEN_CACHE_KEY,
+        {
+            "access_token": "expired-token",
+            "expires_at": 1,
+        },
+        timeout=300,
+    )
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {
+        "access_token": "fresh-token",
+        "expires_in": 3600,
+    }
+
+    with patch(
+        "apps.accounts.services.usps.requests.post", return_value=response
+    ) as mock_post:
+        token = _get_oauth_token()
+
+    assert token == "fresh-token"
+    assert cache.get(TOKEN_CACHE_KEY)["access_token"] == "fresh-token"
+    mock_post.assert_called_once()
+
+
 def test_verify_address_retries_once_after_401_and_returns_normalized_address():
     unauthorized = MagicMock()
     unauthorized.status_code = 401
@@ -90,6 +117,60 @@ def test_verify_address_retries_once_after_401_and_returns_normalized_address():
         "zip_code": "80202-1234",
     }
     assert mock_get_token.call_count == 2
+    first_headers = mock_get.call_args_list[0].kwargs["headers"]
+    second_headers = mock_get.call_args_list[1].kwargs["headers"]
+    assert first_headers["Authorization"] == "Bearer stale-token"
+    assert second_headers["Authorization"] == "Bearer fresh-token"
+
+
+@override_settings(USPS_CLIENT_ID="client-id", USPS_CLIENT_SECRET="client-secret")
+def test_verify_address_401_retry_clears_cached_token_before_fetching_new_one():
+    cache.set(
+        TOKEN_CACHE_KEY,
+        {
+            "access_token": "stale-token",
+            "expires_at": 9999999999,
+        },
+        timeout=3600,
+    )
+
+    unauthorized = MagicMock(status_code=401)
+    ok = MagicMock(status_code=200)
+    ok.json.return_value = {
+        "address": {
+            "streetAddressAbbreviation": "123 MAIN ST",
+            "secondaryAddress": "APT 2",
+            "cityAbbreviation": "DENVER",
+            "state": "CO",
+            "ZIPCode": "80202",
+            "ZIPPlus4": "1234",
+        }
+    }
+    oauth_response = MagicMock()
+    oauth_response.raise_for_status.return_value = None
+    oauth_response.json.return_value = {
+        "access_token": "fresh-token",
+        "expires_in": 3600,
+    }
+
+    with patch(
+        "apps.accounts.services.usps.requests.post",
+        return_value=oauth_response,
+    ) as mock_post, patch(
+        "apps.accounts.services.usps.requests.get",
+        side_effect=[unauthorized, ok],
+    ) as mock_get:
+        result = verify_address_with_usps(
+            address_line_1="123 Main St",
+            address_line_2="Apt 2",
+            city="Denver",
+            state="CO",
+            zip_code="80202",
+        )
+
+    assert result["zip_code"] == "80202-1234"
+    assert mock_post.call_count == 1
+    assert cache.get(TOKEN_CACHE_KEY)["access_token"] == "fresh-token"
     first_headers = mock_get.call_args_list[0].kwargs["headers"]
     second_headers = mock_get.call_args_list[1].kwargs["headers"]
     assert first_headers["Authorization"] == "Bearer stale-token"

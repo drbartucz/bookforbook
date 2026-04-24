@@ -338,6 +338,21 @@ class TestCheckInactivityTask:
         )
 
     @patch("django_q.tasks.async_task")
+    def test_institutional_users_do_not_get_1m_warning(self, mock_async):
+        library_user = UserFactory(
+            account_type="library",
+            inactivity_warned_1m=None,
+            books_delisted_at=None,
+        )
+        _set_last_active(library_user, 35)
+        from apps.notifications.tasks import check_inactivity
+
+        check_inactivity()
+
+        calls_str = str(mock_async.call_args_list)
+        assert "send_inactivity_warning_1m" not in calls_str
+
+    @patch("django_q.tasks.async_task")
     def test_does_not_warn_recently_active_user(self, mock_async):
         user = UserFactory(inactivity_warned_1m=None)
         # last_active_at defaults to now() via auto_now_add — no update needed
@@ -362,6 +377,22 @@ class TestCheckInactivityTask:
         mock_async.assert_any_call(
             "apps.notifications.tasks.send_inactivity_warning_2m", str(user.pk)
         )
+
+    @patch("django_q.tasks.async_task")
+    def test_institutional_users_do_not_get_2m_warning(self, mock_async):
+        bookstore_user = UserFactory(
+            account_type="bookstore",
+            inactivity_warned_1m=timezone.now() - timedelta(days=35),
+            inactivity_warned_2m=None,
+            books_delisted_at=None,
+        )
+        _set_last_active(bookstore_user, 65)
+        from apps.notifications.tasks import check_inactivity
+
+        check_inactivity()
+
+        calls_str = str(mock_async.call_args_list)
+        assert "send_inactivity_warning_2m" not in calls_str
 
     @patch("django_q.tasks.async_task")
     def test_delists_books_after_3_months_inactive(self, mock_async):
