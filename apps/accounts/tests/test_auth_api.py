@@ -3,21 +3,25 @@ API tests for accounts auth endpoints.
 register, verify-email, login, logout, password-reset
 """
 
+import uuid
+
 import pytest
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from rest_framework import status
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework import status
 
 from apps.accounts.tokens import email_verification_token
+from apps.ratings.models import Rating
 from apps.tests.factories import (
     BookFactory,
     UserBookFactory,
     UserFactory,
     WishlistItemFactory,
 )
+from apps.trading.models import Trade
 
 
 @pytest.mark.django_db
@@ -317,6 +321,7 @@ class TestAddressVerification:
 @pytest.mark.django_db
 class TestLogoutView:
     url = "/api/v1/auth/logout/"
+    refresh_url = "/api/v1/auth/token/refresh/"
 
     def test_logout_blacklists_refresh_token(self, auth_api_client, verified_user):
         refresh = RefreshToken.for_user(verified_user)
@@ -326,6 +331,35 @@ class TestLogoutView:
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["detail"] == "Logged out."
         assert BlacklistedToken.objects.filter(token__jti=refresh["jti"]).exists()
+
+    def test_logout_without_refresh_token_still_succeeds(self, auth_api_client):
+        resp = auth_api_client.post(self.url, {})
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["detail"] == "Logged out."
+
+    def test_logout_with_already_blacklisted_refresh_token_still_succeeds(
+        self, auth_api_client, verified_user
+    ):
+        refresh = RefreshToken.for_user(verified_user)
+        refresh.blacklist()
+
+        resp = auth_api_client.post(self.url, {"refresh": str(refresh)})
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["detail"] == "Logged out."
+        assert BlacklistedToken.objects.filter(token__jti=refresh["jti"]).count() == 1
+
+    def test_logged_out_refresh_token_cannot_be_used_to_mint_new_access_token(
+        self, auth_api_client, api_client, verified_user
+    ):
+        refresh = RefreshToken.for_user(verified_user)
+
+        logout_resp = auth_api_client.post(self.url, {"refresh": str(refresh)})
+        refresh_resp = api_client.post(self.refresh_url, {"refresh": str(refresh)})
+
+        assert logout_resp.status_code == status.HTTP_200_OK
+        assert refresh_resp.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.django_db
@@ -351,6 +385,34 @@ class TestUserExportView:
         book = BookFactory(isbn_13="9780141187761", title="1984")
         UserBookFactory(user=verified_user, book=book, condition="good")
         WishlistItemFactory(user=verified_user, book=book, min_condition="acceptable")
+
+        other_user = UserFactory()
+        outgoing_trade = Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=uuid.uuid4(),
+            status=Trade.Status.COMPLETED,
+        )
+        incoming_trade = Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=uuid.uuid4(),
+            status=Trade.Status.COMPLETED,
+        )
+        Rating.objects.create(
+            trade=outgoing_trade,
+            rater=verified_user,
+            rated=other_user,
+            score=5,
+            comment="Great swap",
+            book_condition_accurate=True,
+        )
+        Rating.objects.create(
+            trade=incoming_trade,
+            rater=other_user,
+            rated=verified_user,
+            score=4,
+            comment="Arrived as described",
+            book_condition_accurate=False,
+        )
 
         resp = auth_api_client.get(self.url)
 
@@ -397,3 +459,25 @@ class TestUserExportView:
             "min_condition",
             "is_active",
         }
+        assert len(resp.data["ratings_given"]) == 1
+        assert set(resp.data["ratings_given"][0].keys()) == {
+            "id",
+            "trade_id",
+            "rated_username",
+            "score",
+            "comment",
+            "created_at",
+        }
+        assert resp.data["ratings_given"][0]["rated_username"] == other_user.username
+        assert resp.data["ratings_given"][0]["score"] == 5
+        assert len(resp.data["ratings_received"]) == 1
+        assert set(resp.data["ratings_received"][0].keys()) == {
+            "id",
+            "trade_id",
+            "score",
+            "comment",
+            "book_condition_accurate",
+            "created_at",
+        }
+        assert resp.data["ratings_received"][0]["score"] == 4
+        assert resp.data["ratings_received"][0]["book_condition_accurate"] is False

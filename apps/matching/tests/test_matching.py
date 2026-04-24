@@ -7,6 +7,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
+from django.test import TestCase
 from django.utils import timezone
 
 from apps.inventory.models import UserBook
@@ -557,10 +558,9 @@ class TestMatchAPI:
             user_book=ub_a,
         )
 
-        with patch(
-            "django.db.transaction.on_commit", side_effect=lambda fn: fn()
-        ), patch("django_q.tasks.async_task") as mock_async_task:
-            resp = auth_api_client.post(f"/api/v1/matches/{ring.id}/decline/")
+        with patch("django_q.tasks.async_task") as mock_async_task:
+            with TestCase.captureOnCommitCallbacks(execute=True):
+                resp = auth_api_client.post(f"/api/v1/matches/{ring.id}/decline/")
 
         assert resp.status_code == 200
         ring.refresh_from_db()
@@ -589,10 +589,9 @@ class TestMatchAPI:
             user_book=ub_a,
         )
 
-        with patch(
-            "django.db.transaction.on_commit", side_effect=lambda fn: fn()
-        ), patch("django_q.tasks.async_task", side_effect=RuntimeError("queue down")):
-            resp = auth_api_client.post(f"/api/v1/matches/{ring.id}/decline/")
+        with patch("django_q.tasks.async_task", side_effect=RuntimeError("queue down")):
+            with TestCase.captureOnCommitCallbacks(execute=True):
+                resp = auth_api_client.post(f"/api/v1/matches/{ring.id}/decline/")
 
         assert resp.status_code == 200
         ring.refresh_from_db()

@@ -637,6 +637,43 @@ class TestRunRingDetection:
 
 @pytest.mark.django_db
 class TestRetryRingAfterDecline:
+    def test_returns_none_when_no_replacement_cycle_exists(self):
+        user_a = UserFactory()
+        user_b = UserFactory()
+        user_c = UserFactory()
+
+        ub_ab = UserBookFactory(user=user_a, book=BookFactory(), condition="good")
+        ub_bc = UserBookFactory(user=user_b, book=BookFactory(), condition="good")
+        ub_ca = UserBookFactory(user=user_c, book=BookFactory(), condition="good")
+
+        ring = Match.objects.create(
+            match_type=Match.MatchType.RING,
+            status=Match.Status.PROPOSED,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_a,
+            receiver=user_b,
+            user_book=ub_ab,
+            position=0,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_b,
+            receiver=user_c,
+            user_book=ub_bc,
+            position=1,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_c,
+            receiver=user_a,
+            user_book=ub_ca,
+            position=2,
+        )
+
+        assert retry_ring_after_decline(ring, user_a) is None
+
     def test_reforms_ring_without_declining_user(self):
         user_a = UserFactory()
         user_b = UserFactory()
