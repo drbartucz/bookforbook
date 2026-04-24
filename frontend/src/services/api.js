@@ -75,7 +75,9 @@ apiClient.interceptors.response.use(
       if (!refreshToken) {
         isRefreshing = false;
         useAuthStore.getState().logout();
-        window.dispatchEvent(new CustomEvent('auth:logout'));
+        window.dispatchEvent(new CustomEvent('auth:logout', {
+          detail: { message: 'You have been automatically logged out.' }
+        }));
         return Promise.reject(error);
       }
 
@@ -92,7 +94,9 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         useAuthStore.getState().logout();
-        window.dispatchEvent(new CustomEvent('auth:logout'));
+        window.dispatchEvent(new CustomEvent('auth:logout', {
+          detail: { message: 'You have been automatically logged out.' }
+        }));
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
