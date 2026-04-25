@@ -11,6 +11,8 @@
  *   - Empty state when search matches nothing
  */
 import { test, expect } from '../../fixtures/index.js';
+import { CAROL } from '../../constants.js';
+import { apiListWishlist, apiLogin } from '../../helpers/api.js';
 
 test.describe('Home / Browse', () => {
   test('guest sees hero section with Register and Sign in CTAs', async ({ guestPage: page }) => {
@@ -110,8 +112,8 @@ test.describe('Home / Browse', () => {
 
   test('Want this button disappears after clicking (book added to wishlist)', async ({ carolPage: page }) => {
     // Guard: skip if carol already has Nineteen Eighty-Four in her wishlist (previous run without --reset)
-    const wlCheck = await page.request.get('/api/v1/wishlist/');
-    const wlData = await wlCheck.json();
+    const { access: carolToken } = await apiLogin(page.request, CAROL.email, CAROL.password);
+    const wlData = await apiListWishlist(page.request, carolToken);
     const wlItems = wlData?.results ?? (Array.isArray(wlData) ? wlData : []);
     const alreadyHasIt = wlItems.some((i) =>
       (i.book?.isbn_13 ?? i.isbn_13) === '9780451524935'

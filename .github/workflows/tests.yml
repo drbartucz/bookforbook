@@ -117,6 +117,8 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+        env:
+          VITE_API_URL: http://localhost:8000/api/v1
 
       - name: Start Vite preview server
         working-directory: frontend

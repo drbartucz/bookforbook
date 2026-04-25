@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
 
 export default defineConfig({
-  testDir: './e2e/specs',
+  testDir: './e2e',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -39,7 +39,7 @@ export default defineConfig({
     // ── CI-blocking critical suite ─────────────────────────────────────────
     {
       name: 'critical',
-      testMatch: /critical\/.*\.spec\.js/,
+      testMatch: /specs\/critical\/.*\.spec\.js/,
       dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],
@@ -50,7 +50,7 @@ export default defineConfig({
     // ── Staging smoke (non-blocking, separate base URL) ────────────────────
     {
       name: 'smoke',
-      testMatch: /smoke\/.*\.spec\.js/,
+      testMatch: /specs\/smoke\/.*\.spec\.js/,
       use: {
         ...devices['Desktop Chrome'],
         baseURL: process.env.STAGING_URL || BASE_URL,
