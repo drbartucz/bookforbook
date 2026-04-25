@@ -3,7 +3,11 @@ Tests for the ratings rolling average service and uniqueness constraint.
 """
 
 import pytest
+from datetime import timedelta
+from unittest.mock import patch
+
 from django.db import IntegrityError
+from django.utils import timezone
 
 from apps.tests.factories import BookFactory, UserBookFactory, UserFactory
 from apps.trading.models import Trade, TradeShipment
@@ -89,6 +93,29 @@ class TestRecomputeRatingAverage:
         rated.refresh_from_db()
         assert float(rated.avg_recent_rating) == pytest.approx(3.0)
         assert rated.rating_count == 3
+
+    def test_cutoff_timestamp_excludes_concurrent_inserts(self):
+        """
+        The service uses a cutoff = timezone.now() snapshot so that ratings
+        inserted after the call begins are not counted.  Simulate this by
+        mocking timezone.now() to a point in the past: any rating created
+        before the mock call (i.e. with a real 'now' timestamp) should be
+        invisible to recompute_rating_average.
+        """
+        rater = UserFactory()
+        rated = UserFactory()
+        trade = _make_trade(rater, rated)
+        _make_rating(trade, rater, rated, 5)  # created at real 'now'
+
+        # Pretend recompute was called one hour ago — the rating is "in the future"
+        past = timezone.now() - timedelta(hours=1)
+        with patch("apps.ratings.services.rolling_average.timezone") as mock_tz:
+            mock_tz.now.return_value = past
+            recompute_rating_average(rated)
+
+        rated.refresh_from_db()
+        assert rated.avg_recent_rating is None
+        assert rated.rating_count == 0
 
     def test_rolling_window_capped_at_10(self):
         """Only the last 10 ratings should be used for the average."""

@@ -15,6 +15,8 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.tokens import email_verification_token
+from apps.matching.models import Match, MatchLeg
+from apps.notifications.models import Notification
 from apps.ratings.models import Rating
 from apps.tests.factories import (
     BookFactory,
@@ -22,7 +24,7 @@ from apps.tests.factories import (
     UserFactory,
     WishlistItemFactory,
 )
-from apps.trading.models import Trade
+from apps.trading.models import Trade, TradeProposal
 
 
 @pytest.mark.django_db
@@ -250,6 +252,77 @@ class TestUserMeView:
     def test_delete_me_requires_password(self, auth_api_client):
         resp = auth_api_client.delete(self.url, {}, format="json")
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_cancels_active_matches(self, _mock, api_client, db):
+        """Pending matches are set to EXPIRED when a participant deletes their account."""
+        user = UserFactory(email_verified=True)
+        other = UserFactory(email_verified=True)
+        book_a = UserBookFactory(user=user)
+        book_b = UserBookFactory(user=other)
+
+        match = Match.objects.create(match_type="direct", status=Match.Status.PENDING)
+        MatchLeg.objects.create(
+            match=match, sender=user, receiver=other,
+            user_book=book_a, position=0, status=MatchLeg.Status.PENDING,
+        )
+        MatchLeg.objects.create(
+            match=match, sender=other, receiver=user,
+            user_book=book_b, position=1, status=MatchLeg.Status.PENDING,
+        )
+
+        client = api_client
+        client.force_authenticate(user=user)
+        resp = client.delete(self.url, {"password": "testpass123"}, format="json")
+
+        assert resp.status_code == status.HTTP_200_OK
+        match.refresh_from_db()
+        assert match.status == Match.Status.EXPIRED
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_cancels_pending_proposals(self, _mock, api_client, db):
+        """Pending proposals are set to CANCELLED when a participant deletes their account."""
+        user = UserFactory(email_verified=True)
+        other = UserFactory(email_verified=True)
+
+        proposal = TradeProposal.objects.create(
+            proposer=user,
+            recipient=other,
+            status=TradeProposal.Status.PENDING,
+        )
+
+        client = api_client
+        client.force_authenticate(user=user)
+        client.delete(self.url, {"password": "testpass123"}, format="json")
+
+        proposal.refresh_from_db()
+        assert proposal.status == TradeProposal.Status.CANCELLED
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_notifies_match_counterparties(self, _mock, api_client, db):
+        """Counterparties in active matches receive an account_deleted_impact notification."""
+        user = UserFactory(email_verified=True)
+        other = UserFactory(email_verified=True)
+        book_a = UserBookFactory(user=user)
+        book_b = UserBookFactory(user=other)
+
+        match = Match.objects.create(match_type="direct", status=Match.Status.PENDING)
+        MatchLeg.objects.create(
+            match=match, sender=user, receiver=other,
+            user_book=book_a, position=0, status=MatchLeg.Status.PENDING,
+        )
+        MatchLeg.objects.create(
+            match=match, sender=other, receiver=user,
+            user_book=book_b, position=1, status=MatchLeg.Status.PENDING,
+        )
+
+        client = api_client
+        client.force_authenticate(user=user)
+        client.delete(self.url, {"password": "testpass123"}, format="json")
+
+        assert Notification.objects.filter(
+            user=other, notification_type="account_deleted_impact"
+        ).exists()
 
     @patch("django_q.tasks.async_task")
     def test_delete_me_is_idempotent_after_first_request(
