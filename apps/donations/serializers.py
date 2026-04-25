@@ -11,15 +11,22 @@ class DonationSerializer(serializers.ModelSerializer):
     institution = UserPublicProfileSerializer(read_only=True)
     user_book = UserBookSerializer(read_only=True)
     institution_address = serializers.SerializerMethodField()
+    is_recipient = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
         fields = [
             'id', 'donor', 'institution', 'user_book',
-            'status', 'message', 'institution_address',
+            'status', 'message', 'institution_address', 'is_recipient',
             'created_at', 'updated_at',
         ]
         read_only_fields = fields
+
+    def get_is_recipient(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return request.user == obj.institution
 
     def get_institution_address(self, obj):
         """Reveal institution address only after donation is accepted."""

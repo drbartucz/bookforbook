@@ -12,10 +12,11 @@ import styles from './Donations.module.css';
 const PAGE_SIZE = 15;
 
 const STATUS_CONFIG = {
-  pending: { label: 'Pending', cls: 'badge-amber' },
+  offered: { label: 'Offered', cls: 'badge-amber' },
   accepted: { label: 'Accepted', cls: 'badge-green' },
-  declined: { label: 'Declined', cls: 'badge-red' },
-  completed: { label: 'Completed', cls: 'badge-green' },
+  shipped: { label: 'Shipped', cls: 'badge-blue' },
+  received: { label: 'Received', cls: 'badge-green' },
+  cancelled: { label: 'Declined', cls: 'badge-red' },
 };
 
 const DIRECTION_TABS = [
@@ -57,8 +58,8 @@ export default function Donations() {
     onError: (err) => setActionError(err?.response?.data?.detail || 'Failed to decline.'),
   });
 
-  const items = data?.results ?? [];
-  const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE);
+  const items = Array.isArray(data) ? data : (data?.results ?? []);
+  const totalPages = Math.ceil((Array.isArray(data) ? data.length : (data?.count ?? 0)) / PAGE_SIZE);
 
   return (
     <div>
@@ -103,10 +104,11 @@ export default function Donations() {
           <div className={styles.donationList}>
             {items.map((donation) => {
               const statusConfig = STATUS_CONFIG[donation.status] ?? { label: donation.status, cls: 'badge-gray' };
-              const book = donation.book?.book ?? donation.book;
+              const userBook = donation.user_book ?? donation.book;
+              const book = userBook?.book ?? userBook;
               const donor = donation.donor ?? donation.from_user;
-              const recipient = donation.recipient ?? donation.institution ?? donation.to_user;
-              const isPending = donation.status === 'pending';
+              const recipient = donation.institution ?? donation.recipient ?? donation.to_user;
+              const isPending = donation.status === 'offered';
               const isRecipient = donation.is_recipient ?? false;
 
               return (
@@ -129,7 +131,7 @@ export default function Donations() {
                         <div>
                           <p className={styles.bookTitle}>{book.title}</p>
                           {getBookPrimaryAuthor(book) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(book)}</p>}
-                          {donation.book?.condition && (
+                          {userBook?.condition && (
                             <ConditionBadge condition={donation.book.condition} />
                           )}
                         </div>

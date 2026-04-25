@@ -208,8 +208,10 @@ class TestAutoCloseTrades:
 
         auto_close_trades()
 
+        trade.refresh_from_db()
         s1.user_book.refresh_from_db()
         s2.user_book.refresh_from_db()
+        assert trade.status == Trade.Status.AUTO_CLOSED
         assert s1.user_book.status == UserBook.Status.AVAILABLE
         assert s2.user_book.status == UserBook.Status.AVAILABLE
 
@@ -503,6 +505,40 @@ class TestTradeUniquenessAndIdempotency:
         )
 
         with pytest.raises(ValueError, match="one item in each direction"):
+            create_trade_from_proposal(proposal)
+
+    def test_create_trade_from_proposal_rejects_when_zero_items_exist(self):
+        proposal = TradeProposal.objects.create(
+            proposer=UserFactory(),
+            recipient=UserFactory(),
+            status=TradeProposal.Status.ACCEPTED,
+        )
+
+        with pytest.raises(ValueError, match="exactly two items"):
+            create_trade_from_proposal(proposal)
+
+    def test_create_trade_from_proposal_rejects_when_three_items_exist(self):
+        proposer = UserFactory()
+        recipient = UserFactory()
+        proposal = TradeProposal.objects.create(
+            proposer=proposer,
+            recipient=recipient,
+            status=TradeProposal.Status.ACCEPTED,
+        )
+        proposal.items.create(
+            direction="proposer_sends",
+            user_book=UserBookFactory(user=proposer, book=BookFactory()),
+        )
+        proposal.items.create(
+            direction="recipient_sends",
+            user_book=UserBookFactory(user=recipient, book=BookFactory()),
+        )
+        proposal.items.create(
+            direction="proposer_sends",
+            user_book=UserBookFactory(user=proposer, book=BookFactory()),
+        )
+
+        with pytest.raises(ValueError, match="exactly two items"):
             create_trade_from_proposal(proposal)
 
     def test_no_reminder_for_completed_trade_with_max_reminders(self):

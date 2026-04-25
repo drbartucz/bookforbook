@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
@@ -24,6 +25,11 @@ from .serializers import (
     UserMeUpdateSerializer,
     UserPublicProfileSerializer,
 )
+from .throttles import (
+    LoginRateThrottle,
+    PasswordResetRateThrottle,
+    RegisterRateThrottle,
+)
 from .tokens import email_verification_token
 
 logger = logging.getLogger(__name__)
@@ -31,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [RegisterRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -73,6 +80,7 @@ class VerifyEmailView(APIView):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
@@ -113,6 +121,7 @@ class LogoutView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetRateThrottle]
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -175,10 +184,32 @@ class UserMeView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = request.user
-        # Cancel active matches and proposals
+        if user.deletion_requested_at is not None:
+            return Response(
+                {"detail": "Account deletion has already been initiated."},
+                status=status.HTTP_200_OK,
+            )
+
+        # Notify affected counterparties, then cancel active matches/proposals.
+        _notify_affected_users_of_account_deletion(user)
         _cancel_user_active_matches(user)
 
-        # Queue GDPR export + deletion
+        now = timezone.now()
+        scheduled_for = now + timedelta(days=30)
+
+        user.is_active = False
+        user.deletion_requested_at = now
+        user.deletion_scheduled_for = scheduled_for
+        user.save(
+            update_fields=[
+                "is_active",
+                "deletion_requested_at",
+                "deletion_scheduled_for",
+                "updated_at",
+            ]
+        )
+
+        # Queue GDPR export + deletion confirmation email.
         try:
             from django_q.tasks import async_task
 
@@ -189,10 +220,6 @@ class UserMeView(APIView):
             logger.exception(
                 "Failed to queue deletion notification for user %s", user.pk
             )
-
-        # For now, deactivate the account (30-day grace period would require a scheduled task)
-        user.is_active = False
-        user.save(update_fields=["is_active"])
 
         return Response(
             {
@@ -289,16 +316,84 @@ class UserRatingsView(APIView):
         return Response(serializer.data)
 
 
+class UserOfferedBooksView(APIView):
+    """
+    GET /api/v1/users/:id/offered/
+    Public endpoint returning a user's available books (have-list).
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, id):
+        try:
+            user = User.objects.get(pk=id, is_active=True)
+        except User.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        from apps.inventory.models import UserBook
+        from apps.inventory.serializers import UserBookSerializer
+
+        books = (
+            UserBook.objects.filter(user=user, status=UserBook.Status.AVAILABLE)
+            .select_related("book")
+            .order_by("-created_at")
+        )
+        serializer = UserBookSerializer(books, many=True)
+        return Response(serializer.data)
+
+
+class UserWantedBooksView(APIView):
+    """
+    GET /api/v1/users/:id/wanted/
+    Public endpoint returning a user's active wishlist items (want-list).
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, id):
+        try:
+            user = User.objects.get(pk=id, is_active=True)
+        except User.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        from apps.inventory.models import WishlistItem
+        from apps.inventory.serializers import WishlistItemSerializer
+
+        items = (
+            WishlistItem.objects.filter(user=user, is_active=True)
+            .select_related("book")
+            .order_by("-created_at")
+        )
+        serializer = WishlistItemSerializer(items, many=True)
+        return Response(serializer.data)
+
+
 class InstitutionListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = UserPublicProfileSerializer
 
     def get_queryset(self):
-        return User.objects.filter(
+        from django.db.models import Q
+
+        qs = User.objects.filter(
             account_type__in=[User.AccountType.LIBRARY, User.AccountType.BOOKSTORE],
             is_verified=True,
             is_active=True,
         ).order_by("institution_name")
+
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            qs = qs.filter(
+                Q(institution_name__icontains=search)
+                | Q(username__icontains=search)
+                | Q(full_name__icontains=search)
+            )
+
+        institution_type = self.request.query_params.get("institution_type", "").strip()
+        if institution_type:
+            qs = qs.filter(account_type=institution_type)
+
+        return qs
 
 
 class InstitutionDetailView(generics.RetrieveAPIView):
@@ -344,12 +439,14 @@ class InstitutionWantedView(APIView):
 
 def _cancel_user_active_matches(user):
     """Cancel all active matches and proposals for a user being deleted."""
+    from django.db.models import Q
+
     from apps.matching.models import Match, MatchLeg
     from apps.trading.models import TradeProposal
 
-    # Cancel pending matches
+    # Cancel pending/proposed matches where user is either sender or receiver.
     active_leg_match_ids = MatchLeg.objects.filter(
-        sender=user,
+        Q(sender=user) | Q(receiver=user),
         status__in=[MatchLeg.Status.PENDING, MatchLeg.Status.ACCEPTED],
     ).values_list("match_id", flat=True)
     Match.objects.filter(
@@ -357,15 +454,58 @@ def _cancel_user_active_matches(user):
         status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
     ).update(status=Match.Status.EXPIRED)
 
-    # Cancel pending proposals
+    # Cancel pending/countered proposals where user is either side.
     TradeProposal.objects.filter(
-        proposer=user,
+        Q(proposer=user) | Q(recipient=user),
         status__in=[TradeProposal.Status.PENDING, TradeProposal.Status.COUNTERED],
     ).update(status=TradeProposal.Status.CANCELLED)
-    TradeProposal.objects.filter(
-        recipient=user,
+
+
+def _notify_affected_users_of_account_deletion(user):
+    """Notify counterparties that active interactions were cancelled due to deletion."""
+    from django.db.models import Q
+
+    from apps.matching.models import MatchLeg
+    from apps.notifications.models import Notification
+    from apps.trading.models import TradeProposal
+
+    counterparty_ids = set()
+
+    active_legs = MatchLeg.objects.filter(
+        Q(sender=user) | Q(receiver=user),
+        status__in=[MatchLeg.Status.PENDING, MatchLeg.Status.ACCEPTED],
+    ).values_list("sender_id", "receiver_id")
+    for sender_id, receiver_id in active_legs:
+        if sender_id != user.id:
+            counterparty_ids.add(sender_id)
+        if receiver_id != user.id:
+            counterparty_ids.add(receiver_id)
+
+    active_proposals = TradeProposal.objects.filter(
+        Q(proposer=user) | Q(recipient=user),
         status__in=[TradeProposal.Status.PENDING, TradeProposal.Status.COUNTERED],
-    ).update(status=TradeProposal.Status.CANCELLED)
+    ).values_list("proposer_id", "recipient_id")
+    for proposer_id, recipient_id in active_proposals:
+        if proposer_id != user.id:
+            counterparty_ids.add(proposer_id)
+        if recipient_id != user.id:
+            counterparty_ids.add(recipient_id)
+
+    if not counterparty_ids:
+        return
+
+    Notification.objects.bulk_create(
+        [
+            Notification(
+                user_id=counterparty_id,
+                notification_type="account_deleted_impact",
+                title="A user left BookForBook",
+                body="An active match or proposal was cancelled because the other user deleted their account.",
+                metadata={"deleted_user_id": str(user.pk)},
+            )
+            for counterparty_id in counterparty_ids
+        ]
+    )
 
 
 def _build_user_export(user):

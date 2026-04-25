@@ -1,13 +1,54 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
 
-import apiClient, { books } from './api';
-import useAuthStore from '../store/authStore';
+let apiClient;
+let books;
+let users;
+let useAuthStore;
+let getAuthRefreshState;
+let resetAuthRefreshState;
+
+function makeJwt(payload = {}) {
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = btoa(
+    JSON.stringify({
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      token_type: 'access',
+      ...payload,
+    })
+  );
+  return `${header}.${body}.signature`;
+}
+
+async function loadFreshApiModule() {
+  vi.resetModules();
+  ({ default: useAuthStore } = await import('../store/authStore'));
+  ({
+    __getAuthRefreshStateForTests: getAuthRefreshState,
+    __resetAuthRefreshStateForTests: resetAuthRefreshState,
+    default: apiClient,
+    books,
+    users,
+  } = await import('./api'));
+}
 
 describe('api client request interceptor', () => {
+  beforeEach(async () => {
+    await loadFreshApiModule();
+    localStorage.clear();
+    resetAuthRefreshState();
+    useAuthStore.setState({ user: null, accessToken: null, refreshToken: null });
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('attaches authorization header when access token exists', async () => {
+    const token = makeJwt();
     useAuthStore.setState({
-      accessToken: 'token-123',
+      accessToken: token,
       refreshToken: null,
       user: null,
     });
@@ -26,7 +67,32 @@ describe('api client request interceptor', () => {
       },
     });
 
-    expect(requestHeaders.Authorization).toBe('Bearer token-123');
+    expect(requestHeaders.Authorization).toBe(`Bearer ${token}`);
+  });
+
+  it('does not attach authorization header for malformed access token', async () => {
+    useAuthStore.setState({
+      accessToken: 'not-a-jwt',
+      refreshToken: null,
+      user: null,
+    });
+
+    let requestHeaders = {};
+    await apiClient.get('/health/', {
+      adapter: async (config) => {
+        requestHeaders = config.headers;
+        return {
+          data: { ok: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        };
+      },
+    });
+
+    expect(requestHeaders.Authorization).toBeUndefined();
+    expect(useAuthStore.getState().accessToken).toBeNull();
   });
 
   it('does not attach authorization header when token does not exist', async () => {
@@ -59,8 +125,10 @@ describe('api client request interceptor', () => {
 // ---------------------------------------------------------------------------
 
 describe('api client response interceptor', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await loadFreshApiModule();
     localStorage.clear();
+    resetAuthRefreshState();
     useAuthStore.setState({ user: null, accessToken: null, refreshToken: null });
     vi.restoreAllMocks();
   });
@@ -98,14 +166,15 @@ describe('api client response interceptor', () => {
   });
 
   it('retries original request with new token after successful refresh', async () => {
+    const refreshedAccess = makeJwt();
     useAuthStore.setState({
       user: null,
-      accessToken: 'old-access',
-      refreshToken: 'valid-refresh',
+      accessToken: makeJwt(),
+      refreshToken: makeJwt({ token_type: 'refresh', exp: Math.floor(Date.now() / 1000) + 86400 }),
     });
 
     const postSpy = vi.spyOn(axios, 'post').mockResolvedValueOnce({
-      data: { access: 'new-access' },
+      data: { access: refreshedAccess },
     });
 
     let callCount = 0;
@@ -123,7 +192,7 @@ describe('api client response interceptor', () => {
     });
 
     expect(result.data).toEqual({ ok: true });
-    expect(useAuthStore.getState().accessToken).toBe('new-access');
+    expect(useAuthStore.getState().accessToken).toBe(refreshedAccess);
     postSpy.mockRestore();
   });
 
@@ -136,6 +205,17 @@ describe('api client response interceptor', () => {
 
     expect(postSpy).toHaveBeenCalledWith('/books/lookup/', { isbn: '9780141036144' });
     postSpy.mockRestore();
+  });
+
+  it('deleteAccount sends password in DELETE request body', async () => {
+    const deleteSpy = vi.spyOn(apiClient, 'delete').mockResolvedValueOnce({
+      data: { detail: 'Account deletion initiated.' },
+    });
+
+    await users.deleteAccount({ password: 'secret123' });
+
+    expect(deleteSpy).toHaveBeenCalledWith('/users/me/', { data: { password: 'secret123' } });
+    deleteSpy.mockRestore();
   });
 
   it('fires auth:logout and rejects when refresh call fails', async () => {
@@ -174,10 +254,11 @@ describe('api client response interceptor', () => {
   });
 
   it('queues simultaneous 401 responses behind a single refresh request', async () => {
+    const refreshedAccess = makeJwt();
     useAuthStore.setState({
       user: null,
-      accessToken: 'old-access',
-      refreshToken: 'valid-refresh',
+      accessToken: makeJwt(),
+      refreshToken: makeJwt({ token_type: 'refresh', exp: Math.floor(Date.now() / 1000) + 86400 }),
     });
 
     let resolveRefresh;
@@ -211,16 +292,22 @@ describe('api client response interceptor', () => {
     };
 
     const reqA = apiClient.get('/protected/a', { adapter });
+    await vi.waitFor(() => {
+      expect(getAuthRefreshState().isRefreshing).toBe(true);
+    });
     const reqB = apiClient.get('/protected/b', { adapter });
+    await vi.waitFor(() => {
+      expect(getAuthRefreshState().failedQueueLength).toBe(1);
+    });
 
-    resolveRefresh({ data: { access: 'new-access' } });
+    resolveRefresh({ data: { access: refreshedAccess } });
     const [resA, resB] = await Promise.all([reqA, reqB]);
 
     expect(resA.data).toEqual({ ok: true, path: '/protected/a' });
     expect(resB.data).toEqual({ ok: true, path: '/protected/b' });
     expect(postSpy).toHaveBeenCalledTimes(1);
-    expect(seenRetryAuthHeaders).toEqual(['Bearer new-access', 'Bearer new-access']);
-    expect(useAuthStore.getState().accessToken).toBe('new-access');
+    expect(seenRetryAuthHeaders).toEqual([`Bearer ${refreshedAccess}`, `Bearer ${refreshedAccess}`]);
+    expect(useAuthStore.getState().accessToken).toBe(refreshedAccess);
 
     postSpy.mockRestore();
   });

@@ -8,11 +8,17 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
     css: false,
+    exclude: ['e2e/**', 'node_modules/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
       include: ['src/**/*.{js,jsx}'],
       exclude: ['src/main.jsx', 'src/test/**'],
+      thresholds: {
+        lines: 70,
+        functions: 70,
+        branches: 60,
+      },
     },
   },
 });

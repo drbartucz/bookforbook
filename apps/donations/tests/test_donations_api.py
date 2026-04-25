@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from apps.accounts.models import User
 from apps.inventory.models import UserBook
+from apps.notifications.models import Notification
 from apps.tests.factories import BookFactory, UserBookFactory, UserFactory
 from apps.donations.models import Donation
 from apps.trading.models import Trade, TradeShipment
@@ -252,3 +253,58 @@ class TestDonationDecline:
             reverse("donation-decline", kwargs={"pk": donation_id}), format="json"
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Notification side-effects
+# ---------------------------------------------------------------------------
+
+
+class TestDonationNotifications:
+    def test_offering_notifies_institution(self, api_client):
+        donor = UserFactory()
+        institution = _make_institution()
+        user_book = UserBookFactory(user=donor, book=BookFactory())
+
+        client = _auth(api_client, donor)
+        _offer_donation(client, user_book, institution)
+
+        assert Notification.objects.filter(
+            user=institution, notification_type="donation_offered"
+        ).exists()
+
+    def test_accepting_notifies_donor(self, api_client):
+        donor = UserFactory()
+        institution = _make_institution()
+        user_book = UserBookFactory(user=donor, book=BookFactory())
+
+        client_donor = _auth(api_client, donor)
+        offer_resp = _offer_donation(client_donor, user_book, institution)
+        donation_id = offer_resp.data["id"]
+
+        client_inst = _auth(api_client, institution)
+        client_inst.post(
+            reverse("donation-accept", kwargs={"pk": donation_id}), format="json"
+        )
+
+        assert Notification.objects.filter(
+            user=donor, notification_type="donation_accepted"
+        ).exists()
+
+    def test_declining_notifies_donor(self, api_client):
+        donor = UserFactory()
+        institution = _make_institution()
+        user_book = UserBookFactory(user=donor, book=BookFactory())
+
+        client_donor = _auth(api_client, donor)
+        offer_resp = _offer_donation(client_donor, user_book, institution)
+        donation_id = offer_resp.data["id"]
+
+        client_inst = _auth(api_client, institution)
+        client_inst.post(
+            reverse("donation-decline", kwargs={"pk": donation_id}), format="json"
+        )
+
+        assert Notification.objects.filter(
+            user=donor, notification_type="donation_declined"
+        ).exists()

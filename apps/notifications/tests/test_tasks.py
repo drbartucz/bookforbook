@@ -19,6 +19,8 @@ from apps.notifications.email import (
     send_inactivity_warning_2m_email,
     send_books_delisted_email,
     send_account_deletion_email,
+    send_account_deletion_export_email,
+    send_password_reset_email,
     send_rating_reminder_email,
     send_trade_confirmed_email,
 )
@@ -178,6 +180,43 @@ class TestEmailTemplateFunctions:
         assert result is True
         assert "confirmed" in mail.outbox[0].subject.lower()
 
+    def test_send_password_reset_email_contains_link(self, settings):
+        settings.FRONTEND_URL = "https://app.bookforbook.com"
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+        user = UserFactory(email="reset@example.com", username="resetme")
+        result = send_password_reset_email(user, "uid99", "tok99")
+        assert result is True
+        assert len(mail.outbox) == 1
+        assert "reset" in mail.outbox[0].subject.lower()
+        assert "reset-password" in mail.outbox[0].body
+        assert "uid99" in mail.outbox[0].body
+        assert "tok99" in mail.outbox[0].body
+
+    def test_send_account_deletion_export_email_attaches_json(self, settings):
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+        user = UserFactory(email="export@example.com")
+        export_data = {"profile": {"id": "abc"}, "books": []}
+        result = send_account_deletion_export_email(user, export_data)
+        assert result is True
+        assert len(mail.outbox) == 1
+        msg = mail.outbox[0]
+        assert "export" in msg.subject.lower()
+        filenames = [
+            getattr(att, "filename", att[0]) if hasattr(att, "filename") else att[0]
+            for att in msg.attachments
+        ]
+        assert "bookforbook-data-export.json" in filenames
+
+    def test_send_account_deletion_export_email_returns_false_on_error(self, settings):
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+        user = UserFactory(email="exportfail@example.com")
+        with patch(
+            "apps.notifications.email.EmailMultiAlternatives.send",
+            side_effect=Exception("SMTP down"),
+        ):
+            result = send_account_deletion_export_email(user, {"books": []})
+        assert result is False
+
 
 # ---------------------------------------------------------------------------
 # Tasks
@@ -307,6 +346,49 @@ class TestSendBooksDelistedNotificationTask:
         assert len(mail.outbox) == 1
 
 
+@pytest.mark.django_db
+class TestAccountDeletionTasks:
+    def test_send_account_deletion_initiated_sends_confirmation_and_export(
+        self, settings
+    ):
+        settings.FRONTEND_URL = "https://app.bookforbook.com"
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+
+        user = UserFactory(email="gdpr@example.com")
+        UserBookFactory(user=user)
+
+        from apps.notifications.tasks import send_account_deletion_initiated
+
+        send_account_deletion_initiated(str(user.pk))
+
+        assert len(mail.outbox) == 2
+        assert "deletion" in mail.outbox[0].subject.lower()
+        assert "export" in mail.outbox[1].subject.lower()
+        assert any(
+            (getattr(att, "filename", att[0]) == "bookforbook-data-export.json")
+            for att in mail.outbox[1].attachments
+        )
+
+    def test_finalize_scheduled_account_deletions_anonymizes_profile(self):
+        user = UserFactory(
+            is_active=False,
+            deletion_requested_at=timezone.now() - timedelta(days=31),
+        )
+        UserBookFactory(user=user)
+
+        from apps.notifications.tasks import finalize_scheduled_account_deletions
+
+        finalize_scheduled_account_deletions()
+
+        user.refresh_from_db()
+        assert user.deletion_completed_at is not None
+        assert user.email.endswith("@deleted.local")
+        assert user.username.startswith("deleted-")
+        assert user.full_name == ""
+        assert user.address_line_1 == ""
+        assert UserBook.objects.filter(user=user).count() == 0
+
+
 # ---------------------------------------------------------------------------
 # check_inactivity task
 # ---------------------------------------------------------------------------
@@ -338,6 +420,21 @@ class TestCheckInactivityTask:
         )
 
     @patch("django_q.tasks.async_task")
+    def test_institutional_users_do_not_get_1m_warning(self, mock_async):
+        library_user = UserFactory(
+            account_type="library",
+            inactivity_warned_1m=None,
+            books_delisted_at=None,
+        )
+        _set_last_active(library_user, 35)
+        from apps.notifications.tasks import check_inactivity
+
+        check_inactivity()
+
+        calls_str = str(mock_async.call_args_list)
+        assert "send_inactivity_warning_1m" not in calls_str
+
+    @patch("django_q.tasks.async_task")
     def test_does_not_warn_recently_active_user(self, mock_async):
         user = UserFactory(inactivity_warned_1m=None)
         # last_active_at defaults to now() via auto_now_add — no update needed
@@ -362,6 +459,22 @@ class TestCheckInactivityTask:
         mock_async.assert_any_call(
             "apps.notifications.tasks.send_inactivity_warning_2m", str(user.pk)
         )
+
+    @patch("django_q.tasks.async_task")
+    def test_institutional_users_do_not_get_2m_warning(self, mock_async):
+        bookstore_user = UserFactory(
+            account_type="bookstore",
+            inactivity_warned_1m=timezone.now() - timedelta(days=35),
+            inactivity_warned_2m=None,
+            books_delisted_at=None,
+        )
+        _set_last_active(bookstore_user, 65)
+        from apps.notifications.tasks import check_inactivity
+
+        check_inactivity()
+
+        calls_str = str(mock_async.call_args_list)
+        assert "send_inactivity_warning_2m" not in calls_str
 
     @patch("django_q.tasks.async_task")
     def test_delists_books_after_3_months_inactive(self, mock_async):

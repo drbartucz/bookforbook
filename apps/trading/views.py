@@ -261,6 +261,21 @@ class TradeListView(APIView):
             )
             .order_by("-created_at")
         )
+
+        status_filter = request.query_params.get("status", "").strip()
+        if status_filter == "active":
+            trades = trades.filter(
+                status__in=[
+                    Trade.Status.CONFIRMED,
+                    Trade.Status.SHIPPING,
+                    Trade.Status.ONE_RECEIVED,
+                ]
+            )
+        elif status_filter == "completed":
+            trades = trades.filter(
+                status__in=[Trade.Status.COMPLETED, Trade.Status.AUTO_CLOSED]
+            )
+
         return Response(
             TradeSerializer(trades, many=True, context={"request": request}).data
         )

@@ -3,21 +3,28 @@ API tests for accounts auth endpoints.
 register, verify-email, login, logout, password-reset
 """
 
+import uuid
+from unittest.mock import patch
+
 import pytest
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from rest_framework import status
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework import status
 
 from apps.accounts.tokens import email_verification_token
+from apps.matching.models import Match, MatchLeg
+from apps.notifications.models import Notification
+from apps.ratings.models import Rating
 from apps.tests.factories import (
     BookFactory,
     UserBookFactory,
     UserFactory,
     WishlistItemFactory,
 )
+from apps.trading.models import Trade, TradeProposal
 
 
 @pytest.mark.django_db
@@ -216,6 +223,127 @@ class TestUserMeView:
         for field in ("address_line_1", "full_name", "zip_code"):
             assert field not in resp.data
 
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_initiates_scheduled_deletion(
+        self, mock_async_task, auth_api_client, verified_user
+    ):
+        resp = auth_api_client.delete(
+            self.url,
+            {"password": "testpass123"},
+            format="json",
+        )
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert "Account deletion initiated" in resp.data["detail"]
+
+        verified_user.refresh_from_db()
+        assert verified_user.is_active is False
+        assert verified_user.deletion_requested_at is not None
+        assert verified_user.deletion_scheduled_for is not None
+        assert (
+            verified_user.deletion_scheduled_for > verified_user.deletion_requested_at
+        )
+
+        mock_async_task.assert_called_once_with(
+            "apps.notifications.tasks.send_account_deletion_initiated",
+            str(verified_user.pk),
+        )
+
+    def test_delete_me_requires_password(self, auth_api_client):
+        resp = auth_api_client.delete(self.url, {}, format="json")
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_cancels_active_matches(self, _mock, api_client, db):
+        """Pending matches are set to EXPIRED when a participant deletes their account."""
+        user = UserFactory(email_verified=True)
+        other = UserFactory(email_verified=True)
+        book_a = UserBookFactory(user=user)
+        book_b = UserBookFactory(user=other)
+
+        match = Match.objects.create(match_type="direct", status=Match.Status.PENDING)
+        MatchLeg.objects.create(
+            match=match, sender=user, receiver=other,
+            user_book=book_a, position=0, status=MatchLeg.Status.PENDING,
+        )
+        MatchLeg.objects.create(
+            match=match, sender=other, receiver=user,
+            user_book=book_b, position=1, status=MatchLeg.Status.PENDING,
+        )
+
+        client = api_client
+        client.force_authenticate(user=user)
+        resp = client.delete(self.url, {"password": "testpass123"}, format="json")
+
+        assert resp.status_code == status.HTTP_200_OK
+        match.refresh_from_db()
+        assert match.status == Match.Status.EXPIRED
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_cancels_pending_proposals(self, _mock, api_client, db):
+        """Pending proposals are set to CANCELLED when a participant deletes their account."""
+        user = UserFactory(email_verified=True)
+        other = UserFactory(email_verified=True)
+
+        proposal = TradeProposal.objects.create(
+            proposer=user,
+            recipient=other,
+            status=TradeProposal.Status.PENDING,
+        )
+
+        client = api_client
+        client.force_authenticate(user=user)
+        client.delete(self.url, {"password": "testpass123"}, format="json")
+
+        proposal.refresh_from_db()
+        assert proposal.status == TradeProposal.Status.CANCELLED
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_notifies_match_counterparties(self, _mock, api_client, db):
+        """Counterparties in active matches receive an account_deleted_impact notification."""
+        user = UserFactory(email_verified=True)
+        other = UserFactory(email_verified=True)
+        book_a = UserBookFactory(user=user)
+        book_b = UserBookFactory(user=other)
+
+        match = Match.objects.create(match_type="direct", status=Match.Status.PENDING)
+        MatchLeg.objects.create(
+            match=match, sender=user, receiver=other,
+            user_book=book_a, position=0, status=MatchLeg.Status.PENDING,
+        )
+        MatchLeg.objects.create(
+            match=match, sender=other, receiver=user,
+            user_book=book_b, position=1, status=MatchLeg.Status.PENDING,
+        )
+
+        client = api_client
+        client.force_authenticate(user=user)
+        client.delete(self.url, {"password": "testpass123"}, format="json")
+
+        assert Notification.objects.filter(
+            user=other, notification_type="account_deleted_impact"
+        ).exists()
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_is_idempotent_after_first_request(
+        self, mock_async_task, auth_api_client
+    ):
+        first = auth_api_client.delete(
+            self.url,
+            {"password": "testpass123"},
+            format="json",
+        )
+        second = auth_api_client.delete(
+            self.url,
+            {"password": "testpass123"},
+            format="json",
+        )
+
+        assert first.status_code == status.HTTP_200_OK
+        assert second.status_code == status.HTTP_200_OK
+        assert "already been initiated" in second.data["detail"]
+        assert mock_async_task.call_count == 1
+
 
 @pytest.mark.django_db
 class TestPasswordReset:
@@ -317,6 +445,7 @@ class TestAddressVerification:
 @pytest.mark.django_db
 class TestLogoutView:
     url = "/api/v1/auth/logout/"
+    refresh_url = "/api/v1/auth/token/refresh/"
 
     def test_logout_blacklists_refresh_token(self, auth_api_client, verified_user):
         refresh = RefreshToken.for_user(verified_user)
@@ -326,6 +455,35 @@ class TestLogoutView:
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["detail"] == "Logged out."
         assert BlacklistedToken.objects.filter(token__jti=refresh["jti"]).exists()
+
+    def test_logout_without_refresh_token_still_succeeds(self, auth_api_client):
+        resp = auth_api_client.post(self.url, {})
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["detail"] == "Logged out."
+
+    def test_logout_with_already_blacklisted_refresh_token_still_succeeds(
+        self, auth_api_client, verified_user
+    ):
+        refresh = RefreshToken.for_user(verified_user)
+        refresh.blacklist()
+
+        resp = auth_api_client.post(self.url, {"refresh": str(refresh)})
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["detail"] == "Logged out."
+        assert BlacklistedToken.objects.filter(token__jti=refresh["jti"]).count() == 1
+
+    def test_logged_out_refresh_token_cannot_be_used_to_mint_new_access_token(
+        self, auth_api_client, api_client, verified_user
+    ):
+        refresh = RefreshToken.for_user(verified_user)
+
+        logout_resp = auth_api_client.post(self.url, {"refresh": str(refresh)})
+        refresh_resp = api_client.post(self.refresh_url, {"refresh": str(refresh)})
+
+        assert logout_resp.status_code == status.HTTP_200_OK
+        assert refresh_resp.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.django_db
@@ -351,6 +509,34 @@ class TestUserExportView:
         book = BookFactory(isbn_13="9780141187761", title="1984")
         UserBookFactory(user=verified_user, book=book, condition="good")
         WishlistItemFactory(user=verified_user, book=book, min_condition="acceptable")
+
+        other_user = UserFactory()
+        outgoing_trade = Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=uuid.uuid4(),
+            status=Trade.Status.COMPLETED,
+        )
+        incoming_trade = Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=uuid.uuid4(),
+            status=Trade.Status.COMPLETED,
+        )
+        Rating.objects.create(
+            trade=outgoing_trade,
+            rater=verified_user,
+            rated=other_user,
+            score=5,
+            comment="Great swap",
+            book_condition_accurate=True,
+        )
+        Rating.objects.create(
+            trade=incoming_trade,
+            rater=other_user,
+            rated=verified_user,
+            score=4,
+            comment="Arrived as described",
+            book_condition_accurate=False,
+        )
 
         resp = auth_api_client.get(self.url)
 
@@ -397,3 +583,25 @@ class TestUserExportView:
             "min_condition",
             "is_active",
         }
+        assert len(resp.data["ratings_given"]) == 1
+        assert set(resp.data["ratings_given"][0].keys()) == {
+            "id",
+            "trade_id",
+            "rated_username",
+            "score",
+            "comment",
+            "created_at",
+        }
+        assert resp.data["ratings_given"][0]["rated_username"] == other_user.username
+        assert resp.data["ratings_given"][0]["score"] == 5
+        assert len(resp.data["ratings_received"]) == 1
+        assert set(resp.data["ratings_received"][0].keys()) == {
+            "id",
+            "trade_id",
+            "score",
+            "comment",
+            "book_condition_accurate",
+            "created_at",
+        }
+        assert resp.data["ratings_received"][0]["score"] == 4
+        assert resp.data["ratings_received"][0]["book_condition_accurate"] is False

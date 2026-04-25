@@ -11,12 +11,18 @@ const apiClient = axios.create({
   },
 });
 
+function isLikelyJwt(token) {
+  return typeof token === 'string' && token.split('.').length === 3;
+}
+
 // ── Request interceptor: attach JWT access token ──────────────────────────────
 apiClient.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().accessToken;
-    if (token) {
+    if (token && isLikelyJwt(token)) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (token) {
+      useAuthStore.getState().updateAccessToken(null);
     }
     return config;
   },
@@ -26,6 +32,19 @@ apiClient.interceptors.request.use(
 // ── Response interceptor: refresh token on 401 and retry ─────────────────────
 let isRefreshing = false;
 let failedQueue = [];
+
+export function __resetAuthRefreshStateForTests() {
+  isRefreshing = false;
+  failedQueue = [];
+  delete apiClient.defaults.headers.common.Authorization;
+}
+
+export function __getAuthRefreshStateForTests() {
+  return {
+    isRefreshing,
+    failedQueueLength: failedQueue.length,
+  };
+}
 
 function processQueue(error, token = null) {
   failedQueue.forEach((prom) => {
@@ -62,7 +81,9 @@ apiClient.interceptors.response.use(
       if (!refreshToken) {
         isRefreshing = false;
         useAuthStore.getState().logout();
-        window.dispatchEvent(new CustomEvent('auth:logout'));
+        window.dispatchEvent(new CustomEvent('auth:logout', {
+          detail: { message: 'You have been automatically logged out.' }
+        }));
         return Promise.reject(error);
       }
 
@@ -79,7 +100,9 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         useAuthStore.getState().logout();
-        window.dispatchEvent(new CustomEvent('auth:logout'));
+        window.dispatchEvent(new CustomEvent('auth:logout', {
+          detail: { message: 'You have been automatically logged out.' }
+        }));
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -107,9 +130,11 @@ export const users = {
   updateMe: (data) => apiClient.patch('/users/me/', data),
   verifyAddress: (data) => apiClient.post('/users/me/address/verify/', data),
   exportData: () => apiClient.get('/users/me/export/', { responseType: 'blob' }),
-  deleteAccount: () => apiClient.delete('/users/me/'),
+  deleteAccount: (data) => apiClient.delete('/users/me/', { data }),
   getPublicProfile: (userId) => apiClient.get(`/users/${userId}/`),
   getUserRatings: (userId, params) => apiClient.get(`/users/${userId}/ratings/`, { params }),
+  getUserOfferedBooks: (userId, params) => apiClient.get(`/users/${userId}/offered/`, { params }),
+  getUserWantedBooks: (userId, params) => apiClient.get(`/users/${userId}/wanted/`, { params }),
 };
 
 // ── Books ─────────────────────────────────────────────────────────────────────

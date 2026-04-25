@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useAuth from './useAuth';
 import useAuthStore from '../store/authStore';
+import useNotificationStore from './useNotification';
 
 describe('useAuth', () => {
     beforeEach(() => {
         localStorage.clear();
         useAuthStore.setState({ user: null, accessToken: null, refreshToken: null });
+        useNotificationStore.setState({ notifications: [] });
     });
 
     afterEach(() => {
@@ -36,10 +38,10 @@ describe('useAuth', () => {
     });
 
     it.each([
-        ['individual', false],
-        ['library', true],
-        ['bookstore', true],
-    ])('isInstitution is %s for account_type=%s', (accountType, expectedIsInstitution) => {
+        [false, 'individual'],
+        [true, 'library'],
+        [true, 'bookstore'],
+    ])('isInstitution is %s for account_type=%s', (expectedIsInstitution, accountType) => {
         useAuthStore.getState().login(
             { access: 'tok', refresh: 'ref' },
             { id: 'u1', username: 'user', account_type: accountType }
@@ -62,5 +64,28 @@ describe('useAuth', () => {
 
         expect(result.current.isAuthenticated).toBe(false);
         expect(result.current.user).toBeNull();
+    });
+
+    it('shows warning notification when auth:session-invalid event is dispatched', async () => {
+        const { result } = renderHook(() => useAuth());
+
+        expect(result.current.isAuthenticated).toBe(false);
+        expect(useNotificationStore.getState().notifications).toHaveLength(0);
+
+        await act(async () => {
+            window.dispatchEvent(
+                new CustomEvent('auth:session-invalid', {
+                    detail: { message: 'You were logged out because your session expired. Please sign in again.' },
+                })
+            );
+        });
+
+        const notifications = useNotificationStore.getState().notifications;
+        expect(notifications).toHaveLength(1);
+        expect(notifications[0]).toMatchObject({
+            type: 'warning',
+            message: 'You were logged out because your session expired. Please sign in again.',
+        });
+        expect(result.current.isAuthenticated).toBe(false);
     });
 });

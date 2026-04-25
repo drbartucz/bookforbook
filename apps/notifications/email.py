@@ -3,6 +3,7 @@ Email helper functions for BookForBook notifications.
 Uses Django's email backend (SendGrid SMTP in production, console in development).
 """
 
+import json
 import logging
 
 from django.conf import settings
@@ -169,8 +170,38 @@ def send_account_deletion_email(user) -> bool:
         f"Hi {user.username},\n\n"
         f"We have received your account deletion request. "
         f"Your account will be permanently deleted after a 30-day grace period.\n\n"
-        f"A full export of your data has been queued and will be sent to this email.\n\n"
+        f"A full export of your data has been attached to a follow-up email.\n\n"
         f"If you change your mind, please contact support before the 30-day period ends.\n\n"
         f"— The BookForBook Team"
     )
     return send_email(user.email, subject, text_body)
+
+
+def send_account_deletion_export_email(user, export_data: dict) -> bool:
+    """Send GDPR export payload as a JSON attachment."""
+    subject = "Your BookForBook data export"
+    text_body = (
+        f"Hi {user.username},\n\n"
+        "As requested, your BookForBook data export is attached as JSON.\n\n"
+        "— The BookForBook Team"
+    )
+
+    try:
+        msg = EmailMultiAlternatives(
+            subject,
+            text_body,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+        )
+        payload = json.dumps(export_data, indent=2, default=str).encode("utf-8")
+        msg.attach(
+            filename="bookforbook-data-export.json",
+            content=payload,
+            mimetype="application/json",
+        )
+        msg.send()
+        logger.info("Account export email sent to %s", user.email)
+        return True
+    except Exception:
+        logger.exception("Failed to send account export email to %s", user.email)
+        return False

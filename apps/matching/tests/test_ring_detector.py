@@ -133,6 +133,10 @@ class TestFindCyclesFrom:
 
 @pytest.mark.django_db
 class TestBuildTradeGraph:
+    @pytest.fixture(autouse=True)
+    def _zero_age_gate(self, settings):
+        settings.MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 0
+
     def test_basic_three_user_graph(self):
         """Three users forming a potential ring should all appear as graph nodes."""
         # A has book1 that B wants; B has book2 that C wants; C has book3 that A wants
@@ -336,6 +340,10 @@ class TestBuildTradeGraph:
 
 @pytest.mark.django_db
 class TestRunRingDetection:
+    @pytest.fixture(autouse=True)
+    def _zero_age_gate(self, settings):
+        settings.MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 0
+
     def _setup_ring(self, size: int):
         """
         Create `size` users with books forming a clean ring:
@@ -637,6 +645,47 @@ class TestRunRingDetection:
 
 @pytest.mark.django_db
 class TestRetryRingAfterDecline:
+    @pytest.fixture(autouse=True)
+    def _zero_age_gate(self, settings):
+        settings.MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 0
+
+    def test_returns_none_when_no_replacement_cycle_exists(self):
+        user_a = UserFactory()
+        user_b = UserFactory()
+        user_c = UserFactory()
+
+        ub_ab = UserBookFactory(user=user_a, book=BookFactory(), condition="good")
+        ub_bc = UserBookFactory(user=user_b, book=BookFactory(), condition="good")
+        ub_ca = UserBookFactory(user=user_c, book=BookFactory(), condition="good")
+
+        ring = Match.objects.create(
+            match_type=Match.MatchType.RING,
+            status=Match.Status.PROPOSED,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_a,
+            receiver=user_b,
+            user_book=ub_ab,
+            position=0,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_b,
+            receiver=user_c,
+            user_book=ub_bc,
+            position=1,
+        )
+        MatchLeg.objects.create(
+            match=ring,
+            sender=user_c,
+            receiver=user_a,
+            user_book=ub_ca,
+            position=2,
+        )
+
+        assert retry_ring_after_decline(ring, user_a) is None
+
     def test_reforms_ring_without_declining_user(self):
         user_a = UserFactory()
         user_b = UserFactory()
