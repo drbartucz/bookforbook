@@ -28,7 +28,7 @@ describe('Donations page', () => {
                 results: [
                     {
                         id: 'donation-1',
-                        status: 'pending',
+                        status: 'offered',
                         created_at: '2026-04-20T12:00:00Z',
                         is_recipient: true,
                         donor: { id: 'user-1', username: 'bart0605' },
