@@ -126,6 +126,27 @@ BOOKS = {
         publish_year=1884,
         physical_format="Paperback",
     ),
+    "tolstoy": dict(
+        isbn_13="9780140447934",
+        title="War and Peace",
+        authors=["Leo Tolstoy"],
+        publish_year=1869,
+        physical_format="Paperback",
+    ),
+    "chekhov": dict(
+        isbn_13="9780140447484",
+        title="The Cherry Orchard",
+        authors=["Anton Chekhov"],
+        publish_year=1904,
+        physical_format="Paperback",
+    ),
+    "london": dict(
+        isbn_13="9780142437735",
+        title="The Call of the Wild",
+        authors=["Jack London"],
+        publish_year=1903,
+        physical_format="Paperback",
+    ),
 }
 
 
@@ -146,11 +167,11 @@ class Command(BaseCommand):
 
         users = self._seed_users()
         books = self._seed_books()
-        self._seed_inventory(users, books)
-        self._seed_match(users, books)
-        self._seed_proposal(users, books)
+        inventory = self._seed_inventory(users, books)
+        self._seed_matches(users, books, inventory)
+        self._seed_proposals(users, books, inventory)
         self._seed_trade(users, books)
-        self._seed_donation(users, books)
+        self._seed_donations(users, books, inventory)
 
         self.stdout.write(self.style.SUCCESS("E2E seed complete."))
         self._print_summary(users)
@@ -246,44 +267,40 @@ class Command(BaseCommand):
     def _seed_inventory(self, users, books):
         """
         Scenario:
-          alice has: Orwell (for match), Hemingway (for proposal), Austen (for donation)
+          alice has: Orwell (match 1), Hemingway (proposal 1 + match 3), Austen (trade + donation 1)
           alice wants: Gatsby (for match)
-          bob   has: Gatsby (for match), Dickens (for proposal)
+          bob   has: Gatsby (match 1), Dickens (proposal 1), Tolstoy (match 2)
           bob   wants: Orwell (for match)
-          carol wants: Twain (tests wishlist UI only)
+          carol has: Chekhov (match 2 + proposal 2), London (match 3 + proposal 3)
+          carol wants: Twain (wishlist UI only)
         """
         inventory = {}
 
         inventory["alice_orwell"] = self._get_or_create_user_book(
-            users["alice"],
-            books["orwell"],
-            ConditionChoices.GOOD,
-            UserBook.Status.AVAILABLE,
+            users["alice"], books["orwell"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
         )
         inventory["alice_hemingway"] = self._get_or_create_user_book(
-            users["alice"],
-            books["hemingway"],
-            ConditionChoices.GOOD,
-            UserBook.Status.AVAILABLE,
+            users["alice"], books["hemingway"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
         )
         inventory["alice_austen"] = self._get_or_create_user_book(
-            users["alice"],
-            books["austen"],
-            ConditionChoices.GOOD,
-            UserBook.Status.AVAILABLE,
+            users["alice"], books["austen"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
         )
 
         inventory["bob_gatsby"] = self._get_or_create_user_book(
-            users["bob"],
-            books["gatsby"],
-            ConditionChoices.VERY_GOOD,
-            UserBook.Status.AVAILABLE,
+            users["bob"], books["gatsby"], ConditionChoices.VERY_GOOD, UserBook.Status.AVAILABLE,
         )
         inventory["bob_dickens"] = self._get_or_create_user_book(
-            users["bob"],
-            books["dickens"],
-            ConditionChoices.GOOD,
-            UserBook.Status.AVAILABLE,
+            users["bob"], books["dickens"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
+        )
+        inventory["bob_tolstoy"] = self._get_or_create_user_book(
+            users["bob"], books["tolstoy"], ConditionChoices.VERY_GOOD, UserBook.Status.AVAILABLE,
+        )
+
+        inventory["carol_chekhov"] = self._get_or_create_user_book(
+            users["carol"], books["chekhov"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
+        )
+        inventory["carol_london"] = self._get_or_create_user_book(
+            users["carol"], books["london"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
         )
 
         # Wishlist items
@@ -314,89 +331,119 @@ class Command(BaseCommand):
         )
         return ub
 
-    # ── Match ─────────────────────────────────────────────────────────────────
+    # ── Matches ───────────────────────────────────────────────────────────────
 
-    def _seed_match(self, users, books):
+    def _seed_matches(self, users, books, inventory):
         """
-        Pending direct match: alice sends Orwell to bob; bob sends Gatsby to alice.
-        We look for an existing match first to stay idempotent.
+        Three pending direct matches so each destructive test has its own record:
+          Match 1: alice(Orwell) ↔ bob(Gatsby)   — alice accepts
+          Match 2: bob(Tolstoy)  ↔ carol(Chekhov) — bob declines
+          Match 3: alice(Hemingway) ↔ carol(London) — carol tries to accept (address error)
         """
-        alice = users["alice"]
-        bob = users["bob"]
-        alice_ub = UserBook.objects.filter(user=alice, book=books["orwell"]).first()
-        bob_ub = UserBook.objects.filter(user=bob, book=books["gatsby"]).first()
-        if not alice_ub or not bob_ub:
-            self.stdout.write(
-                self.style.WARNING("  Match skipped — inventory missing.")
-            )
-            return
+        self._seed_one_match(
+            sender_a=users["alice"], ub_a=inventory["alice_orwell"],
+            sender_b=users["bob"],   ub_b=inventory["bob_gatsby"],
+            label="Match 1 (alice↔bob)",
+        )
+        self._seed_one_match(
+            sender_a=users["bob"],   ub_a=inventory["bob_tolstoy"],
+            sender_b=users["carol"], ub_b=inventory["carol_chekhov"],
+            label="Match 2 (bob↔carol)",
+        )
+        self._seed_one_match(
+            sender_a=users["alice"], ub_a=inventory["alice_hemingway"],
+            sender_b=users["carol"], ub_b=inventory["carol_london"],
+            label="Match 3 (alice↔carol)",
+        )
 
-        # Check if an existing pending match already exists
+    def _seed_one_match(self, sender_a, ub_a, sender_b, ub_b, label):
         existing = Match.objects.filter(
             status=Match.Status.PENDING,
-            legs__sender=alice,
-            legs__user_book=alice_ub,
+            legs__sender=sender_a,
+            legs__user_book=ub_a,
         ).first()
         if existing:
-            self.stdout.write("  Match exists — skipped.")
+            self.stdout.write(f"  {label} exists — skipped.")
             return
-
         match = Match.objects.create(
             match_type=Match.MatchType.DIRECT,
             status=Match.Status.PENDING,
             expires_at=timezone.now() + timedelta(hours=48),
         )
         MatchLeg.objects.create(
-            match=match, sender=alice, receiver=bob, user_book=alice_ub, position=0
+            match=match, sender=sender_a, receiver=sender_b, user_book=ub_a, position=0
         )
         MatchLeg.objects.create(
-            match=match, sender=bob, receiver=alice, user_book=bob_ub, position=1
+            match=match, sender=sender_b, receiver=sender_a, user_book=ub_b, position=1
         )
-        self.stdout.write("  Match created.")
+        self.stdout.write(f"  {label} created.")
 
-    # ── Proposal ──────────────────────────────────────────────────────────────
+    # ── Proposals ─────────────────────────────────────────────────────────────
 
-    def _seed_proposal(self, users, books):
+    def _seed_proposals(self, users, books, inventory):
         """
-        Pending proposal: bob proposes to alice.
-          bob sends Dickens → alice
-          alice sends Hemingway → bob
+        Three pending proposals to alice so each action test has its own record:
+          Proposal 1: bob(Dickens) → alice(Hemingway)  — alice accepts
+          Proposal 2: carol(Chekhov) → alice(Orwell)   — alice declines
+          Proposal 3: carol(London) → alice(Austen)    — alice counters
+        Proposals 2 and 3 use different books (carol_chekhov vs carol_london) as the
+        unique key, allowing two pending carol→alice proposals to coexist.
         """
         alice = users["alice"]
-        bob = users["bob"]
-        alice_ub = UserBook.objects.filter(user=alice, book=books["hemingway"]).first()
-        bob_ub = UserBook.objects.filter(user=bob, book=books["dickens"]).first()
-        if not alice_ub or not bob_ub:
-            self.stdout.write(
-                self.style.WARNING("  Proposal skipped — inventory missing.")
-            )
-            return
+        bob   = users["bob"]
+        carol = users["carol"]
 
+        self._seed_one_proposal(
+            proposer=bob, recipient=alice,
+            proposer_ub=inventory["bob_dickens"],
+            recipient_ub=inventory["alice_hemingway"],
+            message="Happy to trade!",
+            label="Proposal 1 (bob→alice)",
+        )
+        self._seed_one_proposal(
+            proposer=carol, recipient=alice,
+            proposer_ub=inventory["carol_chekhov"],
+            recipient_ub=inventory["alice_orwell"],
+            message="Interested in your Orwell!",
+            label="Proposal 2 (carol→alice, chekhov)",
+        )
+        self._seed_one_proposal(
+            proposer=carol, recipient=alice,
+            proposer_ub=inventory["carol_london"],
+            recipient_ub=inventory["alice_austen"],
+            message="Would love to swap!",
+            label="Proposal 3 (carol→alice, london)",
+        )
+
+    def _seed_one_proposal(self, proposer, recipient, proposer_ub, recipient_ub, message, label):
+        # Idempotency: match on the proposer's specific book to distinguish proposals.
         existing = TradeProposal.objects.filter(
-            proposer=bob, recipient=alice, status=TradeProposal.Status.PENDING
+            proposer=proposer,
+            recipient=recipient,
+            status=TradeProposal.Status.PENDING,
+            items__user_book=proposer_ub,
         ).first()
         if existing:
-            self.stdout.write("  Proposal exists — skipped.")
+            self.stdout.write(f"  {label} exists — skipped.")
             return
-
         proposal = TradeProposal.objects.create(
-            proposer=bob,
-            recipient=alice,
+            proposer=proposer,
+            recipient=recipient,
             status=TradeProposal.Status.PENDING,
-            message="Happy to trade!",
+            message=message,
             expires_at=timezone.now() + timedelta(hours=72),
         )
         TradeProposalItem.objects.create(
             proposal=proposal,
             direction=TradeProposalItem.Direction.PROPOSER_SENDS,
-            user_book=bob_ub,
+            user_book=proposer_ub,
         )
         TradeProposalItem.objects.create(
             proposal=proposal,
             direction=TradeProposalItem.Direction.RECIPIENT_SENDS,
-            user_book=alice_ub,
+            user_book=recipient_ub,
         )
-        self.stdout.write("  Proposal created.")
+        self.stdout.write(f"  {label} created.")
 
     # ── Trade ─────────────────────────────────────────────────────────────────
 
@@ -443,39 +490,49 @@ class Command(BaseCommand):
         else:
             self.stdout.write("  Trade exists — skipped.")
 
-    # ── Donation ──────────────────────────────────────────────────────────────
+    # ── Donations ─────────────────────────────────────────────────────────────
 
-    def _seed_donation(self, users, books):
+    def _seed_donations(self, users, books, inventory):
         """
-        Pending donation: alice offers Austen to the library.
+        Two offered donations to the library so each action test has its own record:
+          Donation 1: alice(Austen)  → library — library accepts
+          Donation 2: bob(Tolstoy)   → library — library declines
         """
-        alice = users["alice"]
         library = users["library"]
-        alice_ub = UserBook.objects.filter(user=alice, book=books["austen"]).first()
-        if not alice_ub:
-            self.stdout.write(
-                self.style.WARNING("  Donation skipped — inventory missing.")
-            )
-            return
 
-        existing = Donation.objects.filter(
-            donor=alice,
+        self._seed_one_donation(
+            donor=users["alice"],
             institution=library,
-            user_book=alice_ub,
+            user_book=inventory["alice_austen"],
+            message="Hope this helps your collection!",
+            label="Donation 1 (alice→library)",
+        )
+        self._seed_one_donation(
+            donor=users["bob"],
+            institution=library,
+            user_book=inventory["bob_tolstoy"],
+            message="Happy to donate this one!",
+            label="Donation 2 (bob→library)",
+        )
+
+    def _seed_one_donation(self, donor, institution, user_book, message, label):
+        existing = Donation.objects.filter(
+            donor=donor,
+            institution=institution,
+            user_book=user_book,
             status=Donation.Status.OFFERED,
         ).first()
         if existing:
-            self.stdout.write("  Donation exists — skipped.")
+            self.stdout.write(f"  {label} exists — skipped.")
             return
-
         Donation.objects.create(
-            donor=alice,
-            institution=library,
-            user_book=alice_ub,
+            donor=donor,
+            institution=institution,
+            user_book=user_book,
             status=Donation.Status.OFFERED,
-            message="Hope this helps your collection!",
+            message=message,
         )
-        self.stdout.write("  Donation created.")
+        self.stdout.write(f"  {label} created.")
 
     # ── Summary ───────────────────────────────────────────────────────────────
 

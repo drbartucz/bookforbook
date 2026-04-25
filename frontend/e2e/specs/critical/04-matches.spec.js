@@ -89,9 +89,7 @@ test.describe('Matches', () => {
     await acceptBtn.click();
 
     // Expect an error message referencing address verification
-    await expect(
-      page.locator('.alert-error').or(page.getByText(/verify.*address|address.*verify/i))
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.alert-error')).toBeVisible({ timeout: 10_000 });
   });
 
   test('accepted tab shows accepted matches', async ({ alicePage: page }) => {
@@ -100,7 +98,7 @@ test.describe('Matches', () => {
 
     // Either shows match cards or "no matches found"
     await expect(
-      page.locator('[class*="matchCard"]').or(page.getByText(/no matches found/i))
+      page.locator('[class*="matchCard"]').first().or(page.getByText(/no matches found/i))
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -109,7 +107,7 @@ test.describe('Matches', () => {
     await page.getByRole('button', { name: /^declined$/i }).click();
 
     await expect(
-      page.locator('[class*="matchCard"]').or(page.getByText(/no matches found/i))
+      page.locator('[class*="matchCard"]').first().or(page.getByText(/no matches found/i))
     ).toBeVisible({ timeout: 10_000 });
   });
 });
