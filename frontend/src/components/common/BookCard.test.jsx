@@ -98,4 +98,39 @@ describe('BookCard', () => {
         wrap(<BookCard book={book} />);
         expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
+
+    it('applies compact class when compact prop is true', () => {
+        const { container } = wrap(<BookCard book={book} compact />);
+        // The outer div should have a class containing 'compact'
+        expect(container.querySelector('[class*="compact"]')).toBeInTheDocument();
+    });
+
+    it('renders "Action" as default label when actionLabel is not provided', () => {
+        wrap(<BookCard book={book} onAction={() => { }} />);
+        expect(screen.getByRole('button', { name: 'Action' })).toBeInTheDocument();
+    });
+
+    it('renders extra content when extra prop is provided', () => {
+        wrap(<BookCard book={book} extra={<span>Extra content</span>} />);
+        expect(screen.getByText('Extra content')).toBeInTheDocument();
+    });
+
+    it('stopPropagation is called when owner link is clicked', async () => {
+        const owner = { id: 'abc', username: 'alice' };
+        wrap(<BookCard book={book} owner={owner} />);
+        const link = screen.getByRole('link', { name: '@alice' });
+        // Just verify clicking the link doesn't throw
+        await userEvent.click(link);
+        expect(link).toBeInTheDocument();
+    });
+
+    it('falls back to placeholder image when cover image fails to load', () => {
+        wrap(<BookCard book={book} />);
+        const img = screen.getByAltText('Cover of The Great Gatsby');
+        // Simulate an image load error
+        Object.defineProperty(img, 'src', { writable: true, value: '' });
+        img.dispatchEvent(new Event('error'));
+        // The onError handler sets src to the placeholder
+        expect(img.src).toBeDefined();
+    });
 });

@@ -67,4 +67,33 @@ describe('Pagination', () => {
             expect(btn).toBeDisabled();
         });
     });
+
+    it('renders ellipsis when totalPages > 7 and current page is near start', () => {
+        render(<Pagination page={2} totalPages={10} onPageChange={() => { }} />);
+        // Should show 1, 2, 3, 4, 5, ..., 10
+        expect(screen.getByText('1')).toBeInTheDocument();
+        expect(screen.getByText('10')).toBeInTheDocument();
+        // Ellipsis spans
+        expect(document.querySelector('[class*="ellipsis"]')).toBeInTheDocument();
+    });
+
+    it('renders ellipsis when totalPages > 7 and current page is near end', () => {
+        render(<Pagination page={9} totalPages={10} onPageChange={() => { }} />);
+        // Should show 1, ..., 6, 7, 8, 9, 10
+        expect(screen.getByText('1')).toBeInTheDocument();
+        expect(screen.getByText('10')).toBeInTheDocument();
+        expect(document.querySelector('[class*="ellipsis"]')).toBeInTheDocument();
+    });
+
+    it('renders ellipsis on both sides when totalPages > 7 and current page is in middle', () => {
+        render(<Pagination page={5} totalPages={10} onPageChange={() => { }} />);
+        // Should show 1, ..., 4, 5, 6, ..., 10
+        expect(screen.getByText('1')).toBeInTheDocument();
+        expect(screen.getByText('4')).toBeInTheDocument();
+        expect(screen.getByText('5')).toBeInTheDocument();
+        expect(screen.getByText('6')).toBeInTheDocument();
+        expect(screen.getByText('10')).toBeInTheDocument();
+        const ellipses = document.querySelectorAll('[class*="ellipsis"]');
+        expect(ellipses.length).toBeGreaterThanOrEqual(2);
+    });
 });

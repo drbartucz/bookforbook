@@ -889,3 +889,347 @@ class TestTradePipelineIntegration:
         assert user_b.rating_count == 1
         assert float(user_a.avg_recent_rating) == pytest.approx(4.0)
         assert float(user_b.avg_recent_rating) == pytest.approx(5.0)
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage tests
+# ---------------------------------------------------------------------------
+
+
+class TestProposalNotificationException:
+    """Lines 63-64: notification exception when creating proposal is silenced."""
+
+    def test_proposal_creation_still_returns_201_when_notification_raises(
+        self, api_client
+    ):
+        from unittest.mock import patch
+
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        with patch(
+            "apps.notifications.models.Notification.objects.create",
+            side_effect=Exception("notification error"),
+        ):
+            resp = _make_proposal(client, pbook, recipient, rbook)
+
+        assert resp.status_code == 201
+        assert resp.data["status"] == "pending"
+
+
+class TestProposalDetailViewAccess:
+    """Lines 78-87: ProposalDetailView permission and GET."""
+
+    def test_outsider_gets_403(self, api_client):
+        """Lines 78-83: 403 when user not proposer/recipient."""
+        proposer = UserFactory()
+        recipient = UserFactory()
+        outsider = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+
+        client = _auth(api_client, outsider)
+        resp = client.get(reverse("proposal-detail", kwargs={"pk": proposal_id}))
+        assert resp.status_code == 403
+
+    def test_proposer_can_get_proposal(self, api_client):
+        """Lines 86-87: 200 for proposer."""
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+
+        resp = client.get(reverse("proposal-detail", kwargs={"pk": proposal_id}))
+        assert resp.status_code == 200
+        assert resp.data["id"] == proposal_id
+
+    def test_recipient_can_get_proposal(self, api_client):
+        """Recipient can also GET the proposal."""
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+
+        client = _auth(api_client, recipient)
+        resp = client.get(reverse("proposal-detail", kwargs={"pk": proposal_id}))
+        assert resp.status_code == 200
+        assert resp.data["id"] == proposal_id
+
+
+class TestProposalAcceptValueError:
+    """Lines 144-146: ValueError from create_trade_from_proposal → 400."""
+
+    def test_value_error_returns_400(self, api_client):
+        from unittest.mock import patch
+
+        proposer = UserFactory()
+        recipient = UserFactory()
+        recipient.full_name = "Reader Two"
+        recipient.address_line_1 = "456 Oak Ave"
+        recipient.city = "Austin"
+        recipient.state = "TX"
+        recipient.zip_code = "73301"
+        recipient.address_verification_status = "verified"
+        recipient.save()
+
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+
+        client = _auth(api_client, recipient)
+        with patch(
+            "apps.trading.services.trade_workflow.create_trade_from_proposal",
+            side_effect=ValueError("book no longer available"),
+        ):
+            resp = client.post(
+                reverse("proposal-accept", kwargs={"pk": proposal_id}), format="json"
+            )
+
+        assert resp.status_code == 400
+        assert "no longer available" in resp.data["detail"].lower()
+
+
+class TestProposalDeclineNotificationException:
+    """Lines 185-186: notification exception on proposal decline is silenced."""
+
+    def test_decline_still_returns_200_when_notification_raises(self, api_client):
+        from unittest.mock import patch
+
+        proposer = UserFactory()
+        recipient = UserFactory()
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+
+        client = _auth(api_client, recipient)
+        with patch(
+            "apps.notifications.models.Notification.objects.create",
+            side_effect=Exception("notification error"),
+        ):
+            resp = client.post(
+                reverse("proposal-decline", kwargs={"pk": proposal_id}), format="json"
+            )
+
+        assert resp.status_code == 200
+        proposal = TradeProposal.objects.get(pk=proposal_id)
+        assert proposal.status == TradeProposal.Status.DECLINED
+
+
+class TestTradeListStatusFilter:
+    """Lines 267, 275: TradeListView ?status=active and ?status=completed filters."""
+
+    def _create_trade_with_status(self, trade_status):
+        """Helper to create a trade with two shipments at the given status."""
+        a = UserFactory()
+        b = UserFactory()
+        book_a = UserBookFactory(user=a, book=BookFactory(), status=UserBook.Status.RESERVED)
+        book_b = UserBookFactory(user=b, book=BookFactory(), status=UserBook.Status.RESERVED)
+
+        trade = Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=TradeProposal.objects.create(
+                proposer=a,
+                recipient=b,
+                status=TradeProposal.Status.COMPLETED,
+            ).pk,
+            status=trade_status,
+        )
+        TradeShipment.objects.create(
+            trade=trade, sender=a, receiver=b, user_book=book_a
+        )
+        TradeShipment.objects.create(
+            trade=trade, sender=b, receiver=a, user_book=book_b
+        )
+        return trade, a, b
+
+    def test_status_active_filter_returns_only_active_trades(self, api_client):
+        trade_confirmed, a, b = self._create_trade_with_status(Trade.Status.CONFIRMED)
+        trade_completed, _, _ = self._create_trade_with_status(Trade.Status.COMPLETED)
+        # Make completed trade belong to user a too
+        TradeShipment.objects.create(
+            trade=trade_completed,
+            sender=a,
+            receiver=UserFactory(),
+            user_book=UserBookFactory(user=a, book=BookFactory()),
+        )
+
+        client = _auth(api_client, a)
+        resp = client.get(reverse("trade-list"), {"status": "active"})
+        assert resp.status_code == 200
+        ids = [t["id"] for t in resp.data]
+        assert str(trade_confirmed.id) in ids
+        assert str(trade_completed.id) not in ids
+
+    def test_status_completed_filter_returns_only_completed_trades(self, api_client):
+        trade_confirmed, a, b = self._create_trade_with_status(Trade.Status.CONFIRMED)
+        trade_completed, _, _ = self._create_trade_with_status(Trade.Status.COMPLETED)
+        # Make completed trade belong to user a too
+        TradeShipment.objects.create(
+            trade=trade_completed,
+            sender=a,
+            receiver=UserFactory(),
+            user_book=UserBookFactory(user=a, book=BookFactory()),
+        )
+
+        client = _auth(api_client, a)
+        resp = client.get(reverse("trade-list"), {"status": "completed"})
+        assert resp.status_code == 200
+        ids = [t["id"] for t in resp.data]
+        assert str(trade_completed.id) in ids
+        assert str(trade_confirmed.id) not in ids
+
+    def test_status_auto_closed_included_in_completed_filter(self, api_client):
+        trade_auto_closed, a, b = self._create_trade_with_status(Trade.Status.AUTO_CLOSED)
+
+        client = _auth(api_client, a)
+        resp = client.get(reverse("trade-list"), {"status": "completed"})
+        assert resp.status_code == 200
+        ids = [t["id"] for t in resp.data]
+        assert str(trade_auto_closed.id) in ids
+
+
+class TestTradeRateViewEdgeCases:
+    """Lines 417-418, 428, 460-461, 479-481 of TradeRateView."""
+
+    def _setup_ratable_trade(self):
+        """Create a SHIPPING trade with two parties."""
+        a = UserFactory()
+        b = UserFactory()
+        book_a = UserBookFactory(
+            user=a, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
+        book_b = UserBookFactory(
+            user=b, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
+        trade = Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=TradeProposal.objects.create(
+                proposer=a, recipient=b, status=TradeProposal.Status.COMPLETED
+            ).pk,
+            status=Trade.Status.SHIPPING,
+        )
+        TradeShipment.objects.create(
+            trade=trade, sender=a, receiver=b, user_book=book_a
+        )
+        TradeShipment.objects.create(
+            trade=trade, sender=b, receiver=a, user_book=book_b
+        )
+        return trade, a, b
+
+    def test_non_party_rate_returns_404(self, api_client):
+        """Lines 417-418: 404 when user not a party."""
+        trade, a, b = self._setup_ratable_trade()
+        outsider = UserFactory()
+
+        client = _auth(api_client, outsider)
+        resp = client.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(b.id),
+                "score": 4,
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert resp.status_code == 404
+
+    def test_rated_user_not_in_trade_returns_400(self, api_client):
+        """Line 428: rated_user not in this trade → 400."""
+        trade, a, b = self._setup_ratable_trade()
+        stranger = UserFactory()
+
+        client = _auth(api_client, a)
+        resp = client.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(stranger.id),
+                "score": 4,
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert resp.status_code == 400
+        assert "not part of this trade" in resp.data["detail"]
+
+    def test_recompute_rating_exception_still_returns_201(self, api_client):
+        """Lines 460-461: exception in recompute_rating_average is silenced."""
+        from unittest.mock import patch
+
+        trade, a, b = self._setup_ratable_trade()
+
+        client = _auth(api_client, a)
+        with patch(
+            "apps.ratings.services.rolling_average.recompute_rating_average",
+            side_effect=Exception("db error"),
+        ):
+            resp = client.post(
+                reverse("trade-rate", kwargs={"pk": trade.id}),
+                {
+                    "rated_user_id": str(b.id),
+                    "score": 5,
+                    "book_condition_accurate": True,
+                },
+                format="json",
+            )
+
+        assert resp.status_code == 201
+
+    def test_both_parties_rated_sets_trade_completed(self, api_client):
+        """Lines 479-481: trade status updated to COMPLETED when both parties have rated."""
+        trade, a, b = self._setup_ratable_trade()
+
+        # User a rates user b
+        client_a = _auth(api_client, a)
+        resp_a = client_a.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(b.id),
+                "score": 5,
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert resp_a.status_code == 201
+
+        trade.refresh_from_db()
+        # Only one rating so far — not yet completed
+        assert trade.status == Trade.Status.SHIPPING
+
+        # User b rates user a
+        client_b = _auth(api_client, b)
+        resp_b = client_b.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(a.id),
+                "score": 4,
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert resp_b.status_code == 201
+
+        trade.refresh_from_db()
+        # Both parties rated — should now be COMPLETED
+        assert trade.status == Trade.Status.COMPLETED
+        assert trade.completed_at is not None
