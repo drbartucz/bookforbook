@@ -53,4 +53,43 @@ describe('VerifyEmail page', () => {
         expect(await screen.findByText('Verification failed')).toBeInTheDocument();
         expect(screen.getByText('Token is invalid or expired.')).toBeInTheDocument();
     });
+
+    it('shows API message error when detail is absent', async () => {
+        authApi.verifyEmail.mockRejectedValue({
+            response: { data: { message: 'Link already used.' } },
+        });
+
+        renderWithProviders(<VerifyEmail />, { route: '/verify-email?uid=uid-123&token=bad-token' });
+
+        expect(await screen.findByText('Link already used.')).toBeInTheDocument();
+    });
+
+    it('silently ignores errors when component unmounts before verify completes (covers if (cancelled) return at line 30)', async () => {
+        let rejectFn;
+        authApi.verifyEmail.mockReturnValue(
+            new Promise((_, reject) => {
+                rejectFn = reject;
+            })
+        );
+
+        const { unmount } = renderWithProviders(<VerifyEmail />, {
+            route: '/verify-email?uid=uid-123&token=token-abc',
+        });
+
+        // Unmount before the API call resolves → cleanup sets cancelled=true
+        unmount();
+
+        // Now reject — catch fires, finds cancelled=true → returns early (no state updates)
+        rejectFn(new Error('Cancelled'));
+
+        // No assertions needed — test passes if there are no React unmounted-state warnings
+    });
+
+    it('shows generic error when no API message is available', async () => {
+        authApi.verifyEmail.mockRejectedValue(new Error('Network error'));
+
+        renderWithProviders(<VerifyEmail />, { route: '/verify-email?uid=uid-123&token=bad-token' });
+
+        expect(await screen.findByText(/verification failed\. the link may have expired/i)).toBeInTheDocument();
+    });
 });

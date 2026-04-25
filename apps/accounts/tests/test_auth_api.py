@@ -605,3 +605,223 @@ class TestUserExportView:
         }
         assert resp.data["ratings_received"][0]["score"] == 4
         assert resp.data["ratings_received"][0]["book_condition_accurate"] is False
+
+
+@pytest.mark.django_db
+class TestAsyncTaskExceptionHandling:
+    """Covers exception branches in RegisterView, PasswordResetRequestView, and UserMeView.delete."""
+
+    register_url = "/api/v1/auth/register/"
+    password_reset_url = "/api/v1/auth/password-reset/"
+    me_url = "/api/v1/users/me/"
+
+    @patch("django_q.tasks.async_task", side_effect=Exception("queue unavailable"))
+    def test_register_still_returns_201_when_async_task_fails(self, _mock, api_client):
+        resp = api_client.post(
+            self.register_url,
+            {
+                "email": "qfail@example.com",
+                "username": "qfailuser",
+                "password": "StrongPass123!",
+                "password2": "StrongPass123!",
+            },
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert "detail" in resp.data
+
+    @patch("django_q.tasks.async_task")
+    def test_password_reset_queues_email_for_existing_user(
+        self, mock_async_task, api_client, verified_user
+    ):
+        """Lines 133-137: uid/token are built and async_task is called for a real user."""
+        resp = api_client.post(self.password_reset_url, {"email": verified_user.email})
+        assert resp.status_code == status.HTTP_200_OK
+        mock_async_task.assert_called_once()
+        args = mock_async_task.call_args[0]
+        assert args[0] == "apps.notifications.tasks.send_password_reset_email"
+        assert args[1] == str(verified_user.pk)
+
+    @patch("django_q.tasks.async_task", side_effect=Exception("queue unavailable"))
+    def test_delete_still_returns_200_when_async_task_fails(
+        self, _mock, api_client, verified_user
+    ):
+        client = api_client
+        client.force_authenticate(user=verified_user)
+        resp = client.delete(self.me_url, {"password": "testpass123"}, format="json")
+        assert resp.status_code == status.HTTP_200_OK
+        assert "Account deletion initiated" in resp.data["detail"]
+        verified_user.refresh_from_db()
+        assert verified_user.deletion_requested_at is not None
+
+
+@pytest.mark.django_db
+class TestUserPublicEndpoints:
+    """Covers UserRatingsView, UserOfferedBooksView, and UserWantedBooksView."""
+
+    def test_ratings_404_for_unknown_user(self, api_client):
+        import uuid
+
+        resp = api_client.get(f"/api/v1/users/{uuid.uuid4()}/ratings/")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_ratings_200_with_list_for_known_user(self, api_client, db):
+        import uuid
+
+        from apps.ratings.models import Rating
+        from apps.trading.models import Trade
+
+        user = UserFactory(email_verified=True)
+        other = UserFactory(email_verified=True)
+        trade = Trade.objects.create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=uuid.uuid4(),
+            status=Trade.Status.COMPLETED,
+        )
+        Rating.objects.create(
+            trade=trade,
+            rater=other,
+            rated=user,
+            score=5,
+            comment="Great!",
+            book_condition_accurate=True,
+        )
+
+        resp = api_client.get(f"/api/v1/users/{user.id}/ratings/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert isinstance(resp.data, list)
+        assert len(resp.data) == 1
+
+    def test_offered_books_404_for_unknown_user(self, api_client):
+        import uuid
+
+        resp = api_client.get(f"/api/v1/users/{uuid.uuid4()}/offered/")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_offered_books_200_with_list_for_known_user(self, api_client, db):
+        user = UserFactory(email_verified=True)
+        book = BookFactory()
+        UserBookFactory(user=user, book=book)
+
+        resp = api_client.get(f"/api/v1/users/{user.id}/offered/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert isinstance(resp.data, list)
+        assert len(resp.data) == 1
+
+    def test_wanted_books_404_for_unknown_user(self, api_client):
+        import uuid
+
+        resp = api_client.get(f"/api/v1/users/{uuid.uuid4()}/wanted/")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_wanted_books_200_with_list_for_known_user(self, api_client, db):
+        user = UserFactory(email_verified=True)
+        book = BookFactory()
+        WishlistItemFactory(user=user, book=book, is_active=True)
+
+        resp = api_client.get(f"/api/v1/users/{user.id}/wanted/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert isinstance(resp.data, list)
+        assert len(resp.data) == 1
+
+
+@pytest.mark.django_db
+class TestInstitutionEndpoints:
+    """Covers InstitutionListView, InstitutionDetailView, and InstitutionWantedView."""
+
+    list_url = "/api/v1/institutions/"
+
+    def _make_institution(self, account_type=None):
+        from apps.accounts.models import User
+
+        kwargs = {
+            "account_type": account_type or User.AccountType.LIBRARY,
+            "institution_name": "City Public Library",
+            "is_verified": True,
+            "email_verified": True,
+        }
+        return UserFactory(**kwargs)
+
+    def test_institution_list_filtered_by_search(self, api_client, db):
+        inst = self._make_institution()
+        # A second institution that should NOT match
+        UserFactory(
+            account_type="library",
+            institution_name="Other Place",
+            is_verified=True,
+            email_verified=True,
+        )
+
+        resp = api_client.get(self.list_url, {"search": "City"})
+        assert resp.status_code == status.HTTP_200_OK
+        results = resp.data.get("results", resp.data)
+        ids = [item["id"] for item in results]
+        assert str(inst.id) in ids
+        # The other one should not appear
+        for item in results:
+            assert "Other" not in (item.get("institution_name") or "")
+
+    def test_institution_list_filtered_by_institution_type(self, api_client, db):
+        from apps.accounts.models import User
+
+        library = self._make_institution(account_type=User.AccountType.LIBRARY)
+        bookstore = UserFactory(
+            account_type=User.AccountType.BOOKSTORE,
+            institution_name="Corner Bookstore",
+            is_verified=True,
+            email_verified=True,
+        )
+
+        resp = api_client.get(self.list_url, {"institution_type": "library"})
+        assert resp.status_code == status.HTTP_200_OK
+        results = resp.data.get("results", resp.data)
+        ids = [item["id"] for item in results]
+        assert str(library.id) in ids
+        assert str(bookstore.id) not in ids
+
+    def test_institution_detail_404_for_unknown_id(self, api_client):
+        import uuid
+
+        resp = api_client.get(f"/api/v1/institutions/{uuid.uuid4()}/")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_institution_wanted_404_for_unknown_id(self, api_client):
+        import uuid
+
+        resp = api_client.get(f"/api/v1/institutions/{uuid.uuid4()}/wanted/")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_institution_wanted_200_with_items_for_known_institution(
+        self, api_client, db
+    ):
+        inst = self._make_institution()
+        book = BookFactory()
+        WishlistItemFactory(user=inst, book=book, is_active=True)
+
+        resp = api_client.get(f"/api/v1/institutions/{inst.id}/wanted/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert isinstance(resp.data, list)
+        assert len(resp.data) == 1
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_notifies_counterparties_when_proposals_exist(
+        self, _mock, api_client, db
+    ):
+        """Line 490: bulk_create is called when proposals with counterparties exist."""
+        user = UserFactory(email_verified=True)
+        other = UserFactory(email_verified=True)
+
+        TradeProposal.objects.create(
+            proposer=other,
+            recipient=user,
+            status=TradeProposal.Status.PENDING,
+        )
+
+        client = api_client
+        client.force_authenticate(user=user)
+        resp = client.delete(
+            "/api/v1/users/me/", {"password": "testpass123"}, format="json"
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert Notification.objects.filter(
+            user=other, notification_type="account_deleted_impact"
+        ).exists()

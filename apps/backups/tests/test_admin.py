@@ -137,7 +137,7 @@ class TestTriggerBackupView:
         mock_record.pk = "fake-uuid"
 
         with patch(
-            "apps.backups.admin.trigger_manual_backup",
+            "apps.backups.services.backup_service.trigger_manual_backup",
             return_value=mock_record,
         ) as mock_trigger:
             resp = client.post("/admin/backups/backuprecord/trigger-backup/")
@@ -167,7 +167,7 @@ class TestRestoreView:
         record = _make_record()
 
         with patch(
-            "apps.backups.admin.run_database_restore",
+            "apps.backups.services.backup_service.run_database_restore",
         ) as mock_restore:
             resp = client.post(
                 f"/admin/backups/backuprecord/{record.pk}/restore/",
@@ -182,7 +182,7 @@ class TestRestoreView:
         client.force_login(superuser)
         record = _make_record()
 
-        with patch("apps.backups.admin.run_database_restore") as mock_restore:
+        with patch("apps.backups.services.backup_service.run_database_restore") as mock_restore:
             resp = client.post(
                 f"/admin/backups/backuprecord/{record.pk}/restore/",
                 {"confirmation": "wrong"},
@@ -197,7 +197,7 @@ class TestRestoreView:
         record = _make_record()
 
         with patch(
-            "apps.backups.admin.run_database_restore",
+            "apps.backups.services.backup_service.run_database_restore",
             side_effect=Exception("disk full"),
         ):
             resp = client.post(

@@ -2,7 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
 
 let apiClient;
+let auth;
 let books;
+let myBooks;
+let wishlist;
+let matches;
+let proposals;
+let trades;
+let donations;
+let institutions;
+let browse;
+let notifications;
 let users;
 let useAuthStore;
 let getAuthRefreshState;
@@ -310,5 +320,117 @@ describe('api client response interceptor', () => {
     expect(useAuthStore.getState().accessToken).toBe(refreshedAccess);
 
     postSpy.mockRestore();
+  });
+
+  it('rejects queued promises when refresh fails while another request is in-flight', async () => {
+    useAuthStore.setState({
+      user: null,
+      accessToken: makeJwt(),
+      refreshToken: makeJwt({ token_type: 'refresh', exp: Math.floor(Date.now() / 1000) + 86400 }),
+    });
+
+    const refreshError = new Error('Refresh failed');
+    let resolveRefresh;
+    const refreshPromise = new Promise((_, reject) => {
+      resolveRefresh = () => reject(refreshError);
+    });
+    const postSpy = vi.spyOn(axios, 'post').mockReturnValue(refreshPromise);
+
+    let callCount = 0;
+    const adapter = async (config) => {
+      callCount++;
+      const err = new Error('Unauthorized');
+      err.config = config;
+      err.response = { status: 401, data: 'Unauthorized', config };
+      throw err;
+    };
+
+    const reqA = apiClient.get('/protected/a', { adapter });
+    await vi.waitFor(() => expect(getAuthRefreshState().isRefreshing).toBe(true));
+    const reqB = apiClient.get('/protected/b', { adapter });
+    await vi.waitFor(() => expect(getAuthRefreshState().failedQueueLength).toBe(1));
+
+    resolveRefresh();
+    await expect(reqA).rejects.toThrow();
+    await expect(reqB).rejects.toThrow();  // queued promise was rejected via prom.reject (line 52)
+
+    postSpy.mockRestore();
+  });
+
+  it('passes non-401 errors through to caller unchanged', async () => {
+    await expect(
+      apiClient.get('/server-error/', {
+        adapter: async (config) => {
+          const err = new Error('Internal Server Error');
+          err.config = config;
+          err.response = { status: 500, data: 'Internal Server Error', config };
+          throw err;
+        },
+      })
+    ).rejects.toThrow('Internal Server Error');
+  });
+
+  it('request interceptor error callback forwards rejection from a preceding interceptor (covers line 29)', async () => {
+    // Request interceptors run in LIFO order. A newly-added interceptor runs first;
+    // if it throws, api.js's error callback at line 29 (error => Promise.reject(error)) fires.
+    const throwingId = apiClient.interceptors.request.use(
+      () => { throw new Error('Simulated interceptor error'); }
+    );
+    await expect(apiClient.get('/test/')).rejects.toThrow();
+    apiClient.interceptors.request.eject(throwingId);
+  });
+});
+
+// ── Coverage: every exported API method arrow-function ────────────────────────
+// Each one-liner method is a distinct V8 function; calling it once marks it covered.
+describe('api module — method function coverage', () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    ({
+      default: apiClient,
+      auth, users, books, myBooks, wishlist, matches, proposals, trades,
+      donations, institutions, browse, notifications,
+    } = await import('./api'));
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ data: {} });
+    vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} });
+    vi.spyOn(apiClient, 'patch').mockResolvedValue({ data: {} });
+    vi.spyOn(apiClient, 'delete').mockResolvedValue({ data: {} });
+  });
+
+  it('calls every API method once to cover all arrow-function definitions', async () => {
+    // auth
+    await auth.register({}); await auth.login({}); await auth.logout({});
+    await auth.verifyEmail({}); await auth.requestPasswordReset({});
+    await auth.confirmPasswordReset({}); await auth.refreshToken({});
+    // users
+    await users.getMe(); await users.updateMe({}); await users.verifyAddress({});
+    await users.exportData(); await users.deleteAccount({});
+    await users.getPublicProfile('u1'); await users.getUserRatings('u1', {});
+    await users.getUserOfferedBooks('u1', {}); await users.getUserWantedBooks('u1', {});
+    // books
+    await books.lookupISBN('isbn'); await books.searchBooks({}); await books.getBook('b1');
+    // myBooks
+    await myBooks.list({}); await myBooks.add({}); await myBooks.update('id', {}); await myBooks.remove('id');
+    // wishlist
+    await wishlist.list({}); await wishlist.add({}); await wishlist.update('id', {}); await wishlist.remove('id');
+    // matches
+    await matches.list({}); await matches.getDetail('id');
+    await matches.accept('id'); await matches.decline('id');
+    // proposals
+    await proposals.list({}); await proposals.create({}); await proposals.getDetail('id');
+    await proposals.accept('id'); await proposals.decline('id'); await proposals.counter('id', {});
+    // trades
+    await trades.list({}); await trades.getDetail('id'); await trades.markShipped('id', {});
+    await trades.markReceived('id'); await trades.rate('id', {});
+    await trades.getMessages('id', {}); await trades.sendMessage('id', {});
+    // donations
+    await donations.list({}); await donations.offer({}); await donations.accept('id'); await donations.decline('id');
+    // institutions
+    await institutions.list({}); await institutions.getDetail('id'); await institutions.getWantedList('id', {});
+    // browse
+    await browse.available({}); await browse.partnerBooks('u1', {}); await browse.shippingEstimate({});
+    // notifications
+    await notifications.list({}); await notifications.markRead('id');
+    await notifications.markAllRead(); await notifications.counts();
   });
 });

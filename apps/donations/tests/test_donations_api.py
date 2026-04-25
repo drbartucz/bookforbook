@@ -308,3 +308,80 @@ class TestDonationNotifications:
         assert Notification.objects.filter(
             user=donor, notification_type="donation_declined"
         ).exists()
+
+
+# ---------------------------------------------------------------------------
+# Notification exception resilience
+# ---------------------------------------------------------------------------
+
+
+class TestDonationNotificationExceptions:
+    """Notification failures must be silenced — the main action must still succeed."""
+
+    def test_offer_notification_exception_still_returns_201(self, api_client):
+        """Lines 55-56: exception in notification for donation offer."""
+        from unittest.mock import patch
+
+        donor = UserFactory()
+        institution = _make_institution()
+        user_book = UserBookFactory(user=donor, book=BookFactory())
+
+        client = _auth(api_client, donor)
+        with patch(
+            "apps.notifications.models.Notification.objects.create",
+            side_effect=Exception("notification DB error"),
+        ):
+            resp = _offer_donation(client, user_book, institution)
+
+        assert resp.status_code == 201
+        # The donation itself was created even though the notification failed
+        from apps.donations.models import Donation
+
+        assert Donation.objects.filter(donor=donor, institution=institution).exists()
+
+    def test_accept_notification_exception_still_returns_200(self, api_client):
+        """Lines 117-118: exception in notification for donation acceptance."""
+        from unittest.mock import patch
+
+        donor = UserFactory()
+        institution = _make_institution()
+        user_book = UserBookFactory(user=donor, book=BookFactory())
+
+        client_donor = _auth(api_client, donor)
+        offer_resp = _offer_donation(client_donor, user_book, institution)
+        donation_id = offer_resp.data["id"]
+
+        client_inst = _auth(api_client, institution)
+        with patch(
+            "apps.notifications.models.Notification.objects.create",
+            side_effect=Exception("notification DB error"),
+        ):
+            resp = client_inst.post(
+                reverse("donation-accept", kwargs={"pk": donation_id}), format="json"
+            )
+
+        assert resp.status_code == 200
+        assert resp.data["status"] == "accepted"
+
+    def test_decline_notification_exception_still_returns_200(self, api_client):
+        """Lines 151-152: exception in notification for donation decline."""
+        from unittest.mock import patch
+
+        donor = UserFactory()
+        institution = _make_institution()
+        user_book = UserBookFactory(user=donor, book=BookFactory())
+
+        client_donor = _auth(api_client, donor)
+        offer_resp = _offer_donation(client_donor, user_book, institution)
+        donation_id = offer_resp.data["id"]
+
+        client_inst = _auth(api_client, institution)
+        with patch(
+            "apps.notifications.models.Notification.objects.create",
+            side_effect=Exception("notification DB error"),
+        ):
+            resp = client_inst.post(
+                reverse("donation-decline", kwargs={"pk": donation_id}), format="json"
+            )
+
+        assert resp.status_code == 200

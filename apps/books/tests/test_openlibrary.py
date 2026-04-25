@@ -318,7 +318,7 @@ class TestMergeBookData:
         primary = {"title": ""}
         fallback = {"title": "", "authors": []}
         merged = _merge_book_data(primary, fallback)
-        assert merged.get("authors") == []  # empty list not backfilled
+        assert "authors" not in merged  # empty list not backfilled
 
 
 # ---------------------------------------------------------------------------

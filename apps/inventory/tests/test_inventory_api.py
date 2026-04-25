@@ -690,3 +690,254 @@ class TestPartnerBooksView:
 
         assert resp.status_code == status.HTTP_403_FORBIDDEN
         assert "confirmed trade partners" in resp.data["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestNoAddressPromptWhenUserAlreadyHasAddress:
+    """Line 29: _should_prompt_for_address returns False when user has address."""
+
+    url = "/api/v1/my-books/"
+
+    def test_no_address_prompt_when_user_has_shipping_address(self, api_client):
+        from unittest.mock import patch
+
+        from apps.tests.factories import BookFactory, UserFactory
+
+        # Create a user with all address fields filled in (has_shipping_address == True)
+        user = UserFactory(
+            email_verified=True,
+            full_name="John Doe",
+            address_line_1="123 Main St",
+            city="Denver",
+            state="CO",
+            zip_code="80202",
+            address_verification_status="verified",
+        )
+        book = BookFactory()
+
+        client = api_client
+        client.force_authenticate(user=user)
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ):
+            resp = client.post(
+                self.url,
+                {"isbn": book.isbn_13, "condition": "good"},
+            )
+
+        assert resp.status_code == status.HTTP_201_CREATED
+        # User already has address — prompt must NOT appear
+        assert "X-Address-Prompt" not in resp
+
+
+@pytest.mark.django_db
+class TestMyBooksSortByAuthorSQLiteFallback:
+    """Lines 88-97: SQLite fallback author sort in apply_book_sorting."""
+
+    url = "/api/v1/my-books/"
+
+    def test_sort_by_author_list_authors(self, auth_api_client, verified_user):
+        """Authors stored as lists; SQLite fallback sorts by last name correctly."""
+        from apps.tests.factories import BookFactory, UserBookFactory
+
+        # 'Zoe Adams' last name 'adams' < 'Amy Brown' last name 'brown'
+        book_a = BookFactory(title="First Book", authors=["Zoe Adams", "Co Author"])
+        book_b = BookFactory(title="Second Book", authors=["Amy Brown"])
+
+        UserBookFactory(user=verified_user, book=book_a)
+        UserBookFactory(user=verified_user, book=book_b)
+
+        resp = auth_api_client.get(self.url, {"sort_by": "author", "sort_order": "asc"})
+        assert resp.status_code == status.HTTP_200_OK
+        results = resp.data["results"]
+        assert len(results) == 2
+        # Adams before Brown
+        assert results[0]["book"]["title"] == "First Book"
+        assert results[1]["book"]["title"] == "Second Book"
+
+    def test_sort_by_author_desc_list_authors(self, auth_api_client, verified_user):
+        """Descending author sort via SQLite fallback."""
+        from apps.tests.factories import BookFactory, UserBookFactory
+
+        book_a = BookFactory(title="First Book", authors=["Zoe Adams"])
+        book_b = BookFactory(title="Second Book", authors=["Amy Brown"])
+
+        UserBookFactory(user=verified_user, book=book_a)
+        UserBookFactory(user=verified_user, book=book_b)
+
+        resp = auth_api_client.get(self.url, {"sort_by": "author", "sort_order": "desc"})
+        assert resp.status_code == status.HTTP_200_OK
+        results = resp.data["results"]
+        assert len(results) == 2
+        # Brown before Adams in descending order
+        assert results[0]["book"]["title"] == "Second Book"
+        assert results[1]["book"]["title"] == "First Book"
+
+
+@pytest.mark.django_db
+class TestAsyncTaskExceptionSilenced:
+    """Lines 152-153 and 231-232: exception when async_task raises is swallowed."""
+
+    def test_book_post_still_returns_201_when_async_task_raises(
+        self, auth_api_client, book
+    ):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ), patch(
+            "django_q.tasks.async_task", side_effect=Exception("queue down")
+        ):
+            resp = auth_api_client.post(
+                "/api/v1/my-books/",
+                {"isbn": book.isbn_13, "condition": "good"},
+            )
+
+        # Even though async_task raised, we still get 201
+        assert resp.status_code == status.HTTP_201_CREATED
+
+    def test_wishlist_post_still_returns_201_when_async_task_raises(
+        self, auth_api_client, book
+    ):
+        from unittest.mock import patch
+
+        with patch(
+            "apps.books.services.openlibrary.get_or_create_book", return_value=book
+        ), patch(
+            "apps.books.services.openlibrary.normalize_isbn", return_value=book.isbn_13
+        ), patch(
+            "django_q.tasks.async_task", side_effect=Exception("queue down")
+        ):
+            resp = auth_api_client.post(
+                "/api/v1/wishlist/",
+                {"isbn": book.isbn_13, "min_condition": "good"},
+            )
+
+        assert resp.status_code == status.HTTP_201_CREATED
+
+
+@pytest.mark.django_db
+class TestMyBookDetailViewGet:
+    """Line 173: MyBookDetailView.get — GET single book by pk."""
+
+    def test_get_single_book(self, auth_api_client, user_book):
+        resp = auth_api_client.get(f"/api/v1/my-books/{user_book.id}/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["id"] == str(user_book.id)
+
+    def test_get_other_users_book_returns_404(self, auth_api_client):
+        other_book = UserBookFactory()
+        resp = auth_api_client.get(f"/api/v1/my-books/{other_book.id}/")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+class TestWishlistItemDetailViewGet:
+    """Lines 251-252: WishlistItemDetailView.get — GET single wishlist item."""
+
+    def test_get_single_wishlist_item(self, auth_api_client, wishlist_item):
+        resp = auth_api_client.get(f"/api/v1/wishlist/{wishlist_item.id}/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["id"] == str(wishlist_item.id)
+
+    def test_get_other_users_wishlist_item_returns_404(self, auth_api_client):
+        other_item = WishlistItemFactory()
+        resp = auth_api_client.get(f"/api/v1/wishlist/{other_item.id}/")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+class TestBrowseConditionFilter:
+    """Line 297: BrowseAvailableView with ?condition= filter."""
+
+    url = "/api/v1/browse/available/"
+
+    def test_filter_by_condition(self, api_client):
+        from apps.tests.factories import BookFactory, UserBookFactory
+
+        book_good = BookFactory(title="Good Condition Book")
+        book_new = BookFactory(title="Like New Book")
+
+        UserBookFactory(
+            book=book_good,
+            status=UserBook.Status.AVAILABLE,
+            condition="good",
+        )
+        UserBookFactory(
+            book=book_new,
+            status=UserBook.Status.AVAILABLE,
+            condition="like_new",
+        )
+
+        resp = api_client.get(self.url, {"condition": "good"})
+        assert resp.status_code == status.HTTP_200_OK
+        conditions = [r["condition"] for r in resp.data["results"]]
+        assert all(c == "good" for c in conditions)
+        titles = [r["book"]["title"] for r in resp.data["results"]]
+        assert "Good Condition Book" in titles
+        assert "Like New Book" not in titles
+
+    def test_filter_by_condition_like_new(self, api_client):
+        from apps.tests.factories import BookFactory, UserBookFactory
+
+        book_good = BookFactory(title="Good Book")
+        book_new = BookFactory(title="New Book")
+
+        UserBookFactory(
+            book=book_good,
+            status=UserBook.Status.AVAILABLE,
+            condition="good",
+        )
+        UserBookFactory(
+            book=book_new,
+            status=UserBook.Status.AVAILABLE,
+            condition="like_new",
+        )
+
+        resp = api_client.get(self.url, {"condition": "like_new"})
+        assert resp.status_code == status.HTTP_200_OK
+        titles = [r["book"]["title"] for r in resp.data["results"]]
+        assert "New Book" in titles
+        assert "Good Book" not in titles
+
+
+@pytest.mark.django_db
+class TestShippingEstimateView:
+    """Lines 368-376: ShippingEstimateView."""
+
+    def test_shipping_estimate_returns_200(self, api_client, book):
+        resp = api_client.get(f"/api/v1/browse/shipping-estimate/{book.id}/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["book_id"] == str(book.id)
+        assert "low" in resp.data
+        assert "high" in resp.data
+        assert "display" in resp.data
+        assert "disclaimer" in resp.data
+
+    def test_shipping_estimate_with_page_count(self, api_client):
+        from apps.tests.factories import BookFactory
+
+        book = BookFactory()
+        book.page_count = 300
+        book.save(update_fields=["page_count"])
+
+        resp = api_client.get(f"/api/v1/browse/shipping-estimate/{book.id}/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["page_count"] == 300
+        assert resp.data["title"] == book.title
+
+    def test_shipping_estimate_nonexistent_book_returns_404(self, api_client):
+        import uuid
+
+        resp = api_client.get(f"/api/v1/browse/shipping-estimate/{uuid.uuid4()}/")
+        assert resp.status_code == status.HTTP_404_NOT_FOUND

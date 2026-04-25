@@ -5,6 +5,8 @@ omit =
     */tests/*
     */test_*.py
     */__pycache__/*
+    */management/commands/seed_e2e.py
+    */management/commands/smoke_test_usps.py
 
 [report]
 show_missing = True

@@ -141,6 +141,96 @@ describe('Register page', () => {
         });
     });
 
+    it('shows URL validation error for non-http institution website', async () => {
+        renderWithProviders(<Register />);
+        await userEvent.click(screen.getByLabelText(/library/i));
+        await fillForm();
+        await userEvent.type(screen.getByLabelText(/institution name/i), 'Test Library');
+        await userEvent.type(screen.getByLabelText(/institution website/i), 'ftp://library.example.org');
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+        await waitFor(() => {
+            expect(screen.getByText(/use an http/i)).toBeInTheDocument();
+        });
+    });
+
+    it('shows URL validation error for completely invalid institution website', async () => {
+        renderWithProviders(<Register />);
+        await userEvent.click(screen.getByLabelText(/library/i));
+        await fillForm();
+        await userEvent.type(screen.getByLabelText(/institution name/i), 'Test Library');
+        await userEvent.type(screen.getByLabelText(/institution website/i), 'not a url at all');
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+        await waitFor(() => {
+            expect(screen.getByText(/enter a valid url/i)).toBeInTheDocument();
+        });
+    });
+
+    it('shows username field error from server', async () => {
+        authApi.register.mockRejectedValueOnce({
+            response: { data: { username: ['This username is already taken.'] } },
+        });
+
+        renderWithProviders(<Register />);
+        await fillForm();
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Username:/)).toBeInTheDocument();
+        });
+    });
+
+    it('shows password field error from server', async () => {
+        authApi.register.mockRejectedValueOnce({
+            response: { data: { password: ['Password is too common.'] } },
+        });
+
+        renderWithProviders(<Register />);
+        await fillForm();
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Password:/)).toBeInTheDocument();
+        });
+    });
+
+    it('shows fallback error when no recognized field in server response', async () => {
+        authApi.register.mockRejectedValueOnce({
+            response: { data: { non_field_errors: ['Something went wrong.'] } },
+        });
+
+        renderWithProviders(<Register />);
+        await fillForm();
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Registration failed. Please check/i)).toBeInTheDocument();
+        });
+    });
+
+    it('shows fallback error when no response data available', async () => {
+        authApi.register.mockRejectedValueOnce(new Error('Network Error'));
+
+        renderWithProviders(<Register />);
+        await fillForm();
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText('Registration failed. Please try again.')).toBeInTheDocument();
+        });
+    });
+
+    it('shows institution name validation error when name is missing', async () => {
+        renderWithProviders(<Register />);
+        await userEvent.click(screen.getByLabelText(/library/i));
+        await fillForm();
+        // Do not type institution name — leave it empty
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText('Institution name is required.')).toBeInTheDocument();
+        });
+    });
+
     it('disables submit button while submitting', async () => {
         authApi.register.mockReturnValueOnce(new Promise(() => { }));
 
@@ -150,6 +240,99 @@ describe('Register page', () => {
 
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /creating/i })).toBeDisabled();
+        });
+    });
+
+    it('shows plain string response as server error (covers typeof resData === "string" branch)', async () => {
+        authApi.register.mockRejectedValueOnce({
+            response: { data: 'Internal Server Error' },
+        });
+
+        renderWithProviders(<Register />);
+        await fillForm();
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText('Internal Server Error')).toBeInTheDocument();
+        });
+    });
+
+    it('shows email string error directly when resData.email is a string (covers Array.isArray false branch)', async () => {
+        authApi.register.mockRejectedValueOnce({
+            response: { data: { email: 'That email is already registered.' } },
+        });
+
+        renderWithProviders(<Register />);
+        await fillForm();
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Email: That email is already registered/)).toBeInTheDocument();
+        });
+    });
+
+    it('shows username string error directly when resData.username is a string', async () => {
+        authApi.register.mockRejectedValueOnce({
+            response: { data: { username: 'That username is taken.' } },
+        });
+
+        renderWithProviders(<Register />);
+        await fillForm();
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Username: That username is taken/)).toBeInTheDocument();
+        });
+    });
+
+    it('shows password string error directly when resData.password is a string', async () => {
+        authApi.register.mockRejectedValueOnce({
+            response: { data: { password: 'Password is too weak.' } },
+        });
+
+        renderWithProviders(<Register />);
+        await fillForm();
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Password: Password is too weak/)).toBeInTheDocument();
+        });
+    });
+
+    it('applies error class to email field when email format fails client validation', async () => {
+        renderWithProviders(<Register />);
+        await fillForm({ email: 'notanemail' });
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByLabelText(/email address/i).className).toContain('error');
+        });
+    });
+
+    it('applies error class to password field when password is too short', async () => {
+        renderWithProviders(<Register />);
+        await fillForm({ password: 'short1', confirmPassword: 'short1' });
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(screen.getByLabelText(/^password$/i).className).toContain('error');
+        });
+    });
+
+    it('accepts http:// institution website URL (covers left side of || in protocol check)', async () => {
+        authApi.register.mockResolvedValueOnce({ data: {} });
+
+        renderWithProviders(<Register />);
+        await userEvent.click(screen.getByLabelText(/library/i));
+        await fillForm();
+        await userEvent.type(screen.getByLabelText(/institution name/i), 'City Library');
+        await userEvent.type(screen.getByLabelText(/institution website/i), 'http://library.example.org');
+        await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+        await waitFor(() => {
+            expect(authApi.register).toHaveBeenCalledWith(expect.objectContaining({
+                institution_url: 'http://library.example.org',
+            }));
         });
     });
 });
