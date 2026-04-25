@@ -29,10 +29,8 @@ test.describe('Donations', () => {
     // Seeded donation: Pride and Prejudice → E2E Library
     const donationCard = page.locator('[class*="donationCard"]').first();
     await expect(donationCard).toBeVisible({ timeout: 10_000 });
-    // Scope to the donation card to avoid strict mode — "offered" tab button is outside the card
-    await expect(
-      donationCard.getByText(/pride and prejudice/i).or(donationCard.getByText(/offered/i))
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(donationCard.getByText(/pride and prejudice/i)).toBeVisible({ timeout: 10_000 });
+    await expect(donationCard.getByText(/^offered$/i)).toBeVisible({ timeout: 10_000 });
   });
 
   test('library account sees received donation', async ({ libraryPage: page }) => {
