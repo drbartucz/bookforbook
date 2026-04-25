@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -80,7 +80,11 @@ describe('ForgotPassword page', () => {
         await userEvent.click(screen.getByRole('button', { name: /send reset link/i }));
 
         expect(await screen.findByRole('button', { name: /sending/i })).toBeDisabled();
-        resolve({ data: {} });
+
+        await act(async () => { resolve({ data: {} }); });
+        await waitFor(() =>
+            expect(screen.queryByRole('button', { name: /sending/i })).not.toBeInTheDocument()
+        );
     });
 
     it('shows a back-to-sign-in link after success', async () => {

@@ -690,3 +690,61 @@ class TestMatchAPI:
             )
             for m in resp.data
         )
+
+
+@pytest.mark.django_db
+class TestMatchDetailView:
+    def test_participant_can_retrieve_match(self, auth_api_client, verified_user, db):
+        other = UserFactory()
+        ub = UserBookFactory(user=verified_user)
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        MatchLeg.objects.create(
+            match=match, sender=verified_user, receiver=other, user_book=ub, position=0
+        )
+        MatchLeg.objects.create(
+            match=match,
+            sender=other,
+            receiver=verified_user,
+            user_book=UserBookFactory(user=other),
+            position=1,
+        )
+
+        resp = auth_api_client.get(f"/api/v1/matches/{match.id}/")
+        assert resp.status_code == 200
+        assert str(resp.data["id"]) == str(match.id)
+
+    def test_nonexistent_match_returns_404(self, auth_api_client, db):
+        import uuid
+
+        resp = auth_api_client.get(f"/api/v1/matches/{uuid.uuid4()}/")
+        assert resp.status_code == 404
+
+    def test_non_participant_cannot_retrieve_match(
+        self, auth_api_client, verified_user, db
+    ):
+        """A user who is not in any leg of the match must get 404."""
+        user_a = UserFactory()
+        user_b = UserFactory()
+        match = Match.objects.create(
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+        )
+        MatchLeg.objects.create(
+            match=match,
+            sender=user_a,
+            receiver=user_b,
+            user_book=UserBookFactory(user=user_a),
+            position=0,
+        )
+        MatchLeg.objects.create(
+            match=match,
+            sender=user_b,
+            receiver=user_a,
+            user_book=UserBookFactory(user=user_b),
+            position=1,
+        )
+
+        # verified_user is authenticated but not a participant
+        resp = auth_api_client.get(f"/api/v1/matches/{match.id}/")
+        assert resp.status_code == 404

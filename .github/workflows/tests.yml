@@ -90,7 +90,7 @@ jobs:
         run: python manage.py migrate --run-syncdb
 
       - name: Seed E2E test data
-        run: python manage.py seed_e2e
+        run: python manage.py seed_e2e --reset
 
       - name: Start Django dev server
         run: |
