@@ -235,7 +235,7 @@ export default function Dashboard() {
   );
 }
 
-function ActivityItem({ type, item }) {
+export function ActivityItem({ type, item }) {
   const getTitle = () => {
     if (type === 'match') {
       const book = item.your_book?.book ?? item.book;

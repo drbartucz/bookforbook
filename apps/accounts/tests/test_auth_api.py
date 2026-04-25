@@ -263,12 +263,20 @@ class TestUserMeView:
 
         match = Match.objects.create(match_type="direct", status=Match.Status.PENDING)
         MatchLeg.objects.create(
-            match=match, sender=user, receiver=other,
-            user_book=book_a, position=0, status=MatchLeg.Status.PENDING,
+            match=match,
+            sender=user,
+            receiver=other,
+            user_book=book_a,
+            position=0,
+            status=MatchLeg.Status.PENDING,
         )
         MatchLeg.objects.create(
-            match=match, sender=other, receiver=user,
-            user_book=book_b, position=1, status=MatchLeg.Status.PENDING,
+            match=match,
+            sender=other,
+            receiver=user,
+            user_book=book_b,
+            position=1,
+            status=MatchLeg.Status.PENDING,
         )
 
         client = api_client
@@ -308,12 +316,20 @@ class TestUserMeView:
 
         match = Match.objects.create(match_type="direct", status=Match.Status.PENDING)
         MatchLeg.objects.create(
-            match=match, sender=user, receiver=other,
-            user_book=book_a, position=0, status=MatchLeg.Status.PENDING,
+            match=match,
+            sender=user,
+            receiver=other,
+            user_book=book_a,
+            position=0,
+            status=MatchLeg.Status.PENDING,
         )
         MatchLeg.objects.create(
-            match=match, sender=other, receiver=user,
-            user_book=book_b, position=1, status=MatchLeg.Status.PENDING,
+            match=match,
+            sender=other,
+            receiver=user,
+            user_book=book_b,
+            position=1,
+            status=MatchLeg.Status.PENDING,
         )
 
         client = api_client
@@ -825,3 +841,20 @@ class TestInstitutionEndpoints:
         assert Notification.objects.filter(
             user=other, notification_type="account_deleted_impact"
         ).exists()
+
+
+@pytest.mark.django_db
+class TestUserModelDeleteMethod:
+    def test_delete_does_not_propagate_outstanding_token_exception(self, db):
+        """User.delete() swallows exceptions from the simplejwt token cleanup."""
+        user = UserFactory(email_verified=True)
+        with patch(
+            "rest_framework_simplejwt.token_blacklist.models.OutstandingToken.objects.filter",
+            side_effect=Exception("DB error"),
+        ):
+            # Should complete without raising
+            user.delete()
+
+        from apps.accounts.models import User as UserModel
+
+        assert not UserModel.objects.filter(pk=user.pk).exists()
