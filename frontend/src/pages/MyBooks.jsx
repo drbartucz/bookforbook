@@ -104,6 +104,26 @@ export default function MyBooks() {
       return;
     }
     setAddError(null);
+
+    // Count existing copies of this book across all cached pages
+    const targetIsbn = foundBook.isbn_13 || foundBook.isbn_10;
+    let existingCount = 0;
+    for (const [, pageData] of queryClient.getQueriesData({ queryKey: ['myBooks'] })) {
+      if (!pageData?.results) continue;
+      for (const item of pageData.results) {
+        const itemIsbn = item.book?.isbn_13 || item.book?.isbn_10;
+        if (itemIsbn && targetIsbn && itemIsbn === targetIsbn) existingCount++;
+      }
+    }
+
+    if (existingCount > 0) {
+      const title = foundBook.title || 'this book';
+      const copyWord = existingCount === 1 ? 'copy' : 'copies';
+      if (!window.confirm(`You already have ${existingCount} ${copyWord} of "${title}" listed. Would you like to add another?`)) {
+        return;
+      }
+    }
+
     addMutation.mutate({
       isbn: isbn.trim().replace(/-/g, ''),
       condition: addCondition,
