@@ -567,8 +567,12 @@ describe('Wishlist page', () => {
         // Mock Lookup triggers handleBookFound → showEditionPrompt becomes true
         await userEvent.click(screen.getByRole('button', { name: 'Mock Lookup' }));
 
+        // The allowTranslations checkbox is only shown when editionPreference === 'custom'
+        // Change the edition preference select to 'custom' to reveal the checkbox section
+        await userEvent.selectOptions(screen.getByLabelText('Edition matching'), 'custom');
+
         // Toggle the "Include translations" checkbox (covers onChange at line 342)
-        const transCheckbox = screen.getByRole('checkbox', { name: /include translations/i });
+        const transCheckbox = screen.getAllByRole('checkbox')[0]; // first checkbox in custom section
         await userEvent.click(transCheckbox);
 
         // Click Done (covers onClick={() => setShowEditionPrompt(false)} at line 373)

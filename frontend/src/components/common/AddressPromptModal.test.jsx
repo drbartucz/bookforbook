@@ -140,5 +140,12 @@ describe('AddressPromptModal', () => {
             await userEvent.type(stateInput, 'co');
             expect(stateInput.value).toBe('CO');
         });
+
+        it('covers address_line_2 onChange (optional field)', async () => {
+            await openVerifyStep();
+            const addr2 = screen.getByLabelText(/address line 2/i);
+            await userEvent.type(addr2, 'Apt 4B');
+            expect(addr2.value).toBe('Apt 4B');
+        });
     });
 });

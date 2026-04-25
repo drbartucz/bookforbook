@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -503,7 +503,9 @@ describe('MyBooks page', () => {
         renderWithProviders(<MyBooks />);
         await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
         // Change condition in the edit form — covers onChange at line 334
-        const editSelect = screen.getByRole('combobox');
+        // Use within() to scope to the edit form container, avoiding sort/order selects
+        const editForm = document.querySelector('[class*="editForm"]');
+        const editSelect = within(editForm).getByRole('combobox');
         await userEvent.selectOptions(editSelect, 'very_good');
         expect(editSelect).toHaveValue('very_good');
     });
