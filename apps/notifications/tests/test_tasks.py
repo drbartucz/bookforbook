@@ -19,6 +19,8 @@ from apps.notifications.email import (
     send_inactivity_warning_2m_email,
     send_books_delisted_email,
     send_account_deletion_email,
+    send_account_deletion_export_email,
+    send_password_reset_email,
     send_rating_reminder_email,
     send_trade_confirmed_email,
 )
@@ -177,6 +179,43 @@ class TestEmailTemplateFunctions:
         result = send_trade_confirmed_email(user, trade)
         assert result is True
         assert "confirmed" in mail.outbox[0].subject.lower()
+
+    def test_send_password_reset_email_contains_link(self, settings):
+        settings.FRONTEND_URL = "https://app.bookforbook.com"
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+        user = UserFactory(email="reset@example.com", username="resetme")
+        result = send_password_reset_email(user, "uid99", "tok99")
+        assert result is True
+        assert len(mail.outbox) == 1
+        assert "reset" in mail.outbox[0].subject.lower()
+        assert "reset-password" in mail.outbox[0].body
+        assert "uid99" in mail.outbox[0].body
+        assert "tok99" in mail.outbox[0].body
+
+    def test_send_account_deletion_export_email_attaches_json(self, settings):
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+        user = UserFactory(email="export@example.com")
+        export_data = {"profile": {"id": "abc"}, "books": []}
+        result = send_account_deletion_export_email(user, export_data)
+        assert result is True
+        assert len(mail.outbox) == 1
+        msg = mail.outbox[0]
+        assert "export" in msg.subject.lower()
+        filenames = [
+            getattr(att, "filename", att[0]) if hasattr(att, "filename") else att[0]
+            for att in msg.attachments
+        ]
+        assert "bookforbook-data-export.json" in filenames
+
+    def test_send_account_deletion_export_email_returns_false_on_error(self, settings):
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+        user = UserFactory(email="exportfail@example.com")
+        with patch(
+            "apps.notifications.email.EmailMultiAlternatives.send",
+            side_effect=Exception("SMTP down"),
+        ):
+            result = send_account_deletion_export_email(user, {"books": []})
+        assert result is False
 
 
 # ---------------------------------------------------------------------------
