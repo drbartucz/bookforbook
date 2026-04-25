@@ -257,3 +257,234 @@ def test_get_or_create_book_refreshes_cached_book_with_missing_metadata():
     assert book.id == cached.id
     assert cached.authors == ["J. Kenji L\u00f3pez-Alt"]
     assert cached.physical_format == "Hardcover"
+
+
+# ---------------------------------------------------------------------------
+# _response_json_object
+# ---------------------------------------------------------------------------
+
+
+class TestResponseJsonObject:
+    def _make_resp(self, status_code, body):
+        from unittest.mock import MagicMock
+        r = MagicMock()
+        r.status_code = status_code
+        r.json.return_value = body
+        return r
+
+    def test_returns_dict_payload(self):
+        from apps.books.services.openlibrary import _response_json_object
+        r = self._make_resp(200, {"title": "Hi"})
+        assert _response_json_object(r, "ctx") == {"title": "Hi"}
+
+    def test_returns_none_for_list_payload(self):
+        from apps.books.services.openlibrary import _response_json_object
+        r = self._make_resp(200, [1, 2, 3])
+        assert _response_json_object(r, "ctx") is None
+
+    def test_returns_none_for_invalid_json(self):
+        from unittest.mock import MagicMock
+        from apps.books.services.openlibrary import _response_json_object
+        r = MagicMock()
+        r.json.side_effect = ValueError("bad json")
+        assert _response_json_object(r, "ctx") is None
+
+
+# ---------------------------------------------------------------------------
+# _merge_book_data
+# ---------------------------------------------------------------------------
+
+
+class TestMergeBookData:
+    def test_fills_missing_fields_from_fallback(self):
+        from apps.books.services.openlibrary import _merge_book_data
+        primary = {"title": "Book A", "authors": []}
+        fallback = {"authors": ["Alice"], "page_count": 300}
+        merged = _merge_book_data(primary, fallback)
+        assert merged["title"] == "Book A"
+        assert merged["authors"] == ["Alice"]
+        assert merged["page_count"] == 300
+
+    def test_does_not_overwrite_existing_values(self):
+        from apps.books.services.openlibrary import _merge_book_data
+        primary = {"title": "Book A", "authors": ["Alice"]}
+        fallback = {"title": "Book B", "authors": ["Bob"]}
+        merged = _merge_book_data(primary, fallback)
+        assert merged["title"] == "Book A"
+        assert merged["authors"] == ["Alice"]
+
+    def test_skips_empty_fallback_values(self):
+        from apps.books.services.openlibrary import _merge_book_data
+        primary = {"title": ""}
+        fallback = {"title": "", "authors": []}
+        merged = _merge_book_data(primary, fallback)
+        assert merged.get("authors") == []  # empty list not backfilled
+
+
+# ---------------------------------------------------------------------------
+# get_or_create_book — edge cases
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_get_or_create_book_raises_for_invalid_isbn():
+    from apps.books.services.openlibrary import get_or_create_book
+    with pytest.raises(ValueError, match="Invalid ISBN"):
+        get_or_create_book("not-an-isbn")
+
+
+@pytest.mark.django_db
+def test_get_or_create_book_skips_enrichment_when_complete():
+    """A cached book with authors AND physical_format should not trigger a fetch."""
+    from unittest.mock import patch
+    from apps.books.services.openlibrary import get_or_create_book
+    from apps.tests.factories import BookFactory
+
+    cached = BookFactory(
+        isbn_13="9780201616224",
+        authors=["Author One"],
+        physical_format="Paperback",
+    )
+
+    with patch(
+        "apps.books.services.openlibrary.fetch_from_open_library"
+    ) as mock_fetch:
+        book = get_or_create_book("9780201616224")
+
+    mock_fetch.assert_not_called()
+    assert book.id == cached.id
+
+
+# ---------------------------------------------------------------------------
+# fetch_from_open_library — network error / non-200 paths
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_from_open_library_handles_isbn_endpoint_timeout():
+    """A timeout on the ISBN endpoint must not raise — falls back to search data."""
+    import requests
+    from unittest.mock import patch, MagicMock
+
+    search_resp = MagicMock()
+    search_resp.status_code = 200
+    search_resp.json.return_value = {
+        "docs": [{"title": "Some Book", "author_name": ["Author"], "format": ["Paperback"]}]
+    }
+
+    def mock_get(url, **kwargs):
+        if "isbn/" in url:
+            raise requests.Timeout("timed out")
+        return search_resp
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780201616224")
+
+    assert data["title"] == "Some Book"
+
+
+def test_fetch_from_open_library_handles_503_on_isbn_endpoint():
+    """A 503 on the ISBN endpoint is silently ignored; cover URL is guaranteed."""
+    from unittest.mock import patch, MagicMock
+
+    error_resp = MagicMock()
+    error_resp.status_code = 503
+
+    search_resp = MagicMock()
+    search_resp.status_code = 200
+    search_resp.json.return_value = {"docs": []}
+
+    def mock_get(url, **kwargs):
+        if "isbn/" in url:
+            return error_resp
+        return search_resp
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780201616224")
+
+    assert "cover_image_url" in data
+    assert "9780201616224" in data["cover_image_url"]
+
+
+def test_fetch_from_open_library_handles_malformed_search_json():
+    """Malformed JSON from the search endpoint must not raise."""
+    from unittest.mock import patch, MagicMock
+
+    isbn_resp = MagicMock()
+    isbn_resp.status_code = 200
+    isbn_resp.json.return_value = {"title": "Some Book", "authors": []}
+
+    search_resp = MagicMock()
+    search_resp.status_code = 200
+    search_resp.json.side_effect = ValueError("not json")
+
+    def mock_get(url, **kwargs):
+        if "isbn/" in url:
+            return isbn_resp
+        return search_resp
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780201616224")
+
+    assert data["title"] == "Some Book"
+
+
+def test_fetch_from_open_library_handles_edition_404():
+    """A 404 on the edition endpoint must not raise; physical_format stays None."""
+    from unittest.mock import patch, MagicMock
+
+    isbn_resp = MagicMock()
+    isbn_resp.status_code = 200
+    isbn_resp.json.return_value = {"title": "Book", "authors": []}
+
+    search_resp = MagicMock()
+    search_resp.status_code = 200
+    search_resp.json.return_value = {
+        "docs": [{"title": "Book", "cover_edition_key": "OL123M"}]
+    }
+
+    edition_resp = MagicMock()
+    edition_resp.status_code = 404
+
+    def mock_get(url, **kwargs):
+        if "isbn/" in url:
+            return isbn_resp
+        if "search.json" in url:
+            return search_resp
+        if "/books/OL123M" in url:
+            return edition_resp
+        return MagicMock(status_code=404)
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780201616224")
+
+    assert data.get("physical_format") is None
+    assert "cover_image_url" in data
+
+
+def test_fetch_author_name_returns_none_on_non_200():
+    """_fetch_author_name gracefully returns None for non-200 responses."""
+    from unittest.mock import patch, MagicMock
+    from apps.books.services.openlibrary import _fetch_author_name
+
+    resp = MagicMock()
+    resp.status_code = 404
+
+    with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+        result = _fetch_author_name("/authors/OL999A")
+
+    assert result is None
+
+
+def test_fetch_author_name_returns_none_on_request_exception():
+    """_fetch_author_name gracefully handles network failures."""
+    import requests
+    from unittest.mock import patch
+    from apps.books.services.openlibrary import _fetch_author_name
+
+    with patch(
+        "apps.books.services.openlibrary.requests.get",
+        side_effect=requests.ConnectionError("no network"),
+    ):
+        result = _fetch_author_name("/authors/OL999A")
+
+    assert result is None

@@ -226,3 +226,119 @@ def test_verify_address_raises_for_non_json_response():
                 state="CO",
                 zip_code="80202",
             )
+
+
+# ---------------------------------------------------------------------------
+# _get_oauth_token — missing credentials and network errors
+# ---------------------------------------------------------------------------
+
+
+@override_settings(USPS_CLIENT_ID="", USPS_CLIENT_SECRET="")
+def test_get_oauth_token_raises_when_credentials_missing():
+    with pytest.raises(USPSVerificationError, match="not configured"):
+        _get_oauth_token()
+
+
+@override_settings(USPS_CLIENT_ID="id", USPS_CLIENT_SECRET="secret")
+def test_get_oauth_token_raises_on_network_error():
+    import requests as _requests
+    with patch(
+        "apps.accounts.services.usps.requests.post",
+        side_effect=_requests.ConnectionError("no network"),
+    ):
+        with pytest.raises(USPSVerificationError, match="Unable to authenticate"):
+            _get_oauth_token()
+
+
+@override_settings(USPS_CLIENT_ID="id", USPS_CLIENT_SECRET="secret")
+def test_get_oauth_token_raises_when_access_token_absent():
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"expires_in": 3600}  # missing access_token
+
+    with patch("apps.accounts.services.usps.requests.post", return_value=response):
+        with pytest.raises(USPSVerificationError, match="access token"):
+            _get_oauth_token()
+
+
+# ---------------------------------------------------------------------------
+# verify_address_with_usps — error response paths
+# ---------------------------------------------------------------------------
+
+
+def test_verify_address_raises_on_connection_error():
+    import requests as _requests
+    with patch(
+        "apps.accounts.services.usps._get_oauth_token", return_value="tok"
+    ), patch(
+        "apps.accounts.services.usps.requests.get",
+        side_effect=_requests.ConnectionError("offline"),
+    ):
+        with pytest.raises(USPSVerificationError, match="Unable to reach"):
+            verify_address_with_usps(
+                address_line_1="123 Main St",
+                address_line_2="",
+                city="Denver",
+                state="CO",
+                zip_code="80202",
+            )
+
+
+def test_verify_address_raises_on_400_with_detail_message():
+    bad_resp = MagicMock()
+    bad_resp.status_code = 400
+    bad_resp.json.return_value = {"errors": [{"detail": "Address not found"}]}
+
+    with patch(
+        "apps.accounts.services.usps._get_oauth_token", return_value="tok"
+    ), patch("apps.accounts.services.usps.requests.get", return_value=bad_resp):
+        with pytest.raises(USPSVerificationError, match="Address not found"):
+            verify_address_with_usps(
+                address_line_1="1 Nowhere Ln",
+                address_line_2="",
+                city="Nowhere",
+                state="CO",
+                zip_code="00000",
+            )
+
+
+def test_verify_address_raises_on_503():
+    err_resp = MagicMock()
+    err_resp.status_code = 503
+
+    with patch(
+        "apps.accounts.services.usps._get_oauth_token", return_value="tok"
+    ), patch("apps.accounts.services.usps.requests.get", return_value=err_resp):
+        with pytest.raises(USPSVerificationError, match="service error"):
+            verify_address_with_usps(
+                address_line_1="123 Main St",
+                address_line_2="",
+                city="Denver",
+                state="CO",
+                zip_code="80202",
+            )
+
+
+def test_verify_address_raises_when_street_missing_from_response():
+    ok = MagicMock()
+    ok.status_code = 200
+    ok.json.return_value = {
+        "address": {
+            # streetAddress / streetAddressAbbreviation intentionally omitted
+            "cityAbbreviation": "DENVER",
+            "state": "CO",
+            "ZIPCode": "80202",
+        }
+    }
+
+    with patch(
+        "apps.accounts.services.usps._get_oauth_token", return_value="tok"
+    ), patch("apps.accounts.services.usps.requests.get", return_value=ok):
+        with pytest.raises(USPSVerificationError, match="could not verify"):
+            verify_address_with_usps(
+                address_line_1="123 Main St",
+                address_line_2="",
+                city="Denver",
+                state="CO",
+                zip_code="80202",
+            )
