@@ -104,9 +104,10 @@ export default function Donations() {
           <div className={styles.donationList}>
             {items.map((donation) => {
               const statusConfig = STATUS_CONFIG[donation.status] ?? { label: donation.status, cls: 'badge-gray' };
-              const book = donation.book?.book ?? donation.book;
+              const userBook = donation.user_book ?? donation.book;
+              const book = userBook?.book ?? userBook;
               const donor = donation.donor ?? donation.from_user;
-              const recipient = donation.recipient ?? donation.institution ?? donation.to_user;
+              const recipient = donation.institution ?? donation.recipient ?? donation.to_user;
               const isPending = donation.status === 'offered';
               const isRecipient = donation.is_recipient ?? false;
 
@@ -130,7 +131,7 @@ export default function Donations() {
                         <div>
                           <p className={styles.bookTitle}>{book.title}</p>
                           {getBookPrimaryAuthor(book) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(book)}</p>}
-                          {donation.book?.condition && (
+                          {userBook?.condition && (
                             <ConditionBadge condition={donation.book.condition} />
                           )}
                         </div>
