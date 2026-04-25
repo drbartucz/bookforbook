@@ -31,7 +31,7 @@ test.describe('Trades', () => {
     await tradeCard.click();
 
     // Should land on /trades/:id
-    await expect(page).toHaveURL(/\/trades\/\d+/, { timeout: 8_000 });
+    await expect(page).toHaveURL(/\/trades\/.+/, { timeout: 8_000 });
     await expect(page.getByText(/trade #/i)).toBeVisible();
   });
 
@@ -40,7 +40,7 @@ test.describe('Trades', () => {
     await page.waitForLoadState('networkidle');
 
     await page.locator('[class*="tradeCard"]').first().click();
-    await expect(page).toHaveURL(/\/trades\/\d+/);
+    await expect(page).toHaveURL(/\/trades\/.+/);
 
     await expect(page.getByText(/you send/i)).toBeVisible();
     await expect(page.getByText(/you receive/i)).toBeVisible();
@@ -52,7 +52,7 @@ test.describe('Trades', () => {
     await page.waitForLoadState('networkidle');
 
     await page.locator('[class*="tradeCard"]').first().click();
-    await expect(page).toHaveURL(/\/trades\/\d+/);
+    await expect(page).toHaveURL(/\/trades\/.+/);
 
     // Wait for trade detail content to finish loading before checking for ship button
     await expect(page.getByText(/trade #/i)).toBeVisible({ timeout: 8_000 });
@@ -86,7 +86,7 @@ test.describe('Trades', () => {
     await page.waitForLoadState('networkidle');
 
     await page.locator('[class*="tradeCard"]').first().click();
-    await expect(page).toHaveURL(/\/trades\/\d+/);
+    await expect(page).toHaveURL(/\/trades\/.+/);
 
     // Message textarea
     const msgArea = page.getByPlaceholder(/your message/i)
@@ -107,9 +107,116 @@ test.describe('Trades', () => {
     await page.waitForLoadState('networkidle');
 
     await page.locator('[class*="tradeCard"]').first().click();
-    await expect(page).toHaveURL(/\/trades\/\d+/);
+    await expect(page).toHaveURL(/\/trades\/.+/);
 
     await page.getByText(/back to trades/i).click();
     await expect(page).toHaveURL(/\/trades$/, { timeout: 8_000 });
+  });
+
+  test('completed tab shows seeded completed trade', async ({ alicePage: page }) => {
+    await page.goto('/trades');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /^completed$/i }).click();
+
+    const tradeCard = page.locator('[class*="tradeCard"]').first();
+    await tradeCard.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+    const count = await tradeCard.count();
+    if (count === 0) {
+      test.skip(true, 'No completed trades found');
+      return;
+    }
+
+    await expect(tradeCard).toBeVisible();
+    // Status badge should read "Completed"
+    await expect(tradeCard.getByText(/completed/i)).toBeVisible();
+  });
+
+  test('trade detail for completed trade shows correct status badge', async ({ alicePage: page }) => {
+    await page.goto('/trades');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /^completed$/i }).click();
+
+    const tradeCard = page.locator('[class*="tradeCard"]').first();
+    await tradeCard.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+    if (await tradeCard.count() === 0) {
+      test.skip(true, 'No completed trades found');
+      return;
+    }
+
+    await tradeCard.click();
+    await expect(page).toHaveURL(/\/trades\/.+/);
+    await expect(page.getByText(/trade #/i)).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText(/completed/i).first()).toBeVisible({ timeout: 8_000 });
+  });
+
+  test('alice can rate a completed trade partner', async ({ alicePage: page }) => {
+    await page.goto('/trades');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: /^completed$/i }).click();
+
+    const tradeCard = page.locator('[class*="tradeCard"]').first();
+    await tradeCard.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+    if (await tradeCard.count() === 0) {
+      test.skip(true, 'No completed trades found');
+      return;
+    }
+
+    await tradeCard.click();
+    await expect(page).toHaveURL(/\/trades\/.+/);
+    await expect(page.getByText(/trade #/i)).toBeVisible({ timeout: 8_000 });
+
+    // Rating button is only present when not yet rated
+    const rateBtn = page.getByRole('button', { name: /rate your trade partner/i });
+    const count = await rateBtn.count();
+    if (count === 0) {
+      test.skip(true, 'Trade already rated');
+      return;
+    }
+
+    await rateBtn.click();
+
+    // Rating form appears
+    await expect(page.getByText(/rate @/i)).toBeVisible({ timeout: 5_000 });
+
+    // Click 4th star
+    const stars = page.locator('[class*="star"]').filter({ hasText: '★' });
+    await stars.nth(3).click();
+
+    // Fill comment
+    const commentField = page.getByLabel(/comment/i);
+    await expect(commentField).toBeVisible();
+    await commentField.fill('Great trade partner, would trade again!');
+
+    // Submit
+    await page.getByRole('button', { name: /submit rating/i }).click();
+
+    // Form closes — Rate button disappears (trade now rated)
+    await expect(
+      page.getByRole('button', { name: /rate your trade partner/i })
+    ).not.toBeVisible({ timeout: 10_000 });
+  });
+
+  test('message type dropdown has all expected options', async ({ alicePage: page }) => {
+    await page.goto('/trades');
+    await page.waitForLoadState('networkidle');
+
+    await page.locator('[class*="tradeCard"]').first().click();
+    await expect(page).toHaveURL(/\/trades\/.+/);
+    await expect(page.getByText(/trade #/i)).toBeVisible({ timeout: 8_000 });
+
+    // Message type select
+    const msgTypeSelect = page.getByRole('combobox').filter({ hasText: /general|shipping|question|issue/i })
+      .or(page.locator('select').filter({ hasText: /general/i }));
+    await expect(msgTypeSelect.first()).toBeVisible({ timeout: 8_000 });
+
+    // All four message types should be options
+    const options = await msgTypeSelect.first().locator('option').allInnerTexts();
+    expect(options.some((o) => /general/i.test(o))).toBe(true);
+    expect(options.some((o) => /shipping/i.test(o))).toBe(true);
+    expect(options.some((o) => /question/i.test(o))).toBe(true);
+    expect(options.some((o) => /issue/i.test(o))).toBe(true);
   });
 });

@@ -350,11 +350,27 @@ class InstitutionListView(generics.ListAPIView):
     serializer_class = UserPublicProfileSerializer
 
     def get_queryset(self):
-        return User.objects.filter(
+        from django.db.models import Q
+
+        qs = User.objects.filter(
             account_type__in=[User.AccountType.LIBRARY, User.AccountType.BOOKSTORE],
             is_verified=True,
             is_active=True,
         ).order_by("institution_name")
+
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            qs = qs.filter(
+                Q(institution_name__icontains=search)
+                | Q(username__icontains=search)
+                | Q(full_name__icontains=search)
+            )
+
+        institution_type = self.request.query_params.get("institution_type", "").strip()
+        if institution_type:
+            qs = qs.filter(account_type=institution_type)
+
+        return qs
 
 
 class InstitutionDetailView(generics.RetrieveAPIView):
