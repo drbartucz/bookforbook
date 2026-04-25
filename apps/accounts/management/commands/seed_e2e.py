@@ -171,6 +171,7 @@ class Command(BaseCommand):
         self._seed_matches(users, books, inventory)
         self._seed_proposals(users, books, inventory)
         self._seed_trade(users, books)
+        self._seed_completed_trade(users, books, inventory)
         self._seed_donations(users, books, inventory)
 
         self.stdout.write(self.style.SUCCESS("E2E seed complete."))
@@ -489,6 +490,52 @@ class Command(BaseCommand):
             self.stdout.write(f"  Trade created (id={trade.id}).")
         else:
             self.stdout.write("  Trade exists — skipped.")
+
+    def _seed_completed_trade(self, users, books, inventory):
+        """
+        Pre-staged COMPLETED trade so rating-flow tests have a rateable trade.
+        Uses Hemingway (alice) ↔ Gatsby (bob) — different books from the CONFIRMED trade.
+        """
+        alice = users["alice"]
+        bob = users["bob"]
+        alice_ub = inventory["alice_hemingway"]
+        bob_ub = inventory["bob_gatsby"]
+
+        source_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"e2e-completed-trade-{alice.pk}-{bob.pk}")
+
+        trade, was_created = Trade.objects.get_or_create(
+            source_type=Trade.SourceType.PROPOSAL,
+            source_id=source_id,
+            defaults={"status": Trade.Status.COMPLETED},
+        )
+
+        if was_created:
+            now = timezone.now()
+            TradeShipment.objects.get_or_create(
+                trade=trade,
+                sender=alice,
+                receiver=bob,
+                user_book=alice_ub,
+                defaults={
+                    "status": TradeShipment.Status.RECEIVED,
+                    "shipped_at": now - timedelta(days=10),
+                    "received_at": now - timedelta(days=3),
+                },
+            )
+            TradeShipment.objects.get_or_create(
+                trade=trade,
+                sender=bob,
+                receiver=alice,
+                user_book=bob_ub,
+                defaults={
+                    "status": TradeShipment.Status.RECEIVED,
+                    "shipped_at": now - timedelta(days=10),
+                    "received_at": now - timedelta(days=3),
+                },
+            )
+            self.stdout.write(f"  Completed trade created (id={trade.id}).")
+        else:
+            self.stdout.write("  Completed trade exists — skipped.")
 
     # ── Donations ─────────────────────────────────────────────────────────────
 

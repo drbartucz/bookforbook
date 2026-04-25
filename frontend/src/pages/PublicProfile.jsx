@@ -269,10 +269,10 @@ export default function PublicProfile() {
               <p className={styles.statLabel}>Avg Rating</p>
             </div>
           )}
-          {profile.member_since && (
+          {profile.created_at && (
             <div className={styles.stat}>
               <p className={styles.statValue}>
-                {format(new Date(profile.member_since), 'MMM yyyy')}
+                {format(new Date(profile.created_at), 'MMM yyyy')}
               </p>
               <p className={styles.statLabel}>Member since</p>
             </div>
