@@ -54,6 +54,9 @@ test.describe('Trades', () => {
     await page.locator('[class*="tradeCard"]').first().click();
     await expect(page).toHaveURL(/\/trades\/\d+/);
 
+    // Wait for trade detail content to finish loading before checking for ship button
+    await expect(page.getByText(/trade #/i)).toBeVisible({ timeout: 8_000 });
+
     // "Mark My Book as Shipped" button should be present for CONFIRMED trade
     const shipBtn = page.getByRole('button', { name: /mark my book as shipped/i });
     const count = await shipBtn.count();
@@ -74,7 +77,7 @@ test.describe('Trades', () => {
 
     // Status badge should update
     await expect(
-      page.getByText(/shipping|books in transit/i)
+      page.locator('.badge').filter({ hasText: /shipping|books in transit/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 

@@ -54,7 +54,10 @@ test.describe('Donations', () => {
 
     // Go to Received tab
     await page.getByRole('button', { name: /received/i }).click();
-    await page.waitForLoadState('networkidle');
+
+    // Wait for cards to render (networkidle can fire before React re-renders with new query result)
+    const donationCard = page.locator('[class*="donationCard"]').first();
+    await donationCard.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
 
     const acceptBtn = page.getByRole('button', { name: /accept donation/i }).first();
     const count = await acceptBtn.count();
@@ -76,7 +79,10 @@ test.describe('Donations', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: /received/i }).click();
-    await page.waitForLoadState('networkidle');
+
+    // Wait for cards to render before counting buttons
+    const donationCard = page.locator('[class*="donationCard"]').first();
+    await donationCard.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
 
     const declineBtn = page.getByRole('button', { name: /^decline$/i }).first();
     const count = await declineBtn.count();
