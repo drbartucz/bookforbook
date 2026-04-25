@@ -114,7 +114,7 @@ test.describe('Home / Browse', () => {
     const wlData = await wlCheck.json();
     const wlItems = wlData?.results ?? (Array.isArray(wlData) ? wlData : []);
     const alreadyHasIt = wlItems.some((i) =>
-      (i.book?.isbn_13 ?? i.isbn_13) === '9780141439518'
+      (i.book?.isbn_13 ?? i.isbn_13) === '9780451524935'
     );
     if (alreadyHasIt) {
       test.skip(true, 'carol already has Nineteen Eighty-Four in wishlist — re-run with --reset');
