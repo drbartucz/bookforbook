@@ -22,7 +22,7 @@ test.describe('Notifications', () => {
 
     // Dropdown appears
     await expect(
-      page.getByText(/mark all read/i).or(page.getByText(/no notifications yet/i))
+      page.getByText(/mark all read/i).or(page.getByText(/no notifications yet/i)).first()
     ).toBeVisible({ timeout: 8_000 });
   });
 
@@ -50,11 +50,11 @@ test.describe('Notifications', () => {
     // Open
     await page.getByRole('button', { name: /notifications/i }).click();
     await expect(
-      page.getByText(/mark all read/i).or(page.getByText(/no notifications yet/i))
+      page.getByText(/mark all read/i).or(page.getByText(/no notifications yet/i)).first()
     ).toBeVisible({ timeout: 8_000 });
 
-    // Click somewhere else to close
-    await page.getByText('BookForBook').click();
+    // Close by pressing Escape (clicking elsewhere is blocked by the backdrop overlay)
+    await page.keyboard.press('Escape');
 
     // Dropdown should be gone
     await expect(page.getByText(/mark all read/i)).toBeHidden({ timeout: 5_000 });

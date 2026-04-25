@@ -57,8 +57,8 @@ export default function Donations() {
     onError: (err) => setActionError(err?.response?.data?.detail || 'Failed to decline.'),
   });
 
-  const items = data?.results ?? [];
-  const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE);
+  const items = Array.isArray(data) ? data : (data?.results ?? []);
+  const totalPages = Math.ceil((Array.isArray(data) ? data.length : (data?.count ?? 0)) / PAGE_SIZE);
 
   return (
     <div>
