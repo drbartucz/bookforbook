@@ -144,6 +144,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     inactivity_warned_2m = models.DateTimeField(null=True, blank=True)
     books_delisted_at = models.DateTimeField(null=True, blank=True)
 
+    # Account deletion lifecycle
+    deletion_requested_at = models.DateTimeField(null=True, blank=True)
+    deletion_scheduled_for = models.DateTimeField(null=True, blank=True)
+    deletion_completed_at = models.DateTimeField(null=True, blank=True)
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

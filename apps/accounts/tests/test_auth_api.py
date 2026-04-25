@@ -4,6 +4,7 @@ register, verify-email, login, logout, password-reset
 """
 
 import uuid
+from unittest.mock import patch
 
 import pytest
 from django.contrib.auth.tokens import default_token_generator
@@ -219,6 +220,56 @@ class TestUserMeView:
         assert resp.status_code == status.HTTP_200_OK
         for field in ("address_line_1", "full_name", "zip_code"):
             assert field not in resp.data
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_initiates_scheduled_deletion(
+        self, mock_async_task, auth_api_client, verified_user
+    ):
+        resp = auth_api_client.delete(
+            self.url,
+            {"password": "testpass123"},
+            format="json",
+        )
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert "Account deletion initiated" in resp.data["detail"]
+
+        verified_user.refresh_from_db()
+        assert verified_user.is_active is False
+        assert verified_user.deletion_requested_at is not None
+        assert verified_user.deletion_scheduled_for is not None
+        assert (
+            verified_user.deletion_scheduled_for > verified_user.deletion_requested_at
+        )
+
+        mock_async_task.assert_called_once_with(
+            "apps.notifications.tasks.send_account_deletion_initiated",
+            str(verified_user.pk),
+        )
+
+    def test_delete_me_requires_password(self, auth_api_client):
+        resp = auth_api_client.delete(self.url, {}, format="json")
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    @patch("django_q.tasks.async_task")
+    def test_delete_me_is_idempotent_after_first_request(
+        self, mock_async_task, auth_api_client
+    ):
+        first = auth_api_client.delete(
+            self.url,
+            {"password": "testpass123"},
+            format="json",
+        )
+        second = auth_api_client.delete(
+            self.url,
+            {"password": "testpass123"},
+            format="json",
+        )
+
+        assert first.status_code == status.HTTP_200_OK
+        assert second.status_code == status.HTTP_200_OK
+        assert "already been initiated" in second.data["detail"]
+        assert mock_async_task.call_count == 1
 
 
 @pytest.mark.django_db

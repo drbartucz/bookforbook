@@ -13,7 +13,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { execFileSync } from 'child_process';
 import { existsSync } from 'fs';
-import { ALICE, BOB, CAROL, LIBRARY } from './constants.js';
+import { ALICE, BOB, CAROL, DAVE, LIBRARY } from './constants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,6 +23,7 @@ export const STORAGE_STATE = {
   alice: path.join(AUTH_DIR, 'alice.json'),
   bob: path.join(AUTH_DIR, 'bob.json'),
   carol: path.join(AUTH_DIR, 'carol.json'),
+  dave: path.join(AUTH_DIR, 'dave.json'),
   library: path.join(AUTH_DIR, 'library.json'),
 };
 
@@ -97,6 +98,7 @@ setup('authenticate all e2e users', async ({ page, baseURL }) => {
     { user: ALICE, file: STORAGE_STATE.alice },
     { user: BOB, file: STORAGE_STATE.bob },
     { user: CAROL, file: STORAGE_STATE.carol },
+    { user: DAVE, file: STORAGE_STATE.dave },
     { user: LIBRARY, file: STORAGE_STATE.library },
   ];
 

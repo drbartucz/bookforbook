@@ -3,6 +3,7 @@ Tasks for notifications — email + in-app.
 """
 
 import logging
+from datetime import timedelta
 
 from django.utils import timezone
 
@@ -141,13 +142,78 @@ def send_books_delisted_notification(user_id: str):
 
 
 def send_account_deletion_initiated(user_id: str):
-    """Send account deletion confirmation email with data export."""
+    """Send account deletion confirmation email and GDPR export."""
     from apps.accounts.models import User
+    from apps.accounts.views import _build_user_export
+    from apps.notifications.email import (
+        send_account_deletion_email,
+        send_account_deletion_export_email,
+    )
 
     user = User.objects.get(pk=user_id)
-    from apps.notifications.email import send_account_deletion_email
+    export_data = _build_user_export(user)
 
     send_account_deletion_email(user)
+    send_account_deletion_export_email(user, export_data)
+
+
+def finalize_scheduled_account_deletions(grace_days: int = 30):
+    """Finalize pending deletions by anonymizing personal data after grace period."""
+    from apps.accounts.models import User
+    from apps.inventory.models import UserBook, WishlistItem
+
+    users = User.objects.filter(
+        is_active=False,
+        deletion_requested_at__isnull=False,
+        deletion_requested_at__lte=timezone.now() - timedelta(days=grace_days),
+        deletion_completed_at__isnull=True,
+    )
+
+    for user in users:
+        user.set_unusable_password()
+        user.email = f"deleted-{user.pk}@deleted.local"
+        user.username = f"deleted-{str(user.pk).replace('-', '')[:12]}"
+        user.email_verified = False
+        user.email_verified_at = None
+
+        # Remove personally identifiable profile/address data.
+        user.full_name = ""
+        user.address_line_1 = ""
+        user.address_line_2 = ""
+        user.city = ""
+        user.state = ""
+        user.zip_code = ""
+        user.institution_name = ""
+        user.institution_url = ""
+        user.address_verification_status = User.AddressVerificationStatus.UNVERIFIED
+        user.address_verified_at = None
+
+        # Remove active listing/wishlist data tied to the deleted account.
+        UserBook.objects.filter(user=user).delete()
+        WishlistItem.objects.filter(user=user).delete()
+
+        user.deletion_completed_at = timezone.now()
+        user.save(
+            update_fields=[
+                "password",
+                "email",
+                "username",
+                "email_verified",
+                "email_verified_at",
+                "full_name",
+                "address_line_1",
+                "address_line_2",
+                "city",
+                "state",
+                "zip_code",
+                "institution_name",
+                "institution_url",
+                "address_verification_status",
+                "address_verified_at",
+                "deletion_completed_at",
+                "updated_at",
+            ]
+        )
 
 
 def check_inactivity():

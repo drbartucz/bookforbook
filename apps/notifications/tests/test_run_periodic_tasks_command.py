@@ -12,6 +12,8 @@ class TestRunPeriodicTasksCommand:
         ) as mock_expire, patch(
             "apps.notifications.tasks.check_inactivity"
         ) as mock_inactivity, patch(
+            "apps.notifications.tasks.finalize_scheduled_account_deletions"
+        ) as mock_deletions, patch(
             "apps.trading.tasks.send_rating_reminders"
         ) as mock_rating, patch(
             "apps.trading.tasks.auto_close_trades"
@@ -21,6 +23,7 @@ class TestRunPeriodicTasksCommand:
         mock_matching.assert_called_once_with()
         mock_expire.assert_not_called()
         mock_inactivity.assert_not_called()
+        mock_deletions.assert_not_called()
         mock_rating.assert_not_called()
         mock_auto_close.assert_not_called()
 
@@ -30,6 +33,8 @@ class TestRunPeriodicTasksCommand:
         ) as mock_expire, patch(
             "apps.notifications.tasks.check_inactivity"
         ) as mock_inactivity, patch(
+            "apps.notifications.tasks.finalize_scheduled_account_deletions"
+        ) as mock_deletions, patch(
             "apps.trading.tasks.send_rating_reminders"
         ) as mock_rating, patch(
             "apps.trading.tasks.auto_close_trades"
@@ -39,5 +44,6 @@ class TestRunPeriodicTasksCommand:
         mock_matching.assert_called_once_with()
         mock_expire.assert_called_once_with()
         mock_inactivity.assert_called_once_with()
+        mock_deletions.assert_called_once_with()
         mock_rating.assert_called_once_with()
         mock_auto_close.assert_called_once_with()

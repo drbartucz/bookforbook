@@ -307,6 +307,49 @@ class TestSendBooksDelistedNotificationTask:
         assert len(mail.outbox) == 1
 
 
+@pytest.mark.django_db
+class TestAccountDeletionTasks:
+    def test_send_account_deletion_initiated_sends_confirmation_and_export(
+        self, settings
+    ):
+        settings.FRONTEND_URL = "https://app.bookforbook.com"
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+
+        user = UserFactory(email="gdpr@example.com")
+        UserBookFactory(user=user)
+
+        from apps.notifications.tasks import send_account_deletion_initiated
+
+        send_account_deletion_initiated(str(user.pk))
+
+        assert len(mail.outbox) == 2
+        assert "deletion" in mail.outbox[0].subject.lower()
+        assert "export" in mail.outbox[1].subject.lower()
+        assert any(
+            (getattr(att, "filename", att[0]) == "bookforbook-data-export.json")
+            for att in mail.outbox[1].attachments
+        )
+
+    def test_finalize_scheduled_account_deletions_anonymizes_profile(self):
+        user = UserFactory(
+            is_active=False,
+            deletion_requested_at=timezone.now() - timedelta(days=31),
+        )
+        UserBookFactory(user=user)
+
+        from apps.notifications.tasks import finalize_scheduled_account_deletions
+
+        finalize_scheduled_account_deletions()
+
+        user.refresh_from_db()
+        assert user.deletion_completed_at is not None
+        assert user.email.endswith("@deleted.local")
+        assert user.username.startswith("deleted-")
+        assert user.full_name == ""
+        assert user.address_line_1 == ""
+        assert UserBook.objects.filter(user=user).count() == 0
+
+
 # ---------------------------------------------------------------------------
 # check_inactivity task
 # ---------------------------------------------------------------------------
