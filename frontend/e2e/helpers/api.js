@@ -155,6 +155,18 @@ export async function apiMarkReceived(request, accessToken, tradeId) {
   return res.json();
 }
 
+// ── Account deletion ──────────────────────────────────────────────────────────
+
+export async function apiDeleteAccount(request, accessToken, password) {
+  const res = await request.delete(`${API}/users/me/`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    data: { password },
+  });
+  // 200 OK on both first deletion and idempotent repeat.
+  if (!res.ok()) throw new Error(`deleteAccount failed (${res.status()}): ${await res.text()}`);
+  return res.json();
+}
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 
 export async function apiGetNotificationCounts(request, accessToken) {
@@ -170,4 +182,13 @@ export async function apiMarkAllNotificationsRead(request, accessToken) {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`markAllRead failed: ${await res.text()}`);
+}
+
+export async function apiGetNotifications(request, accessToken, params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await request.get(`${API}/notifications/${qs ? `?${qs}` : ''}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok()) throw new Error(`getNotifications failed: ${await res.text()}`);
+  return res.json(); // { count, page, page_size, results: [...] }
 }

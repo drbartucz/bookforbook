@@ -58,7 +58,13 @@ export const test = base.extend({
     await use(page);
     await ctx.close();
   },
-
+  // ── Dave: deletion-test user (address-verified; deleted during the suite run) ───────────
+  davePage: async ({ browser }, use) => {
+    const ctx = await browser.newContext({ storageState: STORAGE_STATE.dave });
+    const page = await ctx.newPage();
+    await use(page);
+    await ctx.close();
+  },
   // ── Guest: unauthenticated context ───────────────────────────────────────
   guestPage: async ({ browser }, use) => {
     const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });

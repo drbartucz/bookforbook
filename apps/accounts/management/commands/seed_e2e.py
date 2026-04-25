@@ -80,6 +80,19 @@ USERS = {
         state="IL",
         zip_code="60601",
     ),
+    # dave exists solely for account-deletion E2E tests; deleted during the suite run.
+    "dave": dict(
+        email="dave@e2e.test",
+        username="dave_e2e",
+        account_type=User.AccountType.INDIVIDUAL,
+        email_verified=True,
+        address_verified=True,
+        full_name="Dave Tester",
+        address_line_1="300 N Oak St",
+        city="Austin",
+        state="TX",
+        zip_code="78701",
+    ),
 }
 
 # ── Book catalogue ────────────────────────────────────────────────────────────
@@ -272,36 +285,69 @@ class Command(BaseCommand):
           alice wants: Gatsby (for match)
           bob   has: Gatsby (match 1), Dickens (proposal 1), Tolstoy (match 2)
           bob   wants: Orwell (for match)
-          carol has: Chekhov (match 2 + proposal 2), London (match 3 + proposal 3)
+          carol has: Chekhov (match 2 + proposal 2), London (match 3 + proposal 3 + match 4)
           carol wants: Twain (wishlist UI only)
+          dave  has: Twain (match 4) — deletion-test user
+          dave  wants: London (for match 4)
         """
         inventory = {}
 
         inventory["alice_orwell"] = self._get_or_create_user_book(
-            users["alice"], books["orwell"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
+            users["alice"],
+            books["orwell"],
+            ConditionChoices.GOOD,
+            UserBook.Status.AVAILABLE,
         )
         inventory["alice_hemingway"] = self._get_or_create_user_book(
-            users["alice"], books["hemingway"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
+            users["alice"],
+            books["hemingway"],
+            ConditionChoices.GOOD,
+            UserBook.Status.AVAILABLE,
         )
         inventory["alice_austen"] = self._get_or_create_user_book(
-            users["alice"], books["austen"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
+            users["alice"],
+            books["austen"],
+            ConditionChoices.GOOD,
+            UserBook.Status.AVAILABLE,
         )
 
         inventory["bob_gatsby"] = self._get_or_create_user_book(
-            users["bob"], books["gatsby"], ConditionChoices.VERY_GOOD, UserBook.Status.AVAILABLE,
+            users["bob"],
+            books["gatsby"],
+            ConditionChoices.VERY_GOOD,
+            UserBook.Status.AVAILABLE,
         )
         inventory["bob_dickens"] = self._get_or_create_user_book(
-            users["bob"], books["dickens"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
+            users["bob"],
+            books["dickens"],
+            ConditionChoices.GOOD,
+            UserBook.Status.AVAILABLE,
         )
         inventory["bob_tolstoy"] = self._get_or_create_user_book(
-            users["bob"], books["tolstoy"], ConditionChoices.VERY_GOOD, UserBook.Status.AVAILABLE,
+            users["bob"],
+            books["tolstoy"],
+            ConditionChoices.VERY_GOOD,
+            UserBook.Status.AVAILABLE,
         )
 
         inventory["carol_chekhov"] = self._get_or_create_user_book(
-            users["carol"], books["chekhov"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
+            users["carol"],
+            books["chekhov"],
+            ConditionChoices.GOOD,
+            UserBook.Status.AVAILABLE,
         )
         inventory["carol_london"] = self._get_or_create_user_book(
-            users["carol"], books["london"], ConditionChoices.GOOD, UserBook.Status.AVAILABLE,
+            users["carol"],
+            books["london"],
+            ConditionChoices.GOOD,
+            UserBook.Status.AVAILABLE,
+        )
+
+        inventory["dave_twain"] = self._get_or_create_user_book(
+            users["dave"],
+            books["twain"],
+            ConditionChoices.GOOD,
+            UserBook.Status.AVAILABLE,
         )
 
         # Wishlist items
@@ -318,6 +364,11 @@ class Command(BaseCommand):
         WishlistItem.objects.get_or_create(
             user=users["carol"],
             book=books["twain"],
+            defaults={"min_condition": ConditionChoices.ACCEPTABLE, "is_active": True},
+        )
+        WishlistItem.objects.get_or_create(
+            user=users["dave"],
+            book=books["london"],
             defaults={"min_condition": ConditionChoices.ACCEPTABLE, "is_active": True},
         )
 
@@ -342,19 +393,32 @@ class Command(BaseCommand):
           Match 3: alice(Hemingway) ↔ carol(London) — carol tries to accept (address error)
         """
         self._seed_one_match(
-            sender_a=users["alice"], ub_a=inventory["alice_orwell"],
-            sender_b=users["bob"],   ub_b=inventory["bob_gatsby"],
+            sender_a=users["alice"],
+            ub_a=inventory["alice_orwell"],
+            sender_b=users["bob"],
+            ub_b=inventory["bob_gatsby"],
             label="Match 1 (alice↔bob)",
         )
         self._seed_one_match(
-            sender_a=users["bob"],   ub_a=inventory["bob_tolstoy"],
-            sender_b=users["carol"], ub_b=inventory["carol_chekhov"],
+            sender_a=users["bob"],
+            ub_a=inventory["bob_tolstoy"],
+            sender_b=users["carol"],
+            ub_b=inventory["carol_chekhov"],
             label="Match 2 (bob↔carol)",
         )
         self._seed_one_match(
-            sender_a=users["alice"], ub_a=inventory["alice_hemingway"],
-            sender_b=users["carol"], ub_b=inventory["carol_london"],
+            sender_a=users["alice"],
+            ub_a=inventory["alice_hemingway"],
+            sender_b=users["carol"],
+            ub_b=inventory["carol_london"],
             label="Match 3 (alice↔carol)",
+        )
+        self._seed_one_match(
+            sender_a=users["dave"],
+            ub_a=inventory["dave_twain"],
+            sender_b=users["carol"],
+            ub_b=inventory["carol_london"],
+            label="Match 4 (dave↔carol) — deletion-test match",
         )
 
     def _seed_one_match(self, sender_a, ub_a, sender_b, ub_b, label):
@@ -391,32 +455,37 @@ class Command(BaseCommand):
         unique key, allowing two pending carol→alice proposals to coexist.
         """
         alice = users["alice"]
-        bob   = users["bob"]
+        bob = users["bob"]
         carol = users["carol"]
 
         self._seed_one_proposal(
-            proposer=bob, recipient=alice,
+            proposer=bob,
+            recipient=alice,
             proposer_ub=inventory["bob_dickens"],
             recipient_ub=inventory["alice_hemingway"],
             message="Happy to trade!",
             label="Proposal 1 (bob→alice)",
         )
         self._seed_one_proposal(
-            proposer=carol, recipient=alice,
+            proposer=carol,
+            recipient=alice,
             proposer_ub=inventory["carol_chekhov"],
             recipient_ub=inventory["alice_orwell"],
             message="Interested in your Orwell!",
             label="Proposal 2 (carol→alice, chekhov)",
         )
         self._seed_one_proposal(
-            proposer=carol, recipient=alice,
+            proposer=carol,
+            recipient=alice,
             proposer_ub=inventory["carol_london"],
             recipient_ub=inventory["alice_austen"],
             message="Would love to swap!",
             label="Proposal 3 (carol→alice, london)",
         )
 
-    def _seed_one_proposal(self, proposer, recipient, proposer_ub, recipient_ub, message, label):
+    def _seed_one_proposal(
+        self, proposer, recipient, proposer_ub, recipient_ub, message, label
+    ):
         # Idempotency: match on the proposer's specific book to distinguish proposals.
         existing = TradeProposal.objects.filter(
             proposer=proposer,
@@ -501,7 +570,9 @@ class Command(BaseCommand):
         alice_ub = inventory["alice_hemingway"]
         bob_ub = inventory["bob_gatsby"]
 
-        source_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"e2e-completed-trade-{alice.pk}-{bob.pk}")
+        source_id = uuid.uuid5(
+            uuid.NAMESPACE_DNS, f"e2e-completed-trade-{alice.pk}-{bob.pk}"
+        )
 
         trade, was_created = Trade.objects.get_or_create(
             source_type=Trade.SourceType.PROPOSAL,

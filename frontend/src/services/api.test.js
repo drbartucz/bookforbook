@@ -3,6 +3,7 @@ import axios from 'axios';
 
 let apiClient;
 let books;
+let users;
 let useAuthStore;
 let getAuthRefreshState;
 let resetAuthRefreshState;
@@ -27,6 +28,7 @@ async function loadFreshApiModule() {
     __resetAuthRefreshStateForTests: resetAuthRefreshState,
     default: apiClient,
     books,
+    users,
   } = await import('./api'));
 }
 
@@ -203,6 +205,17 @@ describe('api client response interceptor', () => {
 
     expect(postSpy).toHaveBeenCalledWith('/books/lookup/', { isbn: '9780141036144' });
     postSpy.mockRestore();
+  });
+
+  it('deleteAccount sends password in DELETE request body', async () => {
+    const deleteSpy = vi.spyOn(apiClient, 'delete').mockResolvedValueOnce({
+      data: { detail: 'Account deletion initiated.' },
+    });
+
+    await users.deleteAccount({ password: 'secret123' });
+
+    expect(deleteSpy).toHaveBeenCalledWith('/users/me/', { data: { password: 'secret123' } });
+    deleteSpy.mockRestore();
   });
 
   it('fires auth:logout and rejects when refresh call fails', async () => {

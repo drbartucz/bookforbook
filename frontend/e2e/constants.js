@@ -29,6 +29,14 @@ export const CAROL = {
   // Individual user WITHOUT address verification.  Tests gating flows.
 };
 
+export const DAVE = {
+  email: 'dave@e2e.test',
+  password: E2E_PASSWORD,
+  username: 'dave_e2e',
+  // Address-verified individual.  Used ONLY for account-deletion E2E tests.
+  // This user is deleted during the test suite run; other specs must not depend on it.
+};
+
 export const LIBRARY = {
   email: 'library@e2e.test',
   password: E2E_PASSWORD,
