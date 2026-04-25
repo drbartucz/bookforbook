@@ -46,7 +46,7 @@ test.describe('Auth — Extended', () => {
 
     // API always returns success to avoid user enumeration
     await expect(
-      page.getByText(/reset link has been sent|check your inbox/i).first()
+      page.getByText(/if an account exists for that email|reset link has been sent|check your inbox/i).first()
     ).toBeVisible({ timeout: 10_000 });
     // Back to sign in link appears
     await expect(page.getByRole('link', { name: /back to sign in/i })).toBeVisible();
