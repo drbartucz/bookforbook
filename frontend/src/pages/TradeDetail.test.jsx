@@ -791,13 +791,11 @@ describe('TradeDetail page', () => {
         vi.spyOn(window, 'confirm').mockReturnValue(true);
         trades.getDetail.mockResolvedValue({
             data: makeTrade({
-                status: 'confirmed',
+                status: 'shipping',
                 shipments: [
                     { sender: { id: 'user-1', username: 'me' }, receiver: { id: 'user-2', username: 'partner' }, status: 'shipped', tracking_number: '', user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } } },
                     { sender: { id: 'user-2', username: 'partner' }, receiver: { id: 'user-1', username: 'me' }, status: 'shipped', tracking_number: '', user_book: { condition: 'good', book: { id: 'b2', title: 'Their Book', authors: [] } } },
                 ],
-                my_shipped: true,
-                they_shipped: true,
             }),
         });
         trades.getMessages.mockResolvedValue({ data: [] });
