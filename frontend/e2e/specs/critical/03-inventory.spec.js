@@ -76,8 +76,9 @@ test.describe('My Books', () => {
   test('remove book with confirm dialog', async ({ alicePage: page }) => {
     await page.goto('/my-books');
 
-    // Count books before removal
+    // Wait for the list to load before counting — books are fetched asynchronously
     const bookCards = page.locator('[class*="bookItem"]');
+    await expect(bookCards.first()).toBeVisible({ timeout: 8_000 });
     const initialCount = await bookCards.count();
 
     // Auto-accept the window.confirm dialog
@@ -114,17 +115,25 @@ test.describe('Wishlist', () => {
     await page.getByLabel(/isbn/i).fill('9780741234567');
     await page.getByRole('button', { name: /lookup/i }).click();
 
-    // Preview appears
-    await expect(page.getByText(MOCK_BOOK_LOOKUP.title)).toBeVisible({ timeout: 8_000 });
+    // Preview appears — use .first() because the edition-preference dialog also
+    // contains the title, which would cause a strict-mode violation
+    await expect(page.getByText(MOCK_BOOK_LOOKUP.title).first()).toBeVisible({ timeout: 8_000 });
+
+    // Dismiss the edition-preference dialog if it appeared (it blocks the submit button)
+    const doneBtn = page.getByRole('button', { name: /^done$/i });
+    if (await doneBtn.isVisible()) {
+      await doneBtn.click();
+    }
 
     // Submit
-    const submitBtn = page.getByRole('button', { name: /add/i }).last();
+    const submitBtn = page.getByRole('button', { name: /add to wishlist/i });
     await expect(submitBtn).toBeEnabled();
     await submitBtn.click();
 
-    // Either the new item appears or error (already in list) — either state is OK
+    // Either the new item appears in the list or error (already in wishlist) — either state is OK
     await expect(
-      page.getByText(MOCK_BOOK_LOOKUP.title).or(page.locator('.alert-error'))
+      page.locator('[class*="wishlistItem"]').getByText(MOCK_BOOK_LOOKUP.title)
+        .or(page.locator('.alert-error'))
     ).toBeVisible({ timeout: 8_000 });
   });
 

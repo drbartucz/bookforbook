@@ -1,16 +1,18 @@
 /**
  * global-setup.js
  *
- * Runs once before the test suite begins.  Logs in each E2E user via the API
- * and persists the resulting JWT+localStorage state so that individual specs
- * can skip the login UI and start from an already-authenticated context.
+ * Runs once before the test suite begins:
+ *   1. Re-seeds the database (python manage.py seed_e2e)
+ *   2. Logs in each E2E user via the API and persists JWT+localStorage state
+ *      so that individual specs can skip the login UI.
  *
- * Requires the backend to be running AND seed_e2e to have been executed:
- *   python manage.py seed_e2e
+ * Requires the backend to be running at DJANGO_BASE_URL (default localhost:8000).
  */
 import { test as setup } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
+import { existsSync } from 'fs';
 import { ALICE, BOB, CAROL, LIBRARY } from './constants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -73,6 +75,21 @@ async function loginAndSave(page, baseURL, user, stateFile) {
 }
 
 setup('authenticate all e2e users', async ({ page, baseURL }) => {
+  // Re-seed the database so every run starts from a clean, known state.
+  // The command is resolved relative to the repo root (two levels up from e2e/).
+  const repoRoot = path.resolve(__dirname, '..', '..');
+
+  // Prefer the project virtualenv python; fall back to python3 on PATH.
+  const venvPython = path.join(repoRoot, '.venv', 'bin', 'python');
+  const pythonBin = existsSync(venvPython) ? venvPython : 'python3';
+
+  console.log(`[setup] seeding database (${pythonBin})…`);
+  execFileSync(pythonBin, ['manage.py', 'seed_e2e', '--reset'], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+  });
+  console.log('[setup] seed complete');
+
   const { mkdirSync } = await import('fs');
   mkdirSync(AUTH_DIR, { recursive: true });
 

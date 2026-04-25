@@ -83,8 +83,9 @@ export default function Proposals() {
     onError: (err) => setActionError(err?.response?.data?.detail || 'Failed to counter.'),
   });
 
-  const items = (data?.results ?? []).map((proposal) => mapProposalForCard(proposal, user?.id));
-  const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE);
+  const rawItems = Array.isArray(data) ? data : (data?.results ?? []);
+  const items = rawItems.map((proposal) => mapProposalForCard(proposal, user?.id));
+  const totalPages = Math.ceil((Array.isArray(data) ? data.length : (data?.count ?? 0)) / PAGE_SIZE);
 
   return (
     <div>
