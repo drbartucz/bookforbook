@@ -32,8 +32,8 @@ describe('Donations page', () => {
                         created_at: '2026-04-20T12:00:00Z',
                         is_recipient: true,
                         donor: { id: 'user-1', username: 'bart0605' },
-                        recipient: { id: 'inst-1', username: 'central-library' },
-                        book: {
+                        institution: { id: 'inst-1', username: 'central-library' },
+                        user_book: {
                             condition: 'good',
                             book: {
                                 id: 'book-1',
