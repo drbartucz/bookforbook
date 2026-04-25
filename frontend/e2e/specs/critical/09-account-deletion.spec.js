@@ -107,7 +107,8 @@ test.describe('Account deletion — Danger Zone UI', () => {
         // Never fulfill — causes the mutation to stay pending
         // The test assertion must run before Playwright's default timeout
         await new Promise((r) => setTimeout(r, 3_000));
-        await route.abort();
+        // Abort silently — context may already be closing when this fires
+        await route.abort().catch(() => {});
         return;
       }
       await route.continue();
@@ -122,8 +123,11 @@ test.describe('Account deletion — Danger Zone UI', () => {
     await expect(deleteBtn).toBeDisabled();
     await expect(deleteBtn).toHaveText(/deleting account/i);
 
-    // Clean up: unroute so subsequent tests are not affected
-    await page.unroute('**/api/v1/users/me/');
+    // Do NOT call page.unroute() here — unrouting while the intercepted DELETE
+    // request is still pending causes Playwright to auto-continue it, which
+    // sends the request to the backend and deactivates Carol's account.
+    // The carolPage fixture closes this context after the test, which safely
+    // aborts all pending requests without forwarding them.
   });
 });
 
