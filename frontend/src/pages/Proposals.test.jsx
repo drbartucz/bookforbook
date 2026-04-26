@@ -11,7 +11,6 @@ vi.mock('../services/api.js', () => ({
         list: vi.fn(),
         accept: vi.fn(),
         decline: vi.fn(),
-        counter: vi.fn(),
     },
 }));
 
@@ -168,64 +167,6 @@ describe('Proposals page', () => {
         await waitFor(() => expect(proposals.decline).toHaveBeenCalledWith('proposal-2'));
     });
 
-    it('opens and cancels counter form', async () => {
-        proposals.list.mockResolvedValue({
-            data: {
-                count: 1,
-                results: [
-                    {
-                        id: 'proposal-3',
-                        status: 'pending',
-                        proposer: { id: 'user-2', username: 'alice' },
-                        recipient: { id: 'user-1', username: 'bart0605' },
-                        items: [
-                            {
-                                direction: 'proposer_sends',
-                                user_book: { id: 'ub-1', condition: 'good', book: { id: 'book-1', title: 'Neuromancer', authors: ['Gibson'] } },
-                            },
-                            {
-                                direction: 'recipient_sends',
-                                user_book: { id: 'ub-2', condition: 'good', book: { id: 'book-2', title: 'Snow Crash', authors: ['Stephenson'] } },
-                            },
-                        ],
-                    },
-                ],
-            },
-        });
-        renderWithProviders(<Proposals />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Counter' }));
-        expect(screen.getByPlaceholderText(/explain your counter-offer/i)).toBeInTheDocument();
-        await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
-        expect(screen.queryByPlaceholderText(/explain your counter-offer/i)).not.toBeInTheDocument();
-    });
-
-    it('shows error when counter-offer payload cannot be built', async () => {
-        proposals.list.mockResolvedValue({
-            data: {
-                count: 1,
-                results: [
-                    {
-                        id: 'proposal-null',
-                        status: 'pending',
-                        proposer: { id: 'user-2', username: 'alice' },
-                        recipient: { id: 'user-1', username: 'bart0605' },
-                        items: [
-                            { direction: 'proposer_sends', user_book: null },
-                            { direction: 'recipient_sends', user_book: null },
-                        ],
-                    },
-                ],
-            },
-        });
-        renderWithProviders(<Proposals />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Counter' }));
-        await userEvent.type(screen.getByPlaceholderText(/explain your counter-offer/i), 'test note');
-        await userEvent.click(screen.getByRole('button', { name: /send counter/i }));
-        await waitFor(() => {
-            expect(screen.getByText('Unable to build counter-offer payload from this proposal.')).toBeInTheDocument();
-        });
-    });
-
     it('renders proposals from array-format API response', async () => {
         proposals.list.mockResolvedValue({
             data: [  // Array directly, not {results: []}
@@ -286,38 +227,12 @@ describe('Proposals page', () => {
         });
         renderWithProviders(<Proposals />);
         await screen.findByText('My Sent Book');
-        // Click the "Sent" direction tab — direction becomes 'sent', isReceived = false → no action buttons
+        // Click the "Sent" direction tab — direction becomes 'sent', canAct = false → no action buttons
         await userEvent.click(screen.getByRole('button', { name: 'Sent' }));
         await waitFor(() => {
             expect(proposals.list).toHaveBeenCalledWith(expect.objectContaining({ direction: 'sent' }));
         });
-        // Action buttons should not be visible (canAct = false when direction is 'sent')
         expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
-    });
-
-    it('closes counter form by clicking Counter again on the same proposal', async () => {
-        proposals.list.mockResolvedValue({
-            data: {
-                count: 1,
-                results: [{
-                    id: 'proposal-toggle',
-                    status: 'pending',
-                    proposer: { id: 'user-2', username: 'alice' },
-                    recipient: { id: 'user-1', username: 'bart0605' },
-                    items: [
-                        { direction: 'proposer_sends', user_book: { id: 'ub-1', condition: 'good', book: { id: 'b1', title: 'Dune', authors: ['Herbert'] } } },
-                        { direction: 'recipient_sends', user_book: { id: 'ub-2', condition: 'good', book: { id: 'b2', title: 'Dune 2', authors: ['Herbert'] } } },
-                    ],
-                }],
-            },
-        });
-        renderWithProviders(<Proposals />);
-        // Open counter form
-        await userEvent.click(await screen.findByRole('button', { name: 'Counter' }));
-        expect(screen.getByPlaceholderText(/explain your counter-offer/i)).toBeInTheDocument();
-        // Click Counter again to toggle it closed (covers line 228 true branch)
-        await userEvent.click(screen.getByRole('button', { name: 'Counter' }));
-        expect(screen.queryByPlaceholderText(/explain your counter-offer/i)).not.toBeInTheDocument();
     });
 
     it('renders proposal using sender/receiver field names (fallback from proposer/recipient)', async () => {
@@ -326,9 +241,9 @@ describe('Proposals page', () => {
                 count: 1,
                 results: [{
                     id: 'proposal-fallback',
-                    status: 'unknown_custom_status',  // not in STATUS_CONFIG → ?? fallback at line 144
-                    sender: { id: 'user-2', username: 'alice' },  // proposer ?? sender at line 147
-                    receiver: { id: 'user-1', username: 'bart0605' },  // receiver at line 148 (left side)
+                    status: 'unknown_custom_status',
+                    sender: { id: 'user-2', username: 'alice' },
+                    receiver: { id: 'user-1', username: 'bart0605' },
                     items: [
                         { direction: 'proposer_sends', user_book: { id: 'ub-1', condition: 'good', book: { id: 'b1', title: 'Fallback Book A', authors: ['Author A'] } } },
                         { direction: 'recipient_sends', user_book: { id: 'ub-2', condition: 'good', book: { id: 'b2', title: 'Fallback Book B', authors: ['Author B'] } } },
@@ -339,68 +254,10 @@ describe('Proposals page', () => {
         renderWithProviders(<Proposals />);
         expect(await screen.findByText('Fallback Book A')).toBeInTheDocument();
         expect(screen.getByText('@alice')).toBeInTheDocument();
-        // Unknown status falls back to raw status text
         expect(screen.getByText('unknown_custom_status')).toBeInTheDocument();
     });
 
-    it('shows "Sending..." while counter mutation is pending', async () => {
-        proposals.list.mockResolvedValue({
-            data: {
-                count: 1,
-                results: [{
-                    id: 'proposal-pending',
-                    status: 'pending',
-                    proposer: { id: 'user-2', username: 'alice' },
-                    recipient: { id: 'user-1', username: 'bart0605' },
-                    items: [
-                        { direction: 'proposer_sends', user_book: { id: 'ub-1', condition: 'good', book: { id: 'b1', title: 'Counter Book A', authors: ['Author A'] } } },
-                        { direction: 'recipient_sends', user_book: { id: 'ub-2', condition: 'good', book: { id: 'b2', title: 'Counter Book B', authors: ['Author B'] } } },
-                    ],
-                }],
-            },
-        });
-        proposals.counter.mockReturnValue(new Promise(() => {})); // never resolves
-        renderWithProviders(<Proposals />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Counter' }));
-        await userEvent.type(screen.getByPlaceholderText(/explain your counter-offer/i), 'My counter note');
-        await userEvent.click(screen.getByRole('button', { name: /send counter/i }));
-        // counterMutation.isPending → button text changes to 'Sending...' (covers line 264)
-        expect(screen.getByText('Sending...')).toBeInTheDocument();
-    });
-
-    it('submits counter offer', async () => {
-        proposals.list.mockResolvedValue({
-            data: {
-                count: 1,
-                results: [
-                    {
-                        id: 'proposal-4',
-                        status: 'pending',
-                        proposer: { id: 'user-2', username: 'alice' },
-                        recipient: { id: 'user-1', username: 'bart0605' },
-                        items: [
-                            {
-                                direction: 'proposer_sends',
-                                user_book: { id: 'ub-3', condition: 'good', book: { id: 'book-3', title: 'Hyperion', authors: ['Simmons'] } },
-                            },
-                            {
-                                direction: 'recipient_sends',
-                                user_book: { id: 'ub-4', condition: 'good', book: { id: 'book-4', title: 'Endymion', authors: ['Simmons'] } },
-                            },
-                        ],
-                    },
-                ],
-            },
-        });
-        proposals.counter.mockResolvedValue({ data: {} });
-        renderWithProviders(<Proposals />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Counter' }));
-        await userEvent.type(screen.getByPlaceholderText(/explain your counter-offer/i), 'How about these books instead?');
-        await userEvent.click(screen.getByRole('button', { name: /send counter/i }));
-        await waitFor(() => expect(proposals.counter).toHaveBeenCalled());
-    });
-
-    it('shows action error when decline mutation fails (covers declineMutation onError at line 72)', async () => {
+    it('shows action error when decline mutation fails', async () => {
         proposals.list.mockResolvedValue({
             data: {
                 count: 1,
@@ -418,40 +275,14 @@ describe('Proposals page', () => {
         });
         proposals.decline.mockRejectedValue({ response: { data: { detail: 'Cannot decline.' } } });
         renderWithProviders(<Proposals />);
-        // Use exact name 'Decline' to avoid matching the 'Declined' status-filter button
         await userEvent.click(await screen.findByRole('button', { name: 'Decline' }));
         await waitFor(() => expect(screen.getByText('Cannot decline.')).toBeInTheDocument());
     });
 
-    it('shows action error when counter mutation fails (covers counterMutation onError at line 83)', async () => {
-        proposals.list.mockResolvedValue({
-            data: {
-                count: 1,
-                results: [{
-                    id: 'proposal-counter-err',
-                    status: 'pending',
-                    proposer: { id: 'user-2', username: 'alice' },
-                    recipient: { id: 'user-1', username: 'bart0605' },
-                    items: [
-                        { direction: 'proposer_sends', user_book: { id: 'ub-1', condition: 'good', book: { id: 'bk1', title: 'Counter Fail Book', authors: [] } } },
-                        { direction: 'recipient_sends', user_book: { id: 'ub-2', condition: 'good', book: { id: 'bk2', title: 'Their Book', authors: [] } } },
-                    ],
-                }],
-            },
-        });
-        proposals.counter.mockRejectedValue({ response: { data: { detail: 'Counter rejected.' } } });
-        renderWithProviders(<Proposals />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Counter' }));
-        await userEvent.type(screen.getByPlaceholderText(/explain your counter-offer/i), 'test note');
-        await userEvent.click(screen.getByRole('button', { name: /send counter/i }));
-        await waitFor(() => expect(screen.getByText('Counter rejected.')).toBeInTheDocument());
-    });
-
-    it('filters proposals by status tab click (covers STATUS_TABS onClick at line 116)', async () => {
+    it('filters proposals by status tab click', async () => {
         proposals.list.mockResolvedValue({ data: { count: 0, results: [] } });
         renderWithProviders(<Proposals />);
         await screen.findByText('No proposals found');
-        // Click "Accepted" status tab — triggers onClick: setStatusFilter + setPage
         await userEvent.click(screen.getByRole('button', { name: 'Accepted' }));
         await waitFor(() => expect(proposals.list).toHaveBeenCalledWith(expect.objectContaining({ status: 'accepted' })));
     });

@@ -175,7 +175,6 @@ export const proposals = {
   getDetail: (id) => apiClient.get(`/proposals/${id}/`),
   accept: (id) => apiClient.post(`/proposals/${id}/accept/`),
   decline: (id) => apiClient.post(`/proposals/${id}/decline/`),
-  counter: (id, data) => apiClient.post(`/proposals/${id}/counter/`, data),
 };
 
 // ── Trades ────────────────────────────────────────────────────────────────────

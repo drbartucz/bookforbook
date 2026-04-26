@@ -450,7 +450,7 @@ class Command(BaseCommand):
         Three pending proposals to alice so each action test has its own record:
           Proposal 1: bob(Dickens) → alice(Hemingway)  — alice accepts
           Proposal 2: carol(Chekhov) → alice(Orwell)   — alice declines
-          Proposal 3: carol(London) → alice(Austen)    — alice counters
+          Proposal 3: carol(London) → alice(Austen)    — extra pending proposal
         Proposals 2 and 3 use different books (carol_chekhov vs carol_london) as the
         unique key, allowing two pending carol→alice proposals to coexist.
         """

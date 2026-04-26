@@ -5,7 +5,6 @@
  *   - Alice sees pending received proposal from bob
  *   - Accept proposal → status changes
  *   - Decline proposal → status changes
- *   - Counter proposal → countered state
  */
 import { test, expect } from '../../fixtures/index.js';
 
@@ -24,9 +23,8 @@ test.describe('Proposals', () => {
     const proposalCard = page.locator('[class*="proposalCard"]').first();
     await expect(proposalCard).toBeVisible({ timeout: 10_000 });
 
-    // Accept / Counter / Decline buttons visible
+    // Accept / Decline buttons visible
     await expect(page.getByRole('button', { name: /^accept$/i }).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /^counter$/i }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /^decline$/i }).first()).toBeVisible();
   });
 
@@ -67,35 +65,6 @@ test.describe('Proposals', () => {
     ).toBeVisible({ timeout: 12_000 });
   });
 
-  test('alice can counter a pending proposal', async ({ alicePage: page }) => {
-    await page.goto('/proposals');
-    await page.waitForLoadState('networkidle');
-
-    const counterBtn = page.getByRole('button', { name: /^counter$/i }).first();
-    const count = await counterBtn.count();
-    if (count === 0) {
-      test.skip(true, 'No pending received proposals to counter');
-      return;
-    }
-
-    // Open counter form
-    await counterBtn.click();
-
-    // Counter textarea appears
-    const textarea = page.getByPlaceholder(/explain your counter/i);
-    await expect(textarea).toBeVisible({ timeout: 5_000 });
-
-    // Enter a counter note
-    await textarea.fill('How about swapping a different condition?');
-
-    // Send the counter
-    await page.getByRole('button', { name: /send counter/i }).click();
-
-    await expect(
-      page.getByText(/countered|no proposals found/i)
-    ).toBeVisible({ timeout: 12_000 });
-  });
-
   test('sent tab shows bob proposals', async ({ bobPage: page }) => {
     await page.goto('/proposals');
 
@@ -108,7 +77,7 @@ test.describe('Proposals', () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  // ── Status filter tabs (run after accept/decline/counter consume proposals) ──
+  // ── Status filter tabs ──
 
   test('Accepted status tab shows accepted proposals', async ({ alicePage: page }) => {
     await page.goto('/proposals');
@@ -129,20 +98,6 @@ test.describe('Proposals', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: /^declined$/i }).click();
-
-    const card = page.locator('[class*="proposalCard"]').first();
-    await card.waitFor({ state: 'visible', timeout: 8_000 }).catch(() => {});
-
-    await expect(
-      card.or(page.getByText(/no proposals found/i)).first()
-    ).toBeVisible({ timeout: 8_000 });
-  });
-
-  test('Countered status tab shows countered proposals', async ({ alicePage: page }) => {
-    await page.goto('/proposals');
-    await page.waitForLoadState('networkidle');
-
-    await page.getByRole('button', { name: /^countered$/i }).click();
 
     const card = page.locator('[class*="proposalCard"]').first();
     await card.waitFor({ state: 'visible', timeout: 8_000 }).catch(() => {});

@@ -39,10 +39,7 @@ def count_active_matches_for_user(user) -> int:
     user_proposals = TradeProposal.objects.filter(Q(proposer=user) | Q(recipient=user))
 
     active_proposals = user_proposals.filter(
-        status__in=[
-            TradeProposal.Status.PENDING,
-            TradeProposal.Status.COUNTERED,
-        ]
+        status=TradeProposal.Status.PENDING,
     ).count()
 
     accepted_without_trade = (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCounterPayload, mapProposalForCard } from './proposals.js';
+import { mapProposalForCard } from './proposals.js';
 
 describe('proposals adapter', () => {
   const proposal = {
@@ -36,15 +36,5 @@ describe('proposals adapter', () => {
     expect(vm.offeredCondition).toBe('good');
     expect(vm.requestedCondition).toBe('very_good');
     expect(vm.note).toBe('Interested?');
-  });
-
-  it('builds counter payload using swapped original item IDs', () => {
-    const payload = buildCounterPayload(proposal, 'counter offer');
-
-    expect(payload).toEqual({
-      proposer_book_id: 'ub-b',
-      recipient_book_id: 'ub-a',
-      message: 'counter offer',
-    });
   });
 });

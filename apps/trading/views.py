@@ -190,51 +190,6 @@ class ProposalDeclineView(APIView):
         return Response({"detail": "Proposal declined."})
 
 
-class ProposalCounterView(APIView):
-    """POST /api/v1/proposals/:id/counter/"""
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        original = get_object_or_404(
-            TradeProposal,
-            pk=pk,
-            recipient=request.user,
-            status__in=[TradeProposal.Status.PENDING, TradeProposal.Status.COUNTERED],
-        )
-
-        if original.expires_at and original.expires_at < timezone.now():
-            return Response(
-                {"detail": "This proposal has expired."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Mark original as countered
-        original.status = TradeProposal.Status.COUNTERED
-        original.save(update_fields=["status"])
-
-        # Create new counter proposal (swap proposer/recipient)
-        counter_data = {
-            "recipient_id": str(original.proposer.id),
-            "proposer_book_id": request.data.get("proposer_book_id"),
-            "recipient_book_id": request.data.get("recipient_book_id"),
-            "message": request.data.get("message", ""),
-            "origin_match_id": (
-                str(original.origin_match_id) if original.origin_match_id else None
-            ),
-        }
-        serializer = TradeProposalCreateSerializer(
-            data=counter_data, context={"request": request}
-        )
-        serializer.is_valid(raise_exception=True)
-        counter_proposal = serializer.save()
-
-        return Response(
-            TradeProposalSerializer(counter_proposal).data,
-            status=status.HTTP_201_CREATED,
-        )
-
-
 class TradeListView(APIView):
     """GET /api/v1/trades/"""
 

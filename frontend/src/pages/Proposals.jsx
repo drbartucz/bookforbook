@@ -7,7 +7,7 @@ import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import useAuth from '../hooks/useAuth.js';
-import { buildCounterPayload, mapProposalForCard } from '../adapters/proposals.js';
+import { mapProposalForCard } from '../adapters/proposals.js';
 import styles from './Proposals.module.css';
 
 const PAGE_SIZE = 15;
@@ -17,7 +17,6 @@ const STATUS_TABS = [
   { value: 'pending', label: 'Pending' },
   { value: 'accepted', label: 'Accepted' },
   { value: 'declined', label: 'Declined' },
-  { value: 'countered', label: 'Countered' },
 ];
 
 const DIRECTION_TABS = [
@@ -30,7 +29,6 @@ const STATUS_CONFIG = {
   pending: { label: 'Pending', cls: 'badge-amber' },
   accepted: { label: 'Accepted', cls: 'badge-green' },
   declined: { label: 'Declined', cls: 'badge-red' },
-  countered: { label: 'Countered', cls: 'badge-blue' },
   expired: { label: 'Expired', cls: 'badge-gray' },
 };
 
@@ -40,8 +38,6 @@ export default function Proposals() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [direction, setDirection] = useState('received');
-  const [counteringId, setCounteringId] = useState(null);
-  const [counterNote, setCounterNote] = useState('');
   const [actionError, setActionError] = useState(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -70,17 +66,6 @@ export default function Proposals() {
       setActionError(null);
     },
     onError: (err) => setActionError(err?.response?.data?.detail || 'Failed to decline.'),
-  });
-
-  const counterMutation = useMutation({
-    mutationFn: ({ id, payload }) => proposalsApi.counter(id, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['proposals'] });
-      setCounteringId(null);
-      setCounterNote('');
-      setActionError(null);
-    },
-    onError: (err) => setActionError(err?.response?.data?.detail || 'Failed to counter.'),
   });
 
   const rawItems = Array.isArray(data) ? data : (data?.results ?? []);
@@ -146,7 +131,6 @@ export default function Proposals() {
               const requestedBook = proposal.requestedBook;
               const proposer = proposal.proposer ?? proposal.sender;
               const receiver = proposal.receiver ?? proposal.recipient;
-              const isReceived = direction === 'received' || !direction;
               const canAct = proposal.status === 'pending' && (direction === 'received' || !direction);
 
               return (
@@ -230,52 +214,12 @@ export default function Proposals() {
                         Accept
                       </button>
                       <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setCounteringId(counteringId === proposal.id ? null : proposal.id)}
-                      >
-                        Counter
-                      </button>
-                      <button
                         className="btn btn-danger btn-sm"
                         onClick={() => declineMutation.mutate(proposal.id)}
                         disabled={acceptMutation.isPending || declineMutation.isPending}
                       >
                         Decline
                       </button>
-                    </div>
-                  )}
-
-                  {counteringId === proposal.id && (
-                    <div className={styles.counterForm}>
-                      <textarea
-                        className={`form-input ${styles.counterTextarea}`}
-                        value={counterNote}
-                        onChange={(e) => setCounterNote(e.target.value)}
-                        placeholder="Explain your counter-offer..."
-                        rows={3}
-                      />
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => {
-                            const payload = buildCounterPayload(proposal, counterNote);
-                            if (!payload) {
-                              setActionError('Unable to build counter-offer payload from this proposal.');
-                              return;
-                            }
-                            counterMutation.mutate({ id: proposal.id, payload });
-                          }}
-                          disabled={counterMutation.isPending || !counterNote.trim()}
-                        >
-                          {counterMutation.isPending ? 'Sending...' : 'Send Counter'}
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => { setCounteringId(null); setCounterNote(''); }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
                     </div>
                   )}
                 </div>

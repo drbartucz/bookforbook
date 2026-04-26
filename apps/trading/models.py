@@ -11,7 +11,6 @@ class TradeProposal(models.Model):
         PENDING = "pending", "Pending"
         ACCEPTED = "accepted", "Accepted"
         DECLINED = "declined", "Declined"
-        COUNTERED = "countered", "Countered"
         CANCELLED = "cancelled", "Cancelled"
         COMPLETED = "completed", "Completed"
 

@@ -418,7 +418,7 @@ describe('api module — method function coverage', () => {
     await matches.accept('id'); await matches.decline('id');
     // proposals
     await proposals.list({}); await proposals.create({}); await proposals.getDetail('id');
-    await proposals.accept('id'); await proposals.decline('id'); await proposals.counter('id', {});
+    await proposals.accept('id'); await proposals.decline('id');
     // trades
     await trades.list({}); await trades.getDetail('id'); await trades.markShipped('id', {});
     await trades.markReceived('id'); await trades.rate('id', {});

@@ -33,25 +33,5 @@ export function mapProposalForCard(proposal, currentUserId) {
     requestedCondition: requested?.condition ?? null,
     note: proposal?.message ?? proposal?.note ?? "",
     isMine,
-    counterSource: {
-      proposerSends,
-      recipientSends,
-    },
-  };
-}
-
-export function buildCounterPayload(proposal, message = "") {
-  const { proposerSends, recipientSends } = getProposalItems(proposal);
-  const proposerBookId = recipientSends?.user_book?.id ?? recipientSends?.user_book ?? null;
-  const recipientBookId = proposerSends?.user_book?.id ?? proposerSends?.user_book ?? null;
-
-  if (!proposerBookId || !recipientBookId) {
-    return null;
-  }
-
-  return {
-    proposer_book_id: proposerBookId,
-    recipient_book_id: recipientBookId,
-    message,
   };
 }

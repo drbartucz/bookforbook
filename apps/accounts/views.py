@@ -454,10 +454,10 @@ def _cancel_user_active_matches(user):
         status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
     ).update(status=Match.Status.EXPIRED)
 
-    # Cancel pending/countered proposals where user is either side.
+    # Cancel pending proposals where user is either side.
     TradeProposal.objects.filter(
         Q(proposer=user) | Q(recipient=user),
-        status__in=[TradeProposal.Status.PENDING, TradeProposal.Status.COUNTERED],
+        status=TradeProposal.Status.PENDING,
     ).update(status=TradeProposal.Status.CANCELLED)
 
 
@@ -483,7 +483,7 @@ def _notify_affected_users_of_account_deletion(user):
 
     active_proposals = TradeProposal.objects.filter(
         Q(proposer=user) | Q(recipient=user),
-        status__in=[TradeProposal.Status.PENDING, TradeProposal.Status.COUNTERED],
+        status=TradeProposal.Status.PENDING,
     ).values_list("proposer_id", "recipient_id")
     for proposer_id, recipient_id in active_proposals:
         if proposer_id != user.id:

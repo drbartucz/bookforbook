@@ -190,8 +190,7 @@ TradeProposal
 ├── proposer_id         FK → User
 ├── recipient_id        FK → User
 ├── origin_match_id     nullable FK → Match (if spawned from browsing a match partner's list)
-├── status              ENUM: 'pending', 'accepted', 'declined', 'countered',
-│                              'cancelled', 'completed'
+├── status              ENUM: 'pending', 'accepted', 'declined', 'cancelled', 'completed'
 ├── message             nullable text (personal note)
 │
 ├── created_at          timestamp
@@ -209,7 +208,6 @@ TradeProposalItem
 **Notes:**
 - A user can propose a trade independently of the matching engine (from browsing).
 - After a direct match is confirmed, users can browse each other's full lists and create additional `TradeProposal` records linked via `origin_match_id`.
-- Counter-offers create a new proposal with a reference to the original.
 - Must be 1-for-1: exactly one item in each direction per proposal (enforce at API level).
 
 ### Donations (Institutional)
@@ -609,8 +607,7 @@ User requests deletion → POST /api/v1/users/me/ (DELETE)
 │   ├── POST   /                       # Create trade proposal
 │   ├── GET    :id/                    # Proposal detail
 │   ├── POST   :id/accept/            # Accept proposal
-│   ├── POST   :id/decline/           # Decline proposal
-│   └── POST   :id/counter/           # Counter-offer
+│   └── POST   :id/decline/           # Decline proposal
 │
 ├── trades/
 │   ├── GET    /                       # My active/completed trades

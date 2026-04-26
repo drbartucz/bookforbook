@@ -280,7 +280,7 @@ POST /api/v1/proposals/
 }
 ```
 
-Proposals are always 1-for-1. The recipient can accept, decline, or counter-offer. You can counter their counter-offer. A trade is created when one party accepts.
+Proposals are always 1-for-1. The recipient can accept or decline. A trade is created when the recipient accepts.
 
 Accepting a proposal also requires a USPS-verified address on file first.
 

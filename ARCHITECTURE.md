@@ -110,7 +110,6 @@ All primary keys are UUIDs. All personal address fields are encrypted at rest.
 
 ### TradeProposal + TradeProposalItem (user-initiated)
 - Always 1-for-1: exactly one item in each direction (enforce at API level)
-- Supports counter-offers (new proposal linked to original)
 
 ### Donation (institutional, one-directional)
 - Separate from trades: no shipping address needed for the institution as receiver
@@ -146,7 +145,7 @@ books/          lookup/ (ISBN), :id/, search/
 my-books/       GET/POST/PATCH/DELETE (have-list)
 wishlist/       GET/POST/PATCH/DELETE (want-list)
 matches/        list, :id/, :id/accept/, :id/decline/
-proposals/      list, create, :id/, accept, decline, counter
+proposals/      list, create, :id/, accept, decline
 trades/         list, :id/, mark-shipped, mark-received, rate, messages/
 donations/      list, offer, :id/accept/, :id/decline/
 institutions/   list, :id/, :id/wanted/
