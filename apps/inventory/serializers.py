@@ -1,8 +1,35 @@
 from rest_framework import serializers
 
+from apps.books.models import Book
 from apps.books.serializers import BookSerializer
 
 from .models import ConditionChoices, UserBook, WishlistItem
+
+
+class BrowseBookSerializer(serializers.ModelSerializer):
+    """Serializer for the browse/available endpoint. Emits Book fields plus
+    copy_count (number of available listings) and condition (best available)."""
+
+    copy_count = serializers.IntegerField(read_only=True)
+    condition = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Book
+        fields = [
+            "id",
+            "isbn_13",
+            "isbn_10",
+            "title",
+            "authors",
+            "cover_image_url",
+            "physical_format",
+            "publish_year",
+            "copy_count",
+            "condition",
+        ]
+
+    def get_condition(self, obj):
+        return getattr(obj, "best_condition", None)
 
 
 class UserBookSerializer(serializers.ModelSerializer):

@@ -13,6 +13,7 @@ from apps.accounts.models import User
 
 from .models import UserBook, WishlistItem
 from .serializers import (
+    BrowseBookSerializer,
     UserBookCreateSerializer,
     UserBookSerializer,
     UserBookUpdateSerializer,
@@ -267,34 +268,69 @@ class WishlistItemDetailView(APIView):
 class BrowseAvailableView(generics.ListAPIView):
     """
     GET /api/v1/browse/available/
-    Public endpoint to browse all available books for trade.
+    Public endpoint to browse available books, grouped by title.
+    Each result is a unique Book with copy_count and best available condition.
     """
 
     permission_classes = [permissions.AllowAny]
-    serializer_class = UserBookSerializer
+    serializer_class = BrowseBookSerializer
 
     def get_queryset(self):
-        qs = (
-            UserBook.objects.filter(
-                status=UserBook.Status.AVAILABLE,
-            )
-            .select_related("book", "user")
-            .order_by("-created_at")
+        from apps.books.models import Book
+        from django.db.models import Case, Count, IntegerField, OuterRef, Q, Subquery, When
+
+        condition_filter = self.request.query_params.get("condition", "").strip()
+        q = self.request.query_params.get("q", "").strip()
+
+        available_q = Q(status=UserBook.Status.AVAILABLE)
+        if condition_filter:
+            available_q &= Q(condition=condition_filter)
+        available_book_ids = (
+            UserBook.objects.filter(available_q)
+            .values_list("book_id", flat=True)
+            .distinct()
         )
 
-        q = self.request.query_params.get("q", "").strip()
-        if q:
-            from django.db.models import Q
-
-            qs = qs.filter(
-                Q(book__title__icontains=q)
-                | Q(book__authors__icontains=q)
-                | Q(book__isbn_13__icontains=q)
+        best_condition_sq = (
+            UserBook.objects.filter(
+                book=OuterRef("pk"),
+                status=UserBook.Status.AVAILABLE,
             )
+            .annotate(
+                rank=Case(
+                    When(Q(condition="new"), then=5),
+                    When(Q(condition="like_new"), then=4),
+                    When(Q(condition="very_good"), then=3),
+                    When(Q(condition="good"), then=2),
+                    When(Q(condition="acceptable"), then=1),
+                    When(Q(condition="poor"), then=0),
+                    default=0,
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by("-rank")
+            .values("condition")[:1]
+        )
 
-        condition = self.request.query_params.get("condition")
-        if condition:
-            qs = qs.filter(condition=condition)
+        qs = (
+            Book.objects.filter(id__in=available_book_ids)
+            .annotate(
+                copy_count=Count(
+                    "user_listings",
+                    filter=Q(user_listings__status=UserBook.Status.AVAILABLE),
+                    distinct=True,
+                ),
+                best_condition=Subquery(best_condition_sq),
+            )
+            .order_by("-copy_count", "-created_at")
+        )
+
+        if q:
+            qs = qs.filter(
+                Q(title__icontains=q)
+                | Q(authors__icontains=q)
+                | Q(isbn_13__icontains=q)
+            )
 
         return qs
 

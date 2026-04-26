@@ -616,8 +616,9 @@ class TestBrowseAvailableView:
         UserBookFactory(user=verified_user, book=book, status=UserBook.Status.TRADED)
         resp = api_client.get(self.url)
         assert resp.status_code == status.HTTP_200_OK
-        for item in resp.data["results"]:
-            assert item["status"] == "available"
+        # Non-available listings must not appear; check by title (traded book's title absent)
+        titles = [r["title"] for r in resp.data["results"]]
+        assert book.title not in titles
 
     def test_browse_filter_by_query(self, api_client, db):
         b1 = BookFactory(title="Dune")
@@ -626,9 +627,20 @@ class TestBrowseAvailableView:
         UserBookFactory(book=b2, status=UserBook.Status.AVAILABLE)
         resp = api_client.get(self.url, {"q": "Dune"})
         assert resp.status_code == status.HTTP_200_OK
-        titles = [r["book"]["title"] for r in resp.data["results"]]
+        titles = [r["title"] for r in resp.data["results"]]
         assert "Dune" in titles
         assert "Foundation" not in titles
+
+    def test_browse_groups_duplicates_with_copy_count(self, api_client, db):
+        book = BookFactory(title="Dune")
+        UserBookFactory(book=book, status=UserBook.Status.AVAILABLE, condition="good")
+        UserBookFactory(book=book, status=UserBook.Status.AVAILABLE, condition="very_good")
+        resp = api_client.get(self.url)
+        assert resp.status_code == status.HTTP_200_OK
+        results = [r for r in resp.data["results"] if r["title"] == "Dune"]
+        assert len(results) == 1
+        assert results[0]["copy_count"] == 2
+        assert results[0]["condition"] == "very_good"
 
 
 @pytest.mark.django_db
@@ -881,9 +893,7 @@ class TestBrowseConditionFilter:
 
         resp = api_client.get(self.url, {"condition": "good"})
         assert resp.status_code == status.HTTP_200_OK
-        conditions = [r["condition"] for r in resp.data["results"]]
-        assert all(c == "good" for c in conditions)
-        titles = [r["book"]["title"] for r in resp.data["results"]]
+        titles = [r["title"] for r in resp.data["results"]]
         assert "Good Condition Book" in titles
         assert "Like New Book" not in titles
 
@@ -906,7 +916,7 @@ class TestBrowseConditionFilter:
 
         resp = api_client.get(self.url, {"condition": "like_new"})
         assert resp.status_code == status.HTTP_200_OK
-        titles = [r["book"]["title"] for r in resp.data["results"]]
+        titles = [r["title"] for r in resp.data["results"]]
         assert "New Book" in titles
         assert "Good Book" not in titles
 

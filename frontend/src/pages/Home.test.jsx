@@ -41,16 +41,13 @@ describe('Home page', () => {
                 count: 1,
                 results: [
                     {
-                        id: 'listing-1',
-                        owner: { id: 'user-1', username: 'alice' },
-                        book: {
-                            id: 'book-1',
-                            title: 'The Left Hand of Darkness',
-                            authors: ['Ursula K. Le Guin'],
-                            isbn_13: '9780441478125',
-                            cover_image_url: 'https://example.com/lefthand.jpg',
-                            condition: 'good',
-                        },
+                        id: 'book-1',
+                        title: 'The Left Hand of Darkness',
+                        authors: ['Ursula K. Le Guin'],
+                        isbn_13: '9780441478125',
+                        cover_image_url: 'https://example.com/lefthand.jpg',
+                        condition: 'good',
+                        copy_count: 1,
                     },
                 ],
             },
@@ -102,14 +99,14 @@ describe('Home page', () => {
             data: {
                 count: 3,
                 results: [
-                    { id: 'l1', owner: { id: 'u1', username: 'alice' }, book: { id: 'b1', title: 'Book One', authors: ['A'], isbn_13: '1111111111111', cover_image_url: null } },
-                    { id: 'l2', owner: { id: 'u1', username: 'alice' }, book: { id: 'b2', title: 'Book Two', authors: ['B'], isbn_13: '2222222222222', cover_image_url: null } },
-                    { id: 'l3', owner: { id: 'u1', username: 'alice' }, book: { id: 'b3', title: 'Book Three', authors: ['C'], isbn_13: '3333333333333', cover_image_url: null } },
+                    { id: 'b1', title: 'Book One',   authors: ['A'], isbn_13: '1111111111111', cover_image_url: null, copy_count: 1 },
+                    { id: 'b2', title: 'Book Two',   authors: ['B'], isbn_13: '2222222222222', cover_image_url: null, copy_count: 1 },
+                    { id: 'b3', title: 'Book Three', authors: ['C'], isbn_13: '3333333333333', cover_image_url: null, copy_count: 1 },
                 ],
             },
         });
         renderWithProviders(<Home />);
-        expect(await screen.findByText(/3 copies available/i)).toBeInTheDocument();
+        expect(await screen.findByText(/3 books available/i)).toBeInTheDocument();
     });
 
     it('calls handleSearchChange when search input is updated', async () => {
@@ -134,21 +131,19 @@ describe('Home page', () => {
         });
     });
 
-    it('renders flat items (no nested book/owner) using item itself as book and item.user as owner', async () => {
+    it('renders a book returned directly by the API (flat shape)', async () => {
         useAuth.mockReturnValue({ isAuthenticated: false });
         browse.available.mockResolvedValue({
             data: {
                 count: 1,
                 results: [
                     {
-                        id: 'flat-1',
-                        // No nested .book — item IS the book (covers item.book ?? item right side)
+                        id: 'book-flat',
                         title: 'Flat Book Title',
                         authors: ['Flat Author'],
                         isbn_13: '9780000000001',
                         cover_image_url: null,
-                        // No .owner — has .user instead (covers item.owner ?? item.user right side)
-                        user: { id: 'user-flat', username: 'flatreader' },
+                        copy_count: 1,
                     },
                 ],
             },
@@ -158,25 +153,20 @@ describe('Home page', () => {
         expect(screen.getByText('Flat Author')).toBeInTheDocument();
     });
 
-    it('shows duplicate books once with a copy count badge', async () => {
+    it('shows copy count badge when the API reports multiple copies', async () => {
         useAuth.mockReturnValue({ isAuthenticated: false });
         browse.available.mockResolvedValue({
             data: {
-                count: 3,
+                count: 2,
                 results: [
-                    { id: 'l1', owner: { id: 'u1', username: 'alice' }, book: { id: 'b1', title: 'Dune', authors: ['Herbert'], isbn_13: '9780441013593', condition: 'good' } },
-                    { id: 'l2', owner: { id: 'u2', username: 'bob' },   book: { id: 'b1', title: 'Dune', authors: ['Herbert'], isbn_13: '9780441013593', condition: 'very_good' } },
-                    { id: 'l3', owner: { id: 'u3', username: 'carol' }, book: { id: 'b2', title: 'Foundation', authors: ['Asimov'], isbn_13: '9780553293357', condition: 'good' } },
+                    { id: 'b1', title: 'Dune',       authors: ['Herbert'], isbn_13: '9780441013593', condition: 'very_good', copy_count: 3 },
+                    { id: 'b2', title: 'Foundation',  authors: ['Asimov'],  isbn_13: '9780553293357', condition: 'good',      copy_count: 1 },
                 ],
             },
         });
         renderWithProviders(<Home />);
         await screen.findByText('Dune');
-        // Only one Dune card, not two
-        expect(screen.getAllByText('Dune')).toHaveLength(1);
-        // Copy count badge shown for Dune
-        expect(screen.getByText('2 copies')).toBeInTheDocument();
-        // Foundation shown normally, no copies badge
+        expect(screen.getByText('3 copies')).toBeInTheDocument();
         expect(screen.getByText('Foundation')).toBeInTheDocument();
         expect(screen.queryByText('1 copies')).not.toBeInTheDocument();
     });

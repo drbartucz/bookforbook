@@ -13,28 +13,6 @@ import styles from './Home.module.css';
 
 const PAGE_SIZE = 20;
 
-const CONDITION_RANK = { new: 5, like_new: 4, very_good: 3, good: 2, acceptable: 1, poor: 0 };
-
-function deduplicateBooks(items) {
-  const groups = new Map();
-  for (const item of items) {
-    const book = item.book ?? item;
-    const key = book.isbn_13 || book.isbn_10 || book.id || item.id;
-    if (!groups.has(key)) {
-      groups.set(key, { item, count: 1 });
-    } else {
-      const group = groups.get(key);
-      group.count++;
-      const currentCondition = group.item.book?.condition ?? group.item.condition;
-      const newCondition = book.condition ?? item.condition;
-      if ((CONDITION_RANK[newCondition] ?? -1) > (CONDITION_RANK[currentCondition] ?? -1)) {
-        group.item = item;
-      }
-    }
-  }
-  return Array.from(groups.values());
-}
-
 const CONDITION_OPTIONS = [
   { value: '', label: 'Any condition' },
   { value: 'like_new', label: 'Like New' },
@@ -78,7 +56,6 @@ export default function Home() {
   const books = data?.results ?? [];
   const totalCount = data?.count ?? 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-  const dedupedBooks = deduplicateBooks(books);
 
   function handleSearchChange(e) {
     setSearch(e.target.value);
@@ -145,7 +122,7 @@ export default function Home() {
           <p className={styles.resultsCount}>
             {totalCount === 0
               ? 'No books found'
-              : `${totalCount} ${totalCount === 1 ? 'copy' : 'copies'} available`}
+              : `${totalCount} book${totalCount === 1 ? '' : 's'} available`}
           </p>
         </div>
       )}
@@ -172,18 +149,15 @@ export default function Home() {
       ) : (
         <>
           <div className={`grid grid-cols-1 grid-sm-2 grid-md-3 grid-lg-4 ${styles.grid}`}>
-            {dedupedBooks.map(({ item, count }) => {
-              const book = item.book ?? item;
-              const owner = count === 1 ? (item.owner ?? item.user) : null;
-              const isbn = getBookIsbn(book);
+            {books.map((item) => {
+              const isbn = getBookIsbn(item);
               const alreadyAdded = isbn && addedToWishlist.has(isbn);
 
               return (
                 <BookCard
-                  key={isbn || item.id}
-                  book={book}
-                  owner={owner}
-                  copyCount={count}
+                  key={item.id}
+                  book={item}
+                  copyCount={item.copy_count ?? 1}
                   onAction={
                     isAuthenticated && !alreadyAdded
                       ? () => addToWishlistMutation.mutate({ isbn })
