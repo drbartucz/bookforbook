@@ -191,6 +191,12 @@ For each available UserBook owned by user A:
     → Create Match (direct) with 2 MatchLegs
 ```
 
+  **Direct matching priority (exact first):**
+  - Phase 1: evaluate exact-edition wishes first (`edition_preference = exact`; same `Book` record / ISBN-level).
+  - Phase 2: if no exact pairing is created, evaluate related-edition wishes (`same_language`, `any_language`, `custom`).
+  - Within each phase, keep existing priority ordering (oldest wishlist, then stricter minimum condition, then stable ID tie-break).
+  - The reciprocal return-book selection follows the same phase ordering.
+
 **Ring detection (3–5 users):**
 ```
 Build directed graph: edge A→B if A has something B wants

@@ -377,6 +377,12 @@ For a given user A:
             If yes → Create Match (type=direct) with 2 MatchLegs
 ```
 
+**Direct matching priority (exact first):**
+- Phase 1: evaluate `edition_preference = exact` candidates first (same `Book` record / ISBN-level match).
+- Phase 2: only if no direct exact pairing is created, evaluate related-edition candidates (`same_language`, `any_language`, `custom`).
+- Within each phase, existing priority rules still apply (oldest wishlist first, then stricter condition requirement, then stable ID tie-break).
+- The reciprocal leg uses the same phase ordering, so return-book selection also prefers exact-edition wishes before related-edition wishes.
+
 **Exchange ring detection:**
 ```
 Build directed graph:

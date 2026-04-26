@@ -22,6 +22,21 @@ from apps.matching.services.preference_filters import wishlist_allows_book
 logger = logging.getLogger(__name__)
 
 
+def _ordered_wishlist_entries_by_match_phase(wishlist_queryset):
+    """Return wishlist entries with exact-edition requests evaluated before related editions."""
+    exact = priority_ordered_wishlist_entries(
+        wishlist_queryset.filter(
+            edition_preference=WishlistItem.EditionPreference.EXACT,
+        )
+    )
+    related = priority_ordered_wishlist_entries(
+        wishlist_queryset.exclude(
+            edition_preference=WishlistItem.EditionPreference.EXACT,
+        )
+    )
+    return list(exact) + list(related)
+
+
 def count_active_matches_for_user(user) -> int:
     """Count the number of active (pending/proposed) matches a user is involved in."""
     match_count = (
@@ -158,7 +173,7 @@ def run_direct_matching(user_book: Optional[UserBook] = None) -> list[Match]:
             .select_related("user", "book")
             .exclude(user=user_a)
         )
-        wishlist_entries = priority_ordered_wishlist_entries(wishlist_entries)
+        wishlist_entries = _ordered_wishlist_entries_by_match_phase(wishlist_entries)
 
         for wish_b in wishlist_entries:
             user_b = wish_b.user
@@ -229,7 +244,7 @@ def _find_book_for_trade(user_a, user_b) -> Optional[UserBook]:
         user=user_a,
         is_active=True,
     ).select_related("book")
-    wishlist_a = priority_ordered_wishlist_entries(wishlist_a)
+    wishlist_a = _ordered_wishlist_entries_by_match_phase(wishlist_a)
 
     candidates = UserBook.objects.filter(
         user=user_b,

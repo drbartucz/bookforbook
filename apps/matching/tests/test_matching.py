@@ -186,6 +186,95 @@ class TestDirectMatcherService:
         matches = run_direct_matching(user_book=ub_a)
         assert len(matches) == 1
 
+    def test_exact_receiver_preferred_before_older_related_receiver(self, db):
+        offered = BookFactory(title="Refactoring", authors=["Martin Fowler"])
+        related_wanted = BookFactory(title="Refactoring", authors=["Martin Fowler"])
+        user_a = UserFactory()
+        user_b_exact = UserFactory()
+        user_c_related = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=offered, condition="good")
+
+        book_for_a_from_b = BookFactory(title="Exact Return")
+        book_for_a_from_c = BookFactory(title="Related Return")
+        UserBookFactory(user=user_b_exact, book=book_for_a_from_b, condition="good")
+        UserBookFactory(user=user_c_related, book=book_for_a_from_c, condition="good")
+
+        wish_exact = WishlistItemFactory(
+            user=user_b_exact,
+            book=offered,
+            min_condition="acceptable",
+            edition_preference="exact",
+        )
+        wish_related = WishlistItemFactory(
+            user=user_c_related,
+            book=related_wanted,
+            min_condition="acceptable",
+            edition_preference="same_language",
+        )
+
+        WishlistItemFactory(user=user_a, book=book_for_a_from_b, min_condition="acceptable")
+        WishlistItemFactory(user=user_a, book=book_for_a_from_c, min_condition="acceptable")
+
+        now = timezone.now()
+        type(wish_related).objects.filter(pk=wish_related.pk).update(
+            created_at=now - timedelta(days=2)
+        )
+        type(wish_exact).objects.filter(pk=wish_exact.pk).update(
+            created_at=now - timedelta(days=1)
+        )
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 1
+        leg = matches[0].legs.get(sender=user_a)
+        assert leg.receiver_id == user_b_exact.id
+
+    def test_exact_return_book_preferred_before_older_related_wishlist(self, db):
+        offered_to_b = BookFactory(title="Code Complete", authors=["Steve McConnell"])
+        exact_wanted_by_a = BookFactory(title="Dune", authors=["Frank Herbert"])
+        related_wanted_by_a = BookFactory(title="Dune Messiah", authors=["Frank Herbert"])
+        related_variant = BookFactory(title="Dune Messiah", authors=["Frank Herbert"])
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+
+        ub_a = UserBookFactory(user=user_a, book=offered_to_b, condition="good")
+        UserBookFactory(user=user_b, book=exact_wanted_by_a, condition="good")
+        UserBookFactory(user=user_b, book=related_variant, condition="good")
+
+        WishlistItemFactory(
+            user=user_b,
+            book=offered_to_b,
+            min_condition="acceptable",
+            edition_preference="exact",
+        )
+
+        wish_related = WishlistItemFactory(
+            user=user_a,
+            book=related_wanted_by_a,
+            min_condition="acceptable",
+            edition_preference="same_language",
+        )
+        wish_exact = WishlistItemFactory(
+            user=user_a,
+            book=exact_wanted_by_a,
+            min_condition="acceptable",
+            edition_preference="exact",
+        )
+
+        now = timezone.now()
+        type(wish_related).objects.filter(pk=wish_related.pk).update(
+            created_at=now - timedelta(days=2)
+        )
+        type(wish_exact).objects.filter(pk=wish_exact.pk).update(
+            created_at=now - timedelta(days=1)
+        )
+
+        matches = run_direct_matching(user_book=ub_a)
+        assert len(matches) == 1
+        return_leg = matches[0].legs.get(sender=user_b)
+        assert return_leg.user_book.book_id == exact_wanted_by_a.id
+
     def test_custom_format_preference_filters_related_edition(self, db):
         wanted_by_b = BookFactory(title="Clean Code", authors=["Robert C. Martin"])
         paperback_from_a = BookFactory(
