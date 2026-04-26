@@ -191,4 +191,41 @@ describe('ISBNInput', () => {
         // onBookFound called again with null to clear
         expect(onBookFound).toHaveBeenLastCalledWith(null);
     });
+
+    it('trims leading and trailing whitespace from pasted ISBN before passing to onChange', async () => {
+        const onBookFound = vi.fn();
+        const onChange = vi.fn();
+
+        render(
+            <ISBNInput value="" onChange={onChange} onBookFound={onBookFound} />
+        );
+
+        const input = screen.getByRole('textbox');
+        await userEvent.type(input, '  9780393081084  ');
+
+        // onChange should have been called with trimmed values, never with raw whitespace
+        const calls = onChange.mock.calls.map(([v]) => v);
+        expect(calls.every((v) => v === v.trim())).toBe(true);
+    });
+
+    it('performs a successful lookup when value has leading/trailing whitespace (issue #45)', async () => {
+        const onBookFound = vi.fn();
+        const onChange = vi.fn();
+        const { books } = await import('../../services/api.js');
+
+        books.lookupISBN.mockResolvedValue({
+            data: { title: 'Dirty Input Book', authors: ['Author'], publish_year: 2021 },
+        });
+
+        // Simulate a value with leading spaces (e.g. copied from Amazon)
+        render(
+            <ISBNInput value="  9780393081084  " onChange={onChange} onBookFound={onBookFound} />
+        );
+
+        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+
+        // Should strip whitespace and call API with clean ISBN
+        expect(books.lookupISBN).toHaveBeenCalledWith('9780393081084');
+        expect(await screen.findByText('Dirty Input Book')).toBeInTheDocument();
+    });
 });
