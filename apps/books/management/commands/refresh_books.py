@@ -77,6 +77,7 @@ class Command(BaseCommand):
         force = options["force"]
         isbn = options.get("isbn")
         missing_only = options["missing_only"]
+        verbosity = options["verbosity"]
 
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN — no changes will be saved"))
@@ -96,7 +97,7 @@ class Command(BaseCommand):
 
         for i, book in enumerate(queryset.iterator(), start=1):
             try:
-                changed = self._refresh_book(book, force=force, dry_run=dry_run)
+                changed = self._refresh_book(book, force=force, dry_run=dry_run, verbosity=verbosity)
                 if changed:
                     updated += 1
                 else:
@@ -133,7 +134,7 @@ class Command(BaseCommand):
             )
         return qs
 
-    def _refresh_book(self, book, force, dry_run):
+    def _refresh_book(self, book, force, dry_run, verbosity=1):
         """
         Fetch fresh data from Open Library and update the book.
         Returns True if any fields changed, False otherwise.
@@ -157,6 +158,19 @@ class Command(BaseCommand):
             updates[field] = new_value
 
         if not updates:
+            if verbosity >= 2:
+                reasons = []
+                for field in REFRESHABLE_FIELDS:
+                    new_value = data.get(field)
+                    old_value = getattr(book, field)
+                    if new_value in (None, "", []):
+                        reasons.append(f"{field}=<empty from API>")
+                    elif new_value == old_value:
+                        reasons.append(f"{field}=<unchanged>")
+                self.stdout.write(
+                    f"  SKIPPED {book.isbn_13} ({book.title[:40]}): "
+                    + (", ".join(reasons) if reasons else "no changes")
+                )
             return False
 
         if dry_run:
