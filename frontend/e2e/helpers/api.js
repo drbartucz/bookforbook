@@ -9,12 +9,16 @@
  * include the correct base URL.
  */
 
-const API = '/api/v1';
+const API_BASE = process.env.DJANGO_BASE_URL || 'http://localhost:8000';
+
+function apiUrl(path) {
+  return `${API_BASE}/api/v1${path}`;
+}
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 export async function apiLogin(request, email, password) {
-  const res = await request.post(`${API}/auth/token/`, {
+  const res = await request.post(apiUrl('/auth/token/'), {
     data: { email, password },
   });
   if (!res.ok()) throw new Error(`Login failed for ${email}: ${await res.text()}`);
@@ -22,7 +26,7 @@ export async function apiLogin(request, email, password) {
 }
 
 export async function apiGetMe(request, accessToken) {
-  const res = await request.get(`${API}/users/me/`, {
+  const res = await request.get(apiUrl('/users/me/'), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`getMe failed: ${await res.text()}`);
@@ -32,7 +36,7 @@ export async function apiGetMe(request, accessToken) {
 // ── My Books ──────────────────────────────────────────────────────────────────
 
 export async function apiAddBook(request, accessToken, isbn, condition = 'good') {
-  const res = await request.post(`${API}/my-books/`, {
+  const res = await request.post(apiUrl('/my-books/'), {
     headers: { Authorization: `Bearer ${accessToken}` },
     data: { isbn, condition },
   });
@@ -41,7 +45,7 @@ export async function apiAddBook(request, accessToken, isbn, condition = 'good')
 }
 
 export async function apiListMyBooks(request, accessToken) {
-  const res = await request.get(`${API}/my-books/`, {
+  const res = await request.get(apiUrl('/my-books/'), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`listMyBooks failed: ${await res.text()}`);
@@ -49,7 +53,7 @@ export async function apiListMyBooks(request, accessToken) {
 }
 
 export async function apiRemoveBook(request, accessToken, userBookId) {
-  const res = await request.delete(`${API}/my-books/${userBookId}/`, {
+  const res = await request.delete(apiUrl(`/my-books/${userBookId}/`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`removeBook failed: ${await res.text()}`);
@@ -58,7 +62,7 @@ export async function apiRemoveBook(request, accessToken, userBookId) {
 // ── Wishlist ──────────────────────────────────────────────────────────────────
 
 export async function apiAddWishlist(request, accessToken, isbn) {
-  const res = await request.post(`${API}/wishlist/`, {
+  const res = await request.post(apiUrl('/wishlist/'), {
     headers: { Authorization: `Bearer ${accessToken}` },
     data: { isbn },
   });
@@ -66,8 +70,16 @@ export async function apiAddWishlist(request, accessToken, isbn) {
   return res.json();
 }
 
+export async function apiListWishlist(request, accessToken) {
+  const res = await request.get(apiUrl('/wishlist/'), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok()) throw new Error(`listWishlist failed: ${await res.text()}`);
+  return res.json();
+}
+
 export async function apiRemoveWishlist(request, accessToken, wishlistItemId) {
-  const res = await request.delete(`${API}/wishlist/${wishlistItemId}/`, {
+  const res = await request.delete(apiUrl(`/wishlist/${wishlistItemId}/`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`removeWishlist failed: ${await res.text()}`);
@@ -77,7 +89,7 @@ export async function apiRemoveWishlist(request, accessToken, wishlistItemId) {
 
 export async function apiListMatches(request, accessToken, params = {}) {
   const qs = new URLSearchParams(params).toString();
-  const res = await request.get(`${API}/matches/${qs ? `?${qs}` : ''}`, {
+  const res = await request.get(apiUrl(`/matches/${qs ? `?${qs}` : ''}`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`listMatches failed: ${await res.text()}`);
@@ -85,7 +97,7 @@ export async function apiListMatches(request, accessToken, params = {}) {
 }
 
 export async function apiAcceptMatch(request, accessToken, matchId) {
-  const res = await request.post(`${API}/matches/${matchId}/accept/`, {
+  const res = await request.post(apiUrl(`/matches/${matchId}/accept/`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`acceptMatch failed: ${await res.text()}`);
@@ -93,7 +105,7 @@ export async function apiAcceptMatch(request, accessToken, matchId) {
 }
 
 export async function apiDeclineMatch(request, accessToken, matchId) {
-  const res = await request.post(`${API}/matches/${matchId}/decline/`, {
+  const res = await request.post(apiUrl(`/matches/${matchId}/decline/`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`declineMatch failed: ${await res.text()}`);
@@ -104,7 +116,7 @@ export async function apiDeclineMatch(request, accessToken, matchId) {
 
 export async function apiListProposals(request, accessToken, params = {}) {
   const qs = new URLSearchParams(params).toString();
-  const res = await request.get(`${API}/proposals/${qs ? `?${qs}` : ''}`, {
+  const res = await request.get(apiUrl(`/proposals/${qs ? `?${qs}` : ''}`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`listProposals failed: ${await res.text()}`);
@@ -112,7 +124,7 @@ export async function apiListProposals(request, accessToken, params = {}) {
 }
 
 export async function apiAcceptProposal(request, accessToken, proposalId) {
-  const res = await request.post(`${API}/proposals/${proposalId}/accept/`, {
+  const res = await request.post(apiUrl(`/proposals/${proposalId}/accept/`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`acceptProposal failed: ${await res.text()}`);
@@ -120,7 +132,7 @@ export async function apiAcceptProposal(request, accessToken, proposalId) {
 }
 
 export async function apiDeclineProposal(request, accessToken, proposalId) {
-  const res = await request.post(`${API}/proposals/${proposalId}/decline/`, {
+  const res = await request.post(apiUrl(`/proposals/${proposalId}/decline/`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`declineProposal failed: ${await res.text()}`);
@@ -131,7 +143,7 @@ export async function apiDeclineProposal(request, accessToken, proposalId) {
 
 export async function apiListTrades(request, accessToken, params = {}) {
   const qs = new URLSearchParams(params).toString();
-  const res = await request.get(`${API}/trades/${qs ? `?${qs}` : ''}`, {
+  const res = await request.get(apiUrl(`/trades/${qs ? `?${qs}` : ''}`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`listTrades failed: ${await res.text()}`);
@@ -139,7 +151,7 @@ export async function apiListTrades(request, accessToken, params = {}) {
 }
 
 export async function apiMarkShipped(request, accessToken, tradeId, trackingNumber = '') {
-  const res = await request.post(`${API}/trades/${tradeId}/mark-shipped/`, {
+  const res = await request.post(apiUrl(`/trades/${tradeId}/mark-shipped/`), {
     headers: { Authorization: `Bearer ${accessToken}` },
     data: { tracking_number: trackingNumber },
   });
@@ -148,7 +160,7 @@ export async function apiMarkShipped(request, accessToken, tradeId, trackingNumb
 }
 
 export async function apiMarkReceived(request, accessToken, tradeId) {
-  const res = await request.post(`${API}/trades/${tradeId}/mark-received/`, {
+  const res = await request.post(apiUrl(`/trades/${tradeId}/mark-received/`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`markReceived failed: ${await res.text()}`);
@@ -158,7 +170,7 @@ export async function apiMarkReceived(request, accessToken, tradeId) {
 // ── Account deletion ──────────────────────────────────────────────────────────
 
 export async function apiDeleteAccount(request, accessToken, password) {
-  const res = await request.delete(`${API}/users/me/`, {
+  const res = await request.delete(apiUrl('/users/me/'), {
     headers: { Authorization: `Bearer ${accessToken}` },
     data: { password },
   });
@@ -170,7 +182,7 @@ export async function apiDeleteAccount(request, accessToken, password) {
 // ── Notifications ─────────────────────────────────────────────────────────────
 
 export async function apiGetNotificationCounts(request, accessToken) {
-  const res = await request.get(`${API}/notifications/counts/`, {
+  const res = await request.get(apiUrl('/notifications/counts/'), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`getNotificationCounts failed: ${await res.text()}`);
@@ -178,7 +190,7 @@ export async function apiGetNotificationCounts(request, accessToken) {
 }
 
 export async function apiMarkAllNotificationsRead(request, accessToken) {
-  const res = await request.post(`${API}/notifications/mark-all-read/`, {
+  const res = await request.post(apiUrl('/notifications/mark-all-read/'), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`markAllRead failed: ${await res.text()}`);
@@ -186,7 +198,7 @@ export async function apiMarkAllNotificationsRead(request, accessToken) {
 
 export async function apiGetNotifications(request, accessToken, params = {}) {
   const qs = new URLSearchParams(params).toString();
-  const res = await request.get(`${API}/notifications/${qs ? `?${qs}` : ''}`, {
+  const res = await request.get(apiUrl(`/notifications/${qs ? `?${qs}` : ''}`), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok()) throw new Error(`getNotifications failed: ${await res.text()}`);

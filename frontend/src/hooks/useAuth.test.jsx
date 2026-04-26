@@ -88,4 +88,29 @@ describe('useAuth', () => {
         });
         expect(result.current.isAuthenticated).toBe(false);
     });
+
+    it('uses custom message from auth:logout event detail', async () => {
+        useAuthStore.getState().login({ access: 'tok', refresh: 'ref' }, { id: 'u1', username: 'alice' });
+        renderHook(() => useAuth());
+
+        await act(async () => {
+            window.dispatchEvent(new CustomEvent('auth:logout', { detail: { message: 'Session expired.' } }));
+        });
+
+        const notifications = useNotificationStore.getState().notifications;
+        expect(notifications.some((n) => n.message === 'Session expired.')).toBe(true);
+    });
+
+    it('uses fallback message when auth:session-invalid event has no detail message', async () => {
+        renderHook(() => useAuth());
+        useNotificationStore.setState({ notifications: [] });
+
+        await act(async () => {
+            window.dispatchEvent(new CustomEvent('auth:session-invalid'));
+        });
+
+        const notifications = useNotificationStore.getState().notifications;
+        expect(notifications).toHaveLength(1);
+        expect(notifications[0].message).toMatch(/session expired/i);
+    });
 });

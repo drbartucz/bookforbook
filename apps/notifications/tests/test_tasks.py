@@ -562,3 +562,74 @@ class TestCheckInactivityTask:
         library_user.refresh_from_db()
         assert book.status == UserBook.Status.AVAILABLE
         assert library_user.books_delisted_at is None
+
+
+# ---------------------------------------------------------------------------
+# send_verification_email task — failure path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestSendVerificationEmailTaskFailurePath:
+    def test_logs_error_when_email_send_fails(self, settings):
+        settings.FRONTEND_URL = "https://app.bookforbook.com"
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+        user = UserFactory(email="fail@example.com")
+
+        with patch(
+            "apps.notifications.email.send_verification_email", return_value=False
+        ), patch("apps.notifications.tasks.logger") as mock_logger:
+            from apps.notifications.tasks import send_verification_email as task_fn
+
+            task_fn(str(user.pk), "uid1", "tok1")
+
+        mock_logger.error.assert_called_once()
+        assert str(user.email) in mock_logger.error.call_args[0][1]
+
+
+# ---------------------------------------------------------------------------
+# send_password_reset_email task
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestSendPasswordResetEmailTask:
+    def test_sends_password_reset_email(self, settings):
+        settings.FRONTEND_URL = "https://app.bookforbook.com"
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+        user = UserFactory(email="resetme@example.com")
+
+        from apps.notifications.tasks import send_password_reset_email as task_fn
+
+        task_fn(str(user.pk), "uid42", "tok42")
+
+        assert len(mail.outbox) == 1
+        assert "reset" in mail.outbox[0].subject.lower()
+        assert "uid42" in mail.outbox[0].body
+        assert "tok42" in mail.outbox[0].body
+
+
+# ---------------------------------------------------------------------------
+# send_trade_confirmed_notification task
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestSendTradeConfirmedNotificationTask:
+    def test_emails_all_parties(self, settings):
+        settings.FRONTEND_URL = "https://app.bookforbook.com"
+        settings.DEFAULT_FROM_EMAIL = "noreply@bookforbook.com"
+
+        sender_user = UserFactory(email="sender@example.com")
+        receiver_user = UserFactory(email="receiver@example.com")
+        trade = TradeFactory()
+        TradeShipmentFactory(trade=trade, sender=sender_user, receiver=receiver_user)
+
+        from apps.notifications.tasks import send_trade_confirmed_notification
+
+        send_trade_confirmed_notification(str(trade.pk))
+
+        assert len(mail.outbox) == 2
+        recipients = {m.to[0] for m in mail.outbox}
+        assert "sender@example.com" in recipients
+        assert "receiver@example.com" in recipients

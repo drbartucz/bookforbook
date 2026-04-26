@@ -131,8 +131,11 @@ export default function Donations() {
                         <div>
                           <p className={styles.bookTitle}>{book.title}</p>
                           {getBookPrimaryAuthor(book) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(book)}</p>}
+                          {(book.isbn_13 || book.isbn_10) && (
+                            <p className={styles.bookIsbn}>ISBN: {book.isbn_13 || book.isbn_10}</p>
+                          )}
                           {userBook?.condition && (
-                            <ConditionBadge condition={donation.book.condition} />
+                            <ConditionBadge condition={userBook.condition} />
                           )}
                         </div>
                       </div>

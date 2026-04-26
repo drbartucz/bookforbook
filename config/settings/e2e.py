@@ -28,10 +28,18 @@ Q_CLUSTER = {
 
 # ── Throttling — raise limits to avoid rate-limit failures in CI ─────────────
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
+    **REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"],  # noqa: F405
     "anon": "600/hour",
     "user": "6000/hour",
     "isbn_lookup": "300/hour",
+    "auth_login": "600/hour",
+    "auth_register": "300/hour",
+    "auth_password_reset": "300/hour",
 }
 
 # ── Security — relaxed for local/CI E2E environment only ─────────────────────
 ALLOWED_HOSTS = ["*"]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https?://localhost(:\d+)?$",
+    r"^https?://127\.0\.0\.1(:\d+)?$",
+]

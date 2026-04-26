@@ -130,4 +130,52 @@ describe('Login page', () => {
             expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled();
         });
     });
+
+    it('shows non_field_errors from response', async () => {
+        authApi.login.mockRejectedValueOnce({
+            response: { data: { non_field_errors: ['Invalid credentials.'] } },
+        });
+
+        renderWithProviders(<Login />);
+        await userEvent.type(screen.getByLabelText(/email address/i), 'bad@example.com');
+        await userEvent.type(screen.getByLabelText(/password/i), 'wrong-pass');
+        await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+        await waitFor(() => expect(screen.getByText('Invalid credentials.')).toBeInTheDocument());
+    });
+
+    it('proceeds without user profile when getMe fails after login', async () => {
+        authApi.login.mockResolvedValueOnce({
+            data: { access: 'access-token', refresh: 'refresh-token' },
+        });
+        usersApi.getMe.mockRejectedValueOnce(new Error('Network error'));
+
+        renderWithProviders(<Login />);
+        await userEvent.type(screen.getByLabelText(/email address/i), 'alice@example.com');
+        await userEvent.type(screen.getByLabelText(/password/i), 'correct-pass');
+        await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+        // Should succeed (navigate) even if getMe fails
+        await waitFor(() => expect(mockLogin).toHaveBeenCalled());
+    });
+
+    it('reads the "from" redirect path from location state (covers left side of || in line 15)', async () => {
+        authApi.login.mockResolvedValueOnce({
+            data: { access: 'access-token', refresh: 'refresh-token' },
+        });
+        usersApi.getMe.mockResolvedValueOnce({
+            data: { id: '1', username: 'alice', account_type: 'individual' },
+        });
+
+        // Pass location.state.from.pathname so the left branch of `|| '/dashboard'` executes
+        renderWithProviders(<Login />, {
+            route: { pathname: '/login', state: { from: { pathname: '/matches' } } },
+        });
+
+        await userEvent.type(screen.getByLabelText(/email address/i), 'alice@example.com');
+        await userEvent.type(screen.getByLabelText(/password/i), 'correct-pass');
+        await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+        await waitFor(() => expect(mockLogin).toHaveBeenCalled());
+    });
 });

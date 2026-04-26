@@ -55,4 +55,33 @@ describe('ErrorMessage', () => {
         render(<ErrorMessage error="Oops" />);
         expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
+
+    it('extracts message field from response data', () => {
+        const error = { response: { data: { message: 'Custom message here.' } } };
+        render(<ErrorMessage error={error} />);
+        expect(screen.getByText('Custom message here.')).toBeInTheDocument();
+    });
+
+    it('returns raw string response data when data is a string', () => {
+        const error = { response: { data: 'Raw string error.' } };
+        render(<ErrorMessage error={error} />);
+        expect(screen.getByText('Raw string error.')).toBeInTheDocument();
+    });
+
+    it('extracts first field error as array from response data', () => {
+        const error = { response: { data: { username: ['This username is taken.'] } } };
+        render(<ErrorMessage error={error} />);
+        expect(screen.getByText('username: This username is taken.')).toBeInTheDocument();
+    });
+
+    it('extracts first field error as string from response data', () => {
+        const error = { response: { data: { email: 'Invalid email format.' } } };
+        render(<ErrorMessage error={error} />);
+        expect(screen.getByText('email: Invalid email format.')).toBeInTheDocument();
+    });
+
+    it('falls back to default message when error has no message property', () => {
+        render(<ErrorMessage error={{}} />);
+        expect(screen.getByText('An unexpected error occurred.')).toBeInTheDocument();
+    });
 });

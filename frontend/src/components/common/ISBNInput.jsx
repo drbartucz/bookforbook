@@ -38,7 +38,7 @@ export default function ISBNInput({
 
   async function handleLookup() {
     setHasLookupAttempted(true);
-    const isbn = value.trim().replace(/-/g, '');
+    const isbn = value.trim().replace(/[\s-]/g, '');
     if (!isbn) return;
 
     if (isbn.length !== 10 && isbn.length !== 13) {
@@ -79,7 +79,7 @@ export default function ISBNInput({
   }
 
   function handleChange(e) {
-    onChange(e.target.value);
+    onChange(e.target.value.trim());
     // Clear lookup result when user types a new ISBN
     if (localBook) {
       setLocalBook(null);
@@ -104,7 +104,7 @@ export default function ISBNInput({
           placeholder="e.g. 9780141439518"
           disabled={disabled || looking}
           inputMode="numeric"
-          maxLength={17}
+          maxLength={20}
           aria-label="ISBN"
         />
         <button

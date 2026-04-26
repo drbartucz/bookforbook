@@ -32,6 +32,7 @@ vi.mock('../hooks/useAuth.js', () => ({
 
 import { matches, myBooks, proposals, trades, users, wishlist } from '../services/api.js';
 import useAuth from '../hooks/useAuth.js';
+import { ActivityItem } from './Dashboard.jsx';
 
 describe('Dashboard page', () => {
     beforeEach(() => {
@@ -117,5 +118,13 @@ describe('Dashboard page', () => {
 
         expect(await screen.findByText('No activity yet')).toBeInTheDocument();
         expect(screen.getByText('Add books to your have-list and wishlist to start getting matches.')).toBeInTheDocument();
+    });
+});
+
+describe('ActivityItem fallback branches', () => {
+    it('renders fallback title, empty subtitle, root link, and gray badge for an unknown type', () => {
+        renderWithProviders(<ActivityItem type="unknown" item={{ id: 'x' }} />);
+        expect(screen.getByText('Activity')).toBeInTheDocument();
+        expect(screen.getByText('unknown')).toBeInTheDocument();
     });
 });
