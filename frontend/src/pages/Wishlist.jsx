@@ -143,10 +143,13 @@ export default function Wishlist() {
       }
     },
     onError: (err) => {
+      const data = err?.response?.data;
       const msg =
-        err?.response?.data?.detail ||
-        err?.response?.data?.non_field_errors?.join(' ') ||
-        'Failed to add to wishlist.';
+        data?.isbn?.[0]?.toLowerCase().includes('already')
+          ? 'Already in your wishlist!'
+          : data?.detail ||
+            data?.non_field_errors?.join(' ') ||
+            'Failed to add to wishlist.';
       setAddError(msg);
     },
   });

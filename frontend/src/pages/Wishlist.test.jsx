@@ -347,6 +347,19 @@ describe('Wishlist page', () => {
         await waitFor(() => expect(screen.getByText('ISBN not found.')).toBeInTheDocument());
     });
 
+    it('shows "Already in your wishlist!" when the book is a duplicate', async () => {
+        wishlist.list.mockResolvedValue({ data: { count: 0, results: [] } });
+        wishlist.add.mockRejectedValueOnce({
+            response: { data: { isbn: ['This book is already on your wishlist.'] } },
+        });
+        renderWithProviders(<Wishlist />);
+        await userEvent.click(await screen.findByRole('button', { name: '+ Add to Wishlist' }));
+        await userEvent.type(screen.getByLabelText('ISBN'), '9780393081084');
+        await userEvent.click(screen.getByRole('button', { name: 'Mock Lookup' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Add to Wishlist' }));
+        await waitFor(() => expect(screen.getByText('Already in your wishlist!')).toBeInTheDocument());
+    });
+
     it('shows generic error when wishlist add API fails without detail', async () => {
         wishlist.list.mockResolvedValue({ data: { count: 0, results: [] } });
         wishlist.add.mockRejectedValueOnce({ response: { data: {} } });
