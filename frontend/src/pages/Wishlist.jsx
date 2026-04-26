@@ -39,10 +39,21 @@ const EDITION_PREFERENCE_OPTIONS = [
 const FORMAT_OPTIONS = [
   { value: 'hardcover', label: 'Hardcover' },
   { value: 'paperback', label: 'Paperback' },
-  { value: 'mass_market', label: 'Mass Market' },
+  { value: 'mass_market', label: 'Mass Market Paperback' },
   { value: 'large_print', label: 'Large Print' },
   { value: 'audiobook', label: 'Audiobook' },
 ];
+
+function normalizePhysicalFormatToKey(physicalFormat) {
+  if (!physicalFormat) return null;
+  const lower = physicalFormat.toLowerCase();
+  if (lower.includes('mass market')) return 'mass_market';
+  if (lower.includes('large print')) return 'large_print';
+  if (lower.includes('audio')) return 'audiobook';
+  if (lower.includes('hardcover') || lower.includes('hardback')) return 'hardcover';
+  if (lower.includes('paperback') || lower.includes('softcover')) return 'paperback';
+  return null;
+}
 
 const DEFAULT_WISHLIST_PREFERENCES = {
   min_condition: 'any',
@@ -155,6 +166,10 @@ export default function Wishlist() {
 
   function handleBookFound(book) {
     setFoundBook(book);
+    if (book) {
+      const formatKey = normalizePhysicalFormatToKey(book.physical_format);
+      setFormatPreferences(formatKey ? [formatKey] : []);
+    }
     setShowEditionPrompt(Boolean(book));
   }
 
@@ -190,10 +205,10 @@ export default function Wishlist() {
     }
     payload.edition_preference = editionPreference;
 
+    payload.format_preferences = formatPreferences;
     if (editionPreference === 'custom') {
       payload.allow_translations = allowTranslations;
       payload.exclude_abridged = excludeAbridged;
-      payload.format_preferences = formatPreferences;
     }
 
     addMutation.mutate(payload);
@@ -323,6 +338,28 @@ export default function Wishlist() {
                   </p>
                 </div>
 
+                <div className="form-group">
+                  <label className="form-label">Acceptable formats</label>
+                  <p className="form-hint" style={{ marginBottom: '0.5rem' }}>
+                    Check all formats you would accept. The edition you looked up is pre-selected.
+                  </p>
+                  <div style={{ display: 'grid', gap: '0.5rem' }}>
+                    {FORMAT_OPTIONS.map((format) => (
+                      <label
+                        key={format.value}
+                        style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', cursor: 'pointer' }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formatPreferences.includes(format.value)}
+                          onChange={() => toggleFormatPreference(format.value)}
+                        />
+                        {format.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 {editionPreference === 'custom' && (
                   <div className="form-group">
                     <label className="form-label">Custom edition rules</label>
@@ -343,25 +380,6 @@ export default function Wishlist() {
                         />
                         Exclude abridged versions
                       </label>
-                    </div>
-
-                    <div style={{ marginTop: '0.75rem' }}>
-                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>Allowed formats</p>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {FORMAT_OPTIONS.map((format) => {
-                          const active = formatPreferences.includes(format.value);
-                          return (
-                            <button
-                              key={format.value}
-                              type="button"
-                              className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
-                              onClick={() => toggleFormatPreference(format.value)}
-                            >
-                              {format.label}
-                            </button>
-                          );
-                        })}
-                      </div>
                     </div>
                   </div>
                 )}
