@@ -57,7 +57,7 @@
   pointer-events: none;
 }
 
-.searchInput {
+.searchWrapper .searchInput {
   padding-left: 2.25rem;
 }
 
