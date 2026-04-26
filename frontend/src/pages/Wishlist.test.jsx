@@ -114,8 +114,8 @@ describe('Wishlist page', () => {
             'custom'
         );
         await userEvent.click(screen.getByLabelText('Include translations'));
-        await userEvent.click(screen.getByRole('button', { name: 'Hardcover' }));
-        await userEvent.click(screen.getByRole('button', { name: 'Paperback' }));
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Hardcover' }));
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Paperback' }));
 
         await userEvent.click(screen.getByRole('button', { name: 'Add to Wishlist' }));
 
@@ -378,11 +378,9 @@ describe('Wishlist page', () => {
         await userEvent.click(await screen.findByRole('button', { name: '+ Add to Wishlist' }));
         await userEvent.type(screen.getByLabelText('ISBN'), '9780393081084');
         await userEvent.click(screen.getByRole('button', { name: 'Mock Lookup' }));
-        // popup appears; switch to custom so format buttons appear
-        await userEvent.selectOptions(screen.getByLabelText('Edition matching'), 'custom');
         // Click Hardcover to select it, then again to deselect (covers filter branch)
-        await userEvent.click(screen.getByRole('button', { name: 'Hardcover' }));
-        await userEvent.click(screen.getByRole('button', { name: 'Hardcover' }));
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Hardcover' }));
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Hardcover' }));
         await userEvent.click(screen.getByRole('button', { name: 'Add to Wishlist' }));
         expect(wishlist.add).toHaveBeenCalledWith(expect.objectContaining({ format_preferences: [] }));
     });
