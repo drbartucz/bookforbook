@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 OPEN_LIBRARY_ISBN_URL = "https://openlibrary.org/isbn/{isbn}.json"
 OPEN_LIBRARY_COVER_URL = "https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg"
 OPEN_LIBRARY_SEARCH_URL = "https://openlibrary.org/search.json"
+OPEN_LIBRARY_BOOKS_API_URL = "https://openlibrary.org/api/books"
 OPEN_LIBRARY_WORKS_URL = "https://openlibrary.org{key}.json"
 
 REQUEST_TIMEOUT = 5  # seconds — fail fast rather than hanging the UI
@@ -60,12 +61,16 @@ def get_or_create_book(isbn: str):
 
     # Fetch from Open Library
     data = fetch_from_open_library(isbn_13)
+    if not data.get("title"):
+        raise ValueError(
+            "Could not find this ISBN in our catalog sources. Try another edition ISBN (for example hardcover or paperback)."
+        )
     isbn_10 = isbn13_to_isbn10(isbn_13)
 
     book = Book.objects.create(
         isbn_13=isbn_13,
         isbn_10=isbn_10 or None,
-        title=data.get("title") or "Unknown Title",
+        title=data.get("title"),
         authors=data.get("authors", []),
         publisher=data.get("publisher"),
         publish_year=data.get("publish_year"),
@@ -247,6 +252,12 @@ def fetch_from_open_library(isbn_13: str) -> dict:
     if search_data:
         data = _merge_book_data(data, search_data)
 
+    # Books API often has richer metadata for edge editions (including audio).
+    if not data.get("title") or not data.get("authors"):
+        books_api_data = _fetch_books_api_data(isbn_13)
+        if books_api_data:
+            data = _merge_book_data(data, books_api_data)
+
     # Last resort: fetch edition record for physical_format if still missing
     if not data.get("physical_format"):
         edition_key = search_data.get("edition_key")
@@ -261,21 +272,66 @@ def fetch_from_open_library(isbn_13: str) -> dict:
 
 
 def _fetch_search_data(isbn_13: str) -> dict:
-    """Fetch and normalize the first Open Library search result for an ISBN."""
+    """Fetch and normalize the best Open Library search result for an ISBN."""
     try:
         resp = requests.get(
             OPEN_LIBRARY_SEARCH_URL,
-            params={"isbn": isbn_13, "limit": 1},
+            params={"isbn": isbn_13, "limit": 5},
             timeout=REQUEST_TIMEOUT,
         )
         if resp.status_code == 200:
             payload = _response_json_object(resp, f"search fallback for {isbn_13}")
             results = payload.get("docs", []) if payload else []
-            if results and isinstance(results[0], dict):
-                return _parse_search_result(results[0], isbn_13)
+            if results:
+                docs = [doc for doc in results if isinstance(doc, dict)]
+                if docs:
+                    best = max(docs, key=lambda doc: _score_search_doc(doc, isbn_13))
+                    return _parse_search_result(best, isbn_13)
+
+        # Secondary fallback: some editions are searchable only via broad query.
+        resp = requests.get(
+            OPEN_LIBRARY_SEARCH_URL,
+            params={"q": isbn_13, "limit": 5},
+            timeout=REQUEST_TIMEOUT,
+        )
+        if resp.status_code == 200:
+            payload = _response_json_object(
+                resp, f"search query fallback for {isbn_13}"
+            )
+            results = payload.get("docs", []) if payload else []
+            if results:
+                docs = [doc for doc in results if isinstance(doc, dict)]
+                if docs:
+                    best = max(docs, key=lambda doc: _score_search_doc(doc, isbn_13))
+                    return _parse_search_result(best, isbn_13)
     except requests.RequestException as e:
         logger.warning("Open Library search fallback failed for %s: %s", isbn_13, e)
     return {}
+
+
+def _score_search_doc(doc: dict, isbn_13: str) -> int:
+    """Score a search document by relevance and metadata quality."""
+    score = 0
+
+    isbn_values = doc.get("isbn") or []
+    if isinstance(isbn_values, list) and isbn_13 in isbn_values:
+        score += 100
+
+    if doc.get("title"):
+        score += 20
+    if doc.get("author_name"):
+        score += 15
+
+    normalized_format = _normalize_physical_format(doc.get("format"))
+    if normalized_format:
+        score += 10
+        if _is_audio_format(normalized_format):
+            score -= 3
+
+    if doc.get("cover_i") or doc.get("cover_edition_key"):
+        score += 5
+
+    return score
 
 
 def _merge_book_data(primary: dict, fallback: dict) -> dict:
@@ -368,6 +424,11 @@ def _parse_search_result(doc: dict, isbn_13: str) -> dict:
     )
     subjects = doc.get("subject", [])
     data["subjects"] = subjects[:20] if subjects else []
+    cover_id = doc.get("cover_i")
+    if cover_id:
+        data["cover_image_url"] = (
+            f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg"
+        )
     return data
 
 
@@ -376,7 +437,12 @@ def _normalize_physical_format(value) -> str | None:
     if not value:
         return None
     if isinstance(value, list):
-        value = value[0] if value else None
+        candidates = []
+        for candidate in value:
+            normalized = _normalize_physical_format(candidate)
+            if normalized:
+                candidates.append(normalized)
+        return _pick_best_format(candidates)
     if isinstance(value, dict):
         value = value.get("name") or value.get("value")
     if value is None:
@@ -385,6 +451,81 @@ def _normalize_physical_format(value) -> str | None:
     if text.lower() in {"unknown", "n/a", "none", "null"}:
         return None
     return text or None
+
+
+def _pick_best_format(candidates: list[str]) -> str | None:
+    """Pick the most user-meaningful format from Open Library candidates."""
+    if not candidates:
+        return None
+
+    print_candidates = [
+        candidate for candidate in candidates if not _is_audio_format(candidate)
+    ]
+    if print_candidates:
+        return print_candidates[0]
+    return candidates[0]
+
+
+def _is_audio_format(value: str) -> bool:
+    """Heuristic to identify audiobook-like physical formats."""
+    text = value.lower()
+    audio_tokens = ("audio", "mp3", "cassette", "cd")
+    return any(token in text for token in audio_tokens)
+
+
+def _fetch_books_api_data(isbn_13: str) -> dict:
+    """Fetch metadata from Open Library Books API for ISBN fallbacks."""
+    try:
+        resp = requests.get(
+            OPEN_LIBRARY_BOOKS_API_URL,
+            params={
+                "bibkeys": f"ISBN:{isbn_13}",
+                "format": "json",
+                "jscmd": "data",
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return {}
+
+        payload = _response_json_object(resp, f"books api lookup for {isbn_13}")
+        if not payload:
+            return {}
+
+        raw = payload.get(f"ISBN:{isbn_13}")
+        if not isinstance(raw, dict):
+            return {}
+
+        data = {
+            "title": raw.get("title", ""),
+            "authors": [
+                author.get("name")
+                for author in raw.get("authors", [])
+                if isinstance(author, dict) and author.get("name")
+            ],
+            "publisher": (
+                raw.get("publishers", [{}])[0].get("name")
+                if isinstance(raw.get("publishers"), list) and raw.get("publishers")
+                else None
+            ),
+            "page_count": raw.get("number_of_pages"),
+            "physical_format": _normalize_physical_format(raw.get("physical_format")),
+        }
+
+        publish_date = raw.get("publish_date", "")
+        if publish_date:
+            year_match = re.search(r"\d{4}", str(publish_date))
+            if year_match:
+                data["publish_year"] = int(year_match.group())
+
+        cover = raw.get("cover")
+        if isinstance(cover, dict):
+            data["cover_image_url"] = cover.get("medium") or cover.get("large")
+
+        return data
+    except requests.RequestException as e:
+        logger.debug("Books API data fetch failed for %s: %s", isbn_13, e)
+        return {}
 
 
 def _fetch_edition_data(edition_key: str) -> dict:

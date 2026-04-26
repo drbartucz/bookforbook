@@ -80,6 +80,9 @@ class TestOpenLibraryFormatParsing:
     def test_normalize_physical_format_unknown_placeholder(self):
         assert _normalize_physical_format("unknown") is None
 
+    def test_normalize_physical_format_prefers_print_over_audio(self):
+        assert _normalize_physical_format(["Audio CD", "Hardcover"]) == "Hardcover"
+
     def test_parse_isbn_response_extracts_physical_format(self):
         raw = {
             "title": "Example",
@@ -200,6 +203,47 @@ def test_fetch_from_open_library_ignores_unknown_format_and_uses_edition_fallbac
     assert data["physical_format"] == "Hardcover"
 
 
+def test_fetch_from_open_library_uses_books_api_when_isbn_and_search_are_sparse():
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def mock_get(url, **kwargs):
+        if "isbn/9780201616224.json" in url:
+            return FakeResponse(404, {})
+        if "search.json" in url:
+            return FakeResponse(200, {"docs": []})
+        if "api/books" in url:
+            return FakeResponse(
+                200,
+                {
+                    "ISBN:9780201616224": {
+                        "title": "Recovered From Books API",
+                        "authors": [{"name": "Author Example"}],
+                        "publishers": [{"name": "Publisher Example"}],
+                        "publish_date": "2001",
+                        "number_of_pages": 321,
+                        "cover": {"medium": "https://example.com/cover.jpg"},
+                    }
+                },
+            )
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780201616224")
+
+    assert data["title"] == "Recovered From Books API"
+    assert data["authors"] == ["Author Example"]
+    assert data["publisher"] == "Publisher Example"
+    assert data["publish_year"] == 2001
+    assert data["page_count"] == 321
+    assert data["cover_image_url"] == "https://example.com/cover.jpg"
+
+
 @pytest.mark.django_db
 def test_get_or_create_book_ignores_malformed_author_payload():
     class FakeResponse:
@@ -267,6 +311,7 @@ def test_get_or_create_book_refreshes_cached_book_with_missing_metadata():
 class TestResponseJsonObject:
     def _make_resp(self, status_code, body):
         from unittest.mock import MagicMock
+
         r = MagicMock()
         r.status_code = status_code
         r.json.return_value = body
@@ -274,17 +319,20 @@ class TestResponseJsonObject:
 
     def test_returns_dict_payload(self):
         from apps.books.services.openlibrary import _response_json_object
+
         r = self._make_resp(200, {"title": "Hi"})
         assert _response_json_object(r, "ctx") == {"title": "Hi"}
 
     def test_returns_none_for_list_payload(self):
         from apps.books.services.openlibrary import _response_json_object
+
         r = self._make_resp(200, [1, 2, 3])
         assert _response_json_object(r, "ctx") is None
 
     def test_returns_none_for_invalid_json(self):
         from unittest.mock import MagicMock
         from apps.books.services.openlibrary import _response_json_object
+
         r = MagicMock()
         r.json.side_effect = ValueError("bad json")
         assert _response_json_object(r, "ctx") is None
@@ -298,6 +346,7 @@ class TestResponseJsonObject:
 class TestMergeBookData:
     def test_fills_missing_fields_from_fallback(self):
         from apps.books.services.openlibrary import _merge_book_data
+
         primary = {"title": "Book A", "authors": []}
         fallback = {"authors": ["Alice"], "page_count": 300}
         merged = _merge_book_data(primary, fallback)
@@ -307,6 +356,7 @@ class TestMergeBookData:
 
     def test_does_not_overwrite_existing_values(self):
         from apps.books.services.openlibrary import _merge_book_data
+
         primary = {"title": "Book A", "authors": ["Alice"]}
         fallback = {"title": "Book B", "authors": ["Bob"]}
         merged = _merge_book_data(primary, fallback)
@@ -315,6 +365,7 @@ class TestMergeBookData:
 
     def test_skips_empty_fallback_values(self):
         from apps.books.services.openlibrary import _merge_book_data
+
         primary = {"title": ""}
         fallback = {"title": "", "authors": []}
         merged = _merge_book_data(primary, fallback)
@@ -329,8 +380,21 @@ class TestMergeBookData:
 @pytest.mark.django_db
 def test_get_or_create_book_raises_for_invalid_isbn():
     from apps.books.services.openlibrary import get_or_create_book
+
     with pytest.raises(ValueError, match="Invalid ISBN"):
         get_or_create_book("not-an-isbn")
+
+
+@pytest.mark.django_db
+def test_get_or_create_book_raises_when_metadata_is_unavailable():
+    from apps.books.services.openlibrary import get_or_create_book
+
+    with patch(
+        "apps.books.services.openlibrary.fetch_from_open_library",
+        return_value={},
+    ):
+        with pytest.raises(ValueError, match="Could not find this ISBN"):
+            get_or_create_book("9780201616224")
 
 
 @pytest.mark.django_db
@@ -346,9 +410,7 @@ def test_get_or_create_book_skips_enrichment_when_complete():
         physical_format="Paperback",
     )
 
-    with patch(
-        "apps.books.services.openlibrary.fetch_from_open_library"
-    ) as mock_fetch:
+    with patch("apps.books.services.openlibrary.fetch_from_open_library") as mock_fetch:
         book = get_or_create_book("9780201616224")
 
     mock_fetch.assert_not_called()
@@ -368,7 +430,9 @@ def test_fetch_from_open_library_handles_isbn_endpoint_timeout():
     search_resp = MagicMock()
     search_resp.status_code = 200
     search_resp.json.return_value = {
-        "docs": [{"title": "Some Book", "author_name": ["Author"], "format": ["Paperback"]}]
+        "docs": [
+            {"title": "Some Book", "author_name": ["Author"], "format": ["Paperback"]}
+        ]
     }
 
     def mock_get(url, **kwargs):
