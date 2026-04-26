@@ -29,6 +29,7 @@ const PLACEHOLDER_COVER = 'data:image/svg+xml,' + encodeURIComponent(`
 export default function BookCard({
   book,
   owner,
+  copyCount = 1,
   onAction,
   actionLabel,
   actionLoading = false,
@@ -67,6 +68,9 @@ export default function BookCard({
           )}
           <div className={styles.meta}>
             {book.condition && <ConditionBadge condition={book.condition} />}
+            {copyCount > 1 && (
+              <span className="badge badge-blue">{copyCount} copies</span>
+            )}
             {owner && (
               <Link
                 to={`/profile/${owner.id}`}

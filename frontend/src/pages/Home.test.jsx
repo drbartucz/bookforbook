@@ -109,7 +109,7 @@ describe('Home page', () => {
             },
         });
         renderWithProviders(<Home />);
-        expect(await screen.findByText(/3 books available/i)).toBeInTheDocument();
+        expect(await screen.findByText(/3 copies available/i)).toBeInTheDocument();
     });
 
     it('calls handleSearchChange when search input is updated', async () => {
@@ -156,6 +156,29 @@ describe('Home page', () => {
         renderWithProviders(<Home />);
         expect(await screen.findByText('Flat Book Title')).toBeInTheDocument();
         expect(screen.getByText('Flat Author')).toBeInTheDocument();
+    });
+
+    it('shows duplicate books once with a copy count badge', async () => {
+        useAuth.mockReturnValue({ isAuthenticated: false });
+        browse.available.mockResolvedValue({
+            data: {
+                count: 3,
+                results: [
+                    { id: 'l1', owner: { id: 'u1', username: 'alice' }, book: { id: 'b1', title: 'Dune', authors: ['Herbert'], isbn_13: '9780441013593', condition: 'good' } },
+                    { id: 'l2', owner: { id: 'u2', username: 'bob' },   book: { id: 'b1', title: 'Dune', authors: ['Herbert'], isbn_13: '9780441013593', condition: 'very_good' } },
+                    { id: 'l3', owner: { id: 'u3', username: 'carol' }, book: { id: 'b2', title: 'Foundation', authors: ['Asimov'], isbn_13: '9780553293357', condition: 'good' } },
+                ],
+            },
+        });
+        renderWithProviders(<Home />);
+        await screen.findByText('Dune');
+        // Only one Dune card, not two
+        expect(screen.getAllByText('Dune')).toHaveLength(1);
+        // Copy count badge shown for Dune
+        expect(screen.getByText('2 copies')).toBeInTheDocument();
+        // Foundation shown normally, no copies badge
+        expect(screen.getByText('Foundation')).toBeInTheDocument();
+        expect(screen.queryByText('1 copies')).not.toBeInTheDocument();
     });
 
     it('calls handleConditionChange when condition filter changes', async () => {
