@@ -12,11 +12,20 @@ warning.
 """
 
 import logging
+import os
 
 from django.core.management import call_command
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+
+def _ensure_filesystem_storage_path_exists(storage_backend) -> None:
+    """Create local filesystem backup directory if it doesn't exist yet."""
+    underlying = getattr(storage_backend, "storage", None)
+    location = getattr(underlying, "location", None)
+    if isinstance(location, str) and location:
+        os.makedirs(location, exist_ok=True)
 
 
 def run_database_backup(record_id: str) -> None:
@@ -31,6 +40,7 @@ def run_database_backup(record_id: str) -> None:
         from dbbackup.storage import get_storage
 
         storage = get_storage()
+        _ensure_filesystem_storage_path_exists(storage)
         before: set[str] = set(storage.list_backups())
 
         # --clean removes old backups beyond DBBACKUP_CLEANUP_KEEP.
