@@ -201,6 +201,19 @@ img {
   color: var(--color-gray-700);
 }
 
+/* Remove native browser search decoration so custom icons aren't doubled */
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  display: none;
+}
+
 .form-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
