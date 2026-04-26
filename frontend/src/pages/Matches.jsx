@@ -185,6 +185,9 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
               )}
               <p className={styles.exchangeTitle}>{yourBook.title}</p>
               {getBookPrimaryAuthor(yourBook) && <p className={styles.exchangeAuthor}>{getBookPrimaryAuthor(yourBook)}</p>}
+              {(yourBook.isbn_13 || yourBook.isbn_10) && (
+                <p className={styles.exchangeIsbn}>ISBN: {yourBook.isbn_13 || yourBook.isbn_10}</p>
+              )}
               {match.yourCondition && (
                 <ConditionBadge condition={match.yourCondition} />
               )}
@@ -214,6 +217,9 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
               )}
               <p className={styles.exchangeTitle}>{theirBook.title}</p>
               {getBookPrimaryAuthor(theirBook) && <p className={styles.exchangeAuthor}>{getBookPrimaryAuthor(theirBook)}</p>}
+              {(theirBook.isbn_13 || theirBook.isbn_10) && (
+                <p className={styles.exchangeIsbn}>ISBN: {theirBook.isbn_13 || theirBook.isbn_10}</p>
+              )}
               {match.theirCondition && (
                 <ConditionBadge condition={match.theirCondition} />
               )}

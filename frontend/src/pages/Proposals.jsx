@@ -181,6 +181,9 @@ export default function Proposals() {
                           <div>
                             <p className={styles.bookTitle}>{offeredBook.title}</p>
                             {getBookPrimaryAuthor(offeredBook) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(offeredBook)}</p>}
+                            {(offeredBook.isbn_13 || offeredBook.isbn_10) && (
+                              <p className={styles.bookIsbn}>ISBN: {offeredBook.isbn_13 || offeredBook.isbn_10}</p>
+                            )}
                             {proposal.offeredCondition && (
                               <ConditionBadge condition={proposal.offeredCondition} />
                             )}
@@ -201,6 +204,9 @@ export default function Proposals() {
                           <div>
                             <p className={styles.bookTitle}>{requestedBook.title}</p>
                             {getBookPrimaryAuthor(requestedBook) && <p className={styles.bookAuthor}>{getBookPrimaryAuthor(requestedBook)}</p>}
+                            {(requestedBook.isbn_13 || requestedBook.isbn_10) && (
+                              <p className={styles.bookIsbn}>ISBN: {requestedBook.isbn_13 || requestedBook.isbn_10}</p>
+                            )}
                             {proposal.requestedCondition && (
                               <ConditionBadge condition={proposal.requestedCondition} />
                             )}
