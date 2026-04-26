@@ -365,6 +365,11 @@
   color: var(--color-gray-500);
 }
 
+.wantedIsbn {
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+}
+
 .wantedQty {
   font-size: 0.75rem;
   color: var(--color-gray-500);

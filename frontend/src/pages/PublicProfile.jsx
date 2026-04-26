@@ -384,6 +384,9 @@ export default function PublicProfile() {
                       <div className={styles.wantedInfo}>
                         <p className={styles.wantedTitle}>{book.title}</p>
                         {getBookPrimaryAuthor(book) && <p className={styles.wantedAuthor}>{getBookPrimaryAuthor(book)}</p>}
+                        {(book.isbn_13 || book.isbn_10) && (
+                          <p className={styles.wantedIsbn}>ISBN: {book.isbn_13 || book.isbn_10}</p>
+                        )}
                         {item.min_condition && (
                           <span>
                             Min: <ConditionBadge condition={item.min_condition} />
@@ -421,6 +424,9 @@ export default function PublicProfile() {
                     <div className={styles.wantedInfo}>
                       <p className={styles.wantedTitle}>{book.title}</p>
                       {getBookPrimaryAuthor(book) && <p className={styles.wantedAuthor}>{getBookPrimaryAuthor(book)}</p>}
+                      {(book.isbn_13 || book.isbn_10) && (
+                        <p className={styles.wantedIsbn}>ISBN: {book.isbn_13 || book.isbn_10}</p>
+                      )}
                       {item.condition && (
                         <span>
                           <ConditionBadge condition={item.condition} />
@@ -455,6 +461,9 @@ export default function PublicProfile() {
                       <div className={styles.wantedInfo}>
                         <p className={styles.wantedTitle}>{book.title}</p>
                         {getBookPrimaryAuthor(book) && <p className={styles.wantedAuthor}>{getBookPrimaryAuthor(book)}</p>}
+                        {(book.isbn_13 || book.isbn_10) && (
+                          <p className={styles.wantedIsbn}>ISBN: {book.isbn_13 || book.isbn_10}</p>
+                        )}
                         {item.min_condition && (
                           <span>
                             Min: <ConditionBadge condition={item.min_condition} />
