@@ -162,7 +162,7 @@ describe('ISBNInput', () => {
         const { books } = await import('../../services/api.js');
         books.lookupISBN.mockClear();
 
-        // A single dash strips to empty string after replace(/-/g, '')
+        // A single dash strips to empty string after replace(/[\s-]/g, '')
         render(<ISBNInput value="-" onChange={onChange} onBookFound={onBookFound} />);
         await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
 
@@ -227,5 +227,26 @@ describe('ISBNInput', () => {
         // Should strip whitespace and call API with clean ISBN
         expect(books.lookupISBN).toHaveBeenCalledWith('9780393081084');
         expect(await screen.findByText('Dirty Input Book')).toBeInTheDocument();
+    });
+
+    it('performs a successful lookup when value uses spaces as separators (issue #44)', async () => {
+        const onBookFound = vi.fn();
+        const onChange = vi.fn();
+        const { books } = await import('../../services/api.js');
+
+        books.lookupISBN.mockResolvedValue({
+            data: { title: 'Space Separated Book', authors: ['Author'], publish_year: 2022 },
+        });
+
+        // ISBN entered with spaces as separators, e.g. "978 0 545 01022 1"
+        render(
+            <ISBNInput value="978 0 545 01022 1" onChange={onChange} onBookFound={onBookFound} />
+        );
+
+        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+
+        // Should strip internal spaces and call API with clean ISBN
+        expect(books.lookupISBN).toHaveBeenCalledWith('9780545010221');
+        expect(await screen.findByText('Space Separated Book')).toBeInTheDocument();
     });
 });

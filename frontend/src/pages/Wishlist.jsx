@@ -184,7 +184,7 @@ export default function Wishlist() {
       return;
     }
     setAddError(null);
-    const payload = { isbn: isbn.trim().replace(/-/g, '') };
+    const payload = { isbn: isbn.trim().replace(/[\s-]/g, '') };
     if (minCondition && minCondition !== 'any') {
       payload.min_condition = minCondition;
     }

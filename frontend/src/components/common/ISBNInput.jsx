@@ -38,7 +38,7 @@ export default function ISBNInput({
 
   async function handleLookup() {
     setHasLookupAttempted(true);
-    const isbn = value.trim().replace(/-/g, '');
+    const isbn = value.trim().replace(/[\s-]/g, '');
     if (!isbn) return;
 
     if (isbn.length !== 10 && isbn.length !== 13) {

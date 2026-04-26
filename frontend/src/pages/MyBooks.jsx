@@ -125,7 +125,7 @@ export default function MyBooks() {
     }
 
     addMutation.mutate({
-      isbn: isbn.trim().replace(/-/g, ''),
+      isbn: isbn.trim().replace(/[\s-]/g, ''),
       condition: addCondition,
     });
   }
