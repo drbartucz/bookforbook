@@ -2,6 +2,7 @@
 Unit tests for the Open Library ISBN utilities.
 """
 
+import re
 import pytest
 from unittest.mock import patch
 
@@ -203,6 +204,115 @@ def test_fetch_from_open_library_ignores_unknown_format_and_uses_edition_fallbac
     assert data["physical_format"] == "Hardcover"
 
 
+def test_fetch_from_open_library_prefers_print_format_when_isbn_is_audio():
+    """When the ISBN endpoint has no format and the search returns a mixed
+    format list, _pick_best_format should prefer the print edition."""
+
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def mock_get(url, **kwargs):
+        if "isbn/9780063341906.json" in url:
+            # ISBN endpoint returns no physical_format — format info comes from search
+            return FakeResponse(
+                200,
+                {
+                    "title": "The Professor and the Madman",
+                    "authors": [{"name": "Simon Winchester"}],
+                },
+            )
+        if "search.json" in url:
+            return FakeResponse(
+                200,
+                {
+                    "docs": [
+                        {
+                            "title": "The Professor and the Madman",
+                            "author_name": ["Simon Winchester"],
+                            "isbn": ["9780063341906"],
+                            "format": ["Paperback", "Audio CD"],
+                        }
+                    ]
+                },
+            )
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780063341906")
+
+    assert data["physical_format"] == "Paperback"
+
+
+def test_fetch_from_open_library_uses_same_work_paperback_fallback_for_audio_isbn():
+    """When the ISBN endpoint has no format and the search returns audio-only,
+    the same-work edition scan should find and use the print format."""
+
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def mock_get(url, **kwargs):
+        if "isbn/9780063341906.json" in url:
+            # No physical_format in the ISBN endpoint response
+            return FakeResponse(
+                200,
+                {
+                    "title": "Professor and the Madman",
+                    "key": "/books/OL46829382M",
+                    "authors": [{"name": "Simon Winchester"}],
+                },
+            )
+        if "search.json" in url:
+            # Search returns audio-only format for this work
+            return FakeResponse(
+                200,
+                {
+                    "docs": [
+                        {
+                            "title": "The Professor and the Madman CD",
+                            "author_name": ["Simon Winchester"],
+                            "isbn": ["9780063341906"],
+                            "format": ["Audio CD"],
+                            "cover_edition_key": "OL9237439M",
+                        }
+                    ]
+                },
+            )
+        if "/books/OL46829382M.json" in url:
+            return FakeResponse(200, {"works": [{"key": "/works/OL1840019W"}]})
+        if "/works/OL1840019W/editions.json" in url:
+            return FakeResponse(
+                200,
+                {
+                    "entries": [
+                        {
+                            "physical_format": "Audio CD",
+                            "isbn_13": ["9780063341906"],
+                        },
+                        {
+                            "physical_format": "Paperback",
+                            "isbn_13": ["9780060839789"],
+                        },
+                    ]
+                },
+            )
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780063341906")
+
+    assert data["physical_format"] == "Paperback"
+
+
 def test_fetch_from_open_library_uses_books_api_when_isbn_and_search_are_sparse():
     class FakeResponse:
         def __init__(self, status_code, payload):
@@ -301,6 +411,55 @@ def test_get_or_create_book_refreshes_cached_book_with_missing_metadata():
     assert book.id == cached.id
     assert cached.authors == ["J. Kenji L\u00f3pez-Alt"]
     assert cached.physical_format == "Hardcover"
+
+
+@pytest.mark.django_db
+def test_get_or_create_book_does_not_refetch_cached_audio_edition():
+    """A cached audiobook with full metadata should NOT be re-fetched;
+    its audio format must be preserved as-is."""
+    cached = BookFactory(
+        isbn_13="9781549120169",
+        isbn_10="1549120166",
+        title="Billion Dollar Whale",
+        authors=["Bradley Hope", "Tom Wright"],
+        physical_format="Audio CD",
+    )
+
+    with patch(
+        "apps.books.services.openlibrary.fetch_from_open_library",
+    ) as mocked_fetch:
+        book = get_or_create_book("9781549120169")
+
+    mocked_fetch.assert_not_called()
+    cached.refresh_from_db()
+    assert book.id == cached.id
+    assert cached.physical_format == "Audio CD"
+
+
+@pytest.mark.django_db
+def test_get_or_create_book_refreshes_cached_unknown_title():
+    cached = BookFactory(
+        isbn_13="9781549120169",
+        isbn_10="1549120167",
+        title="Unknown Title",
+        authors=["Bradley Hope", "Tom Wright"],
+        physical_format="Paperback",
+    )
+
+    with patch(
+        "apps.books.services.openlibrary.fetch_from_open_library",
+        return_value={
+            "title": "Billion Dollar Whale",
+            "authors": ["Bradley Hope", "Tom Wright"],
+            "physical_format": "Paperback",
+        },
+    ) as mocked_fetch:
+        book = get_or_create_book("9781549120169")
+
+    mocked_fetch.assert_called_once_with("9781549120169")
+    cached.refresh_from_db()
+    assert book.id == cached.id
+    assert cached.title == "Billion Dollar Whale"
 
 
 # ---------------------------------------------------------------------------
@@ -552,3 +711,59 @@ def test_fetch_author_name_returns_none_on_request_exception():
         result = _fetch_author_name("/authors/OL999A")
 
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Live ISBN regression matrix
+# ---------------------------------------------------------------------------
+
+
+def _normalize_title_for_assert(value: str | None) -> str:
+    """Normalize title strings for resilient comparisons across API casing/punctuation."""
+    return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
+
+
+def _format_bucket(value: str | None) -> str:
+    """Map Open Library physical formats to stable buckets used by tests."""
+    text = (value or "").lower()
+    if any(token in text for token in ("audio", "cd", "cassette", "mp3", "digital")):
+        return "audio"
+    if "hardcover" in text:
+        return "hardcover"
+    if any(token in text for token in ("paperback", "mass market", "trade paperback")):
+        return "paperback"
+    return "other"
+
+
+@pytest.mark.django_db
+@pytest.mark.integration
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    "isbn,expected_title_fragment,expected_format_bucket",
+    [
+        ("9781549120169", "Billion Dollar Whale", "audio"),
+        ("9780316436502", "Billion Dollar Whale", "hardcover"),
+        ("9780374172145", "How To Hide An Empire", "hardcover"),
+        ("9781250251091", "How To Hide An Empire", "paperback"),
+        ("9781980021414", "How To Hide An Empire", "audio"),
+        ("9780060839789", "The Professor and the Madman", "paperback"),
+        ("9780060175962", "The Professor and the Madman", "hardcover"),
+        ("9780060836269", "The Professor and the Madman", "audio"),
+    ],
+)
+def test_get_or_create_book_live_isbn_regression_matrix(
+    isbn, expected_title_fragment, expected_format_bucket
+):
+    """Regression matrix for known ISBN/title/format expectations."""
+    from apps.books.models import Book
+
+    # Remove any stale cached row so this test validates current lookup behavior.
+    Book.objects.filter(isbn_13=isbn).delete()
+
+    book = get_or_create_book(isbn)
+
+    actual_title = _normalize_title_for_assert(book.title)
+    expected_title = _normalize_title_for_assert(expected_title_fragment)
+    assert expected_title in actual_title
+
+    assert _format_bucket(book.physical_format) == expected_format_bucket

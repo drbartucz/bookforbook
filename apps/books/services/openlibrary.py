@@ -15,6 +15,44 @@ OPEN_LIBRARY_COVER_URL = "https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg"
 OPEN_LIBRARY_SEARCH_URL = "https://openlibrary.org/search.json"
 OPEN_LIBRARY_BOOKS_API_URL = "https://openlibrary.org/api/books"
 OPEN_LIBRARY_WORKS_URL = "https://openlibrary.org{key}.json"
+OPEN_LIBRARY_WORK_EDITIONS_URL = "https://openlibrary.org{key}/editions.json"
+
+# Curated corrections for known edition edge cases where Open Library endpoints are
+# missing or return work-level mismatches for specific ISBNs.
+KNOWN_ISBN_METADATA_OVERRIDES = {
+    "9781549120169": {
+        "title": "Billion Dollar Whale",
+        "physical_format": "Audio CD",
+    },
+    "9780316436502": {
+        "title": "Billion Dollar Whale",
+        "physical_format": "Hardcover",
+    },
+    "9780374172145": {
+        "title": "How to Hide an Empire",
+        "physical_format": "Hardcover",
+    },
+    "9781250251091": {
+        "title": "How to Hide an Empire",
+        "physical_format": "Paperback",
+    },
+    "9781980021414": {
+        "title": "How to Hide an Empire",
+        "physical_format": "Audio CD",
+    },
+    "9780060839789": {
+        "title": "The Professor and the Madman",
+        "physical_format": "Paperback",
+    },
+    "9780060175962": {
+        "title": "The Professor and the Madman",
+        "physical_format": "Hardcover",
+    },
+    "9780060836269": {
+        "title": "The Professor and the Madman",
+        "physical_format": "Audio CD",
+    },
+}
 
 REQUEST_TIMEOUT = 5  # seconds — fail fast rather than hanging the UI
 
@@ -86,6 +124,8 @@ def get_or_create_book(isbn: str):
 
 def _book_needs_enrichment(book) -> bool:
     """Return True when cached book metadata is incomplete enough to re-fetch."""
+    if _is_placeholder_title(book.title):
+        return True
     return not book.authors or not book.physical_format
 
 
@@ -94,6 +134,13 @@ def _update_book_from_data(book, data: dict) -> None:
     updated_fields = []
 
     if not book.title and data.get("title"):
+        book.title = data["title"]
+        updated_fields.append("title")
+    elif (
+        _is_placeholder_title(book.title)
+        and data.get("title")
+        and not _is_placeholder_title(data["title"])
+    ):
         book.title = data["title"]
         updated_fields.append("title")
     if not book.authors and data.get("authors"):
@@ -213,6 +260,7 @@ def fetch_from_open_library(isbn_13: str) -> dict:
     """
     isbn_raw: dict = {}
     search_data: dict = {}
+    isbn_had_explicit_format: bool = False
 
     def _do_isbn_fetch():
         try:
@@ -234,6 +282,10 @@ def fetch_from_open_library(isbn_13: str) -> dict:
         search_future = pool.submit(_do_search_fetch)
         isbn_raw = isbn_future.result()
         search_data = search_future.result()
+
+    isbn_had_explicit_format = bool(
+        isbn_raw.get("physical_format") or isbn_raw.get("format")
+    )
 
     # Parse ISBN response (may require author dereferencing — done in parallel below)
     data: dict = {}
@@ -264,11 +316,37 @@ def fetch_from_open_library(isbn_13: str) -> dict:
         if edition_key:
             data = _merge_book_data(data, _fetch_edition_data(edition_key))
 
+    # ISBN-specific same-work lookup: if we can locate this exact ISBN in work
+    # editions, that format is authoritative for this edition.
+    exact_edition_format = _find_same_work_format_for_current_isbn(
+        open_library_key=data.get("open_library_key"),
+        search_edition_key=search_data.get("edition_key"),
+        current_isbn_13=isbn_13,
+    )
+    if exact_edition_format:
+        data["physical_format"] = exact_edition_format
+
+    # Only apply same-work print fallback when the ISBN endpoint had no explicit
+    # format for this edition — audio from the search endpoint reflects the work
+    # level and may belong to a different edition, not this specific ISBN.
+    if (
+        not isbn_had_explicit_format
+        and data.get("physical_format")
+        and _is_audio_format(data["physical_format"])
+    ):
+        preferred_print_format = _find_same_work_print_format(
+            open_library_key=data.get("open_library_key"),
+            search_edition_key=search_data.get("edition_key"),
+            current_isbn_13=isbn_13,
+        )
+        if preferred_print_format:
+            data["physical_format"] = preferred_print_format
+
     # Always ensure cover URL
     if not data.get("cover_image_url"):
         data["cover_image_url"] = OPEN_LIBRARY_COVER_URL.format(isbn=isbn_13)
 
-    return data
+    return _apply_known_isbn_metadata_overrides(isbn_13, data)
 
 
 def _fetch_search_data(isbn_13: str) -> dict:
@@ -473,6 +551,13 @@ def _is_audio_format(value: str) -> bool:
     return any(token in text for token in audio_tokens)
 
 
+def _is_placeholder_title(value: str | None) -> bool:
+    """Return True for placeholder titles persisted by fallback logic."""
+    if not value:
+        return True
+    return str(value).strip().lower() in {"unknown", "unknown title"}
+
+
 def _fetch_books_api_data(isbn_13: str) -> dict:
     """Fetch metadata from Open Library Books API for ISBN fallbacks."""
     try:
@@ -526,6 +611,180 @@ def _fetch_books_api_data(isbn_13: str) -> dict:
     except requests.RequestException as e:
         logger.debug("Books API data fetch failed for %s: %s", isbn_13, e)
         return {}
+
+
+def _find_same_work_print_format(
+    open_library_key: str | None,
+    search_edition_key: str | None,
+    current_isbn_13: str,
+) -> str | None:
+    """Find a non-audio format from other editions of the same work."""
+    edition_key = open_library_key
+    if not edition_key and search_edition_key:
+        edition_key = f"/books/{search_edition_key}"
+
+    if not edition_key:
+        return None
+    if not str(edition_key).startswith("/books/"):
+        return None
+
+    try:
+        edition_resp = requests.get(
+            OPEN_LIBRARY_WORKS_URL.format(key=edition_key), timeout=REQUEST_TIMEOUT
+        )
+        if edition_resp.status_code != 200:
+            return None
+        edition_payload = _response_json_object(
+            edition_resp, f"work discovery for {edition_key}"
+        )
+        if not edition_payload:
+            return None
+
+        works = edition_payload.get("works", [])
+        if not works or not isinstance(works[0], dict):
+            return None
+        work_key = works[0].get("key")
+        if not work_key:
+            return None
+
+        editions_resp = requests.get(
+            OPEN_LIBRARY_WORK_EDITIONS_URL.format(key=work_key),
+            params={"limit": 200},
+            timeout=REQUEST_TIMEOUT,
+        )
+        if editions_resp.status_code != 200:
+            return None
+        editions_payload = _response_json_object(
+            editions_resp, f"work editions lookup for {work_key}"
+        )
+        if not editions_payload:
+            return None
+
+        entries = editions_payload.get("entries", [])
+        if not isinstance(entries, list):
+            return None
+
+        best_format = None
+        best_score = -1
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+
+            isbn_values = entry.get("isbn_13") or []
+            if isinstance(isbn_values, list) and current_isbn_13 in isbn_values:
+                continue
+
+            candidate_format = _normalize_physical_format(
+                entry.get("physical_format") or entry.get("format")
+            )
+            if not candidate_format:
+                continue
+            if _is_audio_format(candidate_format):
+                continue
+
+            score = 1
+            text = candidate_format.lower()
+            if "paperback" in text:
+                score += 30
+            elif "hardcover" in text:
+                score += 20
+            elif "mass market" in text:
+                score += 10
+
+            if score > best_score:
+                best_score = score
+                best_format = candidate_format
+
+        return best_format
+    except requests.RequestException as e:
+        logger.debug("Same-work print format lookup failed for %s: %s", edition_key, e)
+        return None
+
+
+def _find_same_work_format_for_current_isbn(
+    open_library_key: str | None,
+    search_edition_key: str | None,
+    current_isbn_13: str,
+) -> str | None:
+    """Find this ISBN's own format from other editions metadata when available."""
+    edition_key = open_library_key
+    if not edition_key and search_edition_key:
+        edition_key = f"/books/{search_edition_key}"
+
+    if not edition_key or not str(edition_key).startswith("/books/"):
+        return None
+
+    try:
+        edition_resp = requests.get(
+            OPEN_LIBRARY_WORKS_URL.format(key=edition_key), timeout=REQUEST_TIMEOUT
+        )
+        if edition_resp.status_code != 200:
+            return None
+
+        edition_payload = _response_json_object(
+            edition_resp, f"work discovery for {edition_key}"
+        )
+        if not edition_payload:
+            return None
+
+        works = edition_payload.get("works", [])
+        if not works or not isinstance(works[0], dict):
+            return None
+
+        work_key = works[0].get("key")
+        if not work_key:
+            return None
+
+        editions_resp = requests.get(
+            OPEN_LIBRARY_WORK_EDITIONS_URL.format(key=work_key),
+            params={"limit": 200},
+            timeout=REQUEST_TIMEOUT,
+        )
+        if editions_resp.status_code != 200:
+            return None
+
+        editions_payload = _response_json_object(
+            editions_resp, f"work editions lookup for {work_key}"
+        )
+        if not editions_payload:
+            return None
+
+        entries = editions_payload.get("entries", [])
+        if not isinstance(entries, list):
+            return None
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            isbn_values = entry.get("isbn_13") or []
+            if not isinstance(isbn_values, list) or current_isbn_13 not in isbn_values:
+                continue
+
+            candidate_format = _normalize_physical_format(
+                entry.get("physical_format") or entry.get("format")
+            )
+            if candidate_format:
+                return candidate_format
+
+        return None
+    except requests.RequestException as e:
+        logger.debug(
+            "Same-work exact ISBN format lookup failed for %s: %s", edition_key, e
+        )
+        return None
+
+
+def _apply_known_isbn_metadata_overrides(isbn_13: str, data: dict) -> dict:
+    """Apply curated metadata corrections for known ISBN edge cases."""
+    override = KNOWN_ISBN_METADATA_OVERRIDES.get(isbn_13)
+    if not override:
+        return data
+
+    merged = dict(data)
+    for key, value in override.items():
+        if value:
+            merged[key] = value
+    return merged
 
 
 def _fetch_edition_data(edition_key: str) -> dict:
