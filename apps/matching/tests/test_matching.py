@@ -213,8 +213,12 @@ class TestDirectMatcherService:
             edition_preference="same_language",
         )
 
-        WishlistItemFactory(user=user_a, book=book_for_a_from_b, min_condition="acceptable")
-        WishlistItemFactory(user=user_a, book=book_for_a_from_c, min_condition="acceptable")
+        WishlistItemFactory(
+            user=user_a, book=book_for_a_from_b, min_condition="acceptable"
+        )
+        WishlistItemFactory(
+            user=user_a, book=book_for_a_from_c, min_condition="acceptable"
+        )
 
         now = timezone.now()
         type(wish_related).objects.filter(pk=wish_related.pk).update(
@@ -232,7 +236,9 @@ class TestDirectMatcherService:
     def test_exact_return_book_preferred_before_older_related_wishlist(self, db):
         offered_to_b = BookFactory(title="Code Complete", authors=["Steve McConnell"])
         exact_wanted_by_a = BookFactory(title="Dune", authors=["Frank Herbert"])
-        related_wanted_by_a = BookFactory(title="Dune Messiah", authors=["Frank Herbert"])
+        related_wanted_by_a = BookFactory(
+            title="Dune Messiah", authors=["Frank Herbert"]
+        )
         related_variant = BookFactory(title="Dune Messiah", authors=["Frank Herbert"])
 
         user_a = UserFactory()
