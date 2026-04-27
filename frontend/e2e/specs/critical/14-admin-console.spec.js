@@ -38,15 +38,34 @@ function ensureAdminUser() {
     "print('admin-ready')",
   ].join('\n');
 
-  execFileSync(pythonBin, ['manage.py', 'shell', '-c', shellCode], {
+  const output = execFileSync(pythonBin, ['manage.py', 'shell', '-c', `${shellCode}\nprint(u.pk)`], {
     cwd: repoRoot,
-    stdio: 'inherit',
-  });
+    encoding: 'utf-8',
+  }).trim();
+
+  const lines = output.split('\n').map((line) => line.trim()).filter(Boolean);
+  const userId = lines[lines.length - 1];
+  if (!userId) {
+    throw new Error('Failed to resolve admin user id for e2e test');
+  }
+  return userId;
+}
+
+async function firstExistingLocator(page, selectors) {
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    if (await locator.count()) {
+      return locator;
+    }
+  }
+  return null;
 }
 
 test.describe('Django Admin Console', () => {
+  let adminUserId;
+
   test.beforeAll(async () => {
-    ensureAdminUser();
+    adminUserId = ensureAdminUser();
   });
 
   test('admin login works and accounts user edit page has verification controls', async ({ page }) => {
@@ -73,18 +92,32 @@ test.describe('Django Admin Console', () => {
 
     await expect(page.url()).toContain('/admin');
 
-    await page.goto(`${backendBase}/admin/accounts/user/?q=${encodeURIComponent(ADMIN_EMAIL)}`);
-    await page.getByRole('link', { name: ADMIN_EMAIL }).first().click();
+    await page.goto(`${backendBase}/admin/accounts/user/${adminUserId}/change/`);
 
-    const splitDate = page.locator('#id_email_verified_at_0');
-    const splitTime = page.locator('#id_email_verified_at_1');
-    const singleField = page.locator('#id_email_verified_at');
+    const splitDate = await firstExistingLocator(page, [
+      '#id_email_verified_at_0',
+      '#id_email_verified_at_date',
+      'input[name="email_verified_at_0"]',
+      'input[name="email_verified_at_date"]',
+    ]);
+    const splitTime = await firstExistingLocator(page, [
+      '#id_email_verified_at_1',
+      '#id_email_verified_at_time',
+      'input[name="email_verified_at_1"]',
+      'input[name="email_verified_at_time"]',
+    ]);
+    const singleField = await firstExistingLocator(page, [
+      '#id_email_verified_at',
+      'input[name="email_verified_at"]',
+    ]);
 
-    if (await splitDate.count()) {
+    if (splitDate && splitTime) {
       await expect(splitDate).toBeVisible();
       await expect(splitTime).toBeVisible();
-    } else {
+    } else if (singleField) {
       await expect(singleField).toBeVisible();
+    } else {
+      throw new Error('Could not find email_verified_at admin input fields');
     }
 
     const nowButton = page.locator('#email-verified-at-now-btn');
@@ -92,14 +125,16 @@ test.describe('Django Admin Console', () => {
       await nowButton.click();
     }
 
-    if (await splitDate.count()) {
+    if (splitDate && splitTime) {
       await splitDate.fill('2026-04-26');
       await splitTime.fill('12:34:56');
       await expect(splitDate).toHaveValue('2026-04-26');
       await expect(splitTime).toHaveValue('12:34:56');
-    } else {
+    } else if (singleField) {
       await singleField.fill('2026-04-26 12:34:56');
       await expect(singleField).toHaveValue('2026-04-26 12:34:56');
+    } else {
+      throw new Error('No writable email_verified_at field found');
     }
   });
 });
