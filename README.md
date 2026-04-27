@@ -249,6 +249,10 @@ Once all parties accept, the trade is confirmed and shipping addresses are revea
 
 **New users start with 1 active match slot.** This grows up to 10 as you accumulate ratings.
 
+Match account-age gating is configurable via `MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS`.
+- Default is `0` (no age delay)
+- Increase it (for example, `24` or `48`) if you need bot-abuse mitigation
+
 ---
 
 ### Exchange Rings (Multi-Party Trades)
@@ -468,6 +472,7 @@ Once accepted, the donor ships the book to your institution. No address reveal i
 | Continental USA only | Shipping addresses must be in the 48 continental states (no Hawaii, Alaska, territories) |
 | Email verification | Required before listing books, matching, or trading. Browsing is open to all. |
 | Match capacity | New users: 1 active match slot. Grows to 10 with trading history. |
+| Match age gate | Controlled by `MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS` (default `0`, disabled). Raise if bot abuse appears. |
 | Address privacy | Shipping addresses are encrypted and only revealed to confirmed trade partners |
 | Ring size | Exchange rings are capped at 5 participants |
 | Auto-close | Trades auto-close 3 weeks after confirmation if no ratings are submitted |

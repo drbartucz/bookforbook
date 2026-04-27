@@ -71,7 +71,12 @@ Edit `.env` and set at minimum:
 SECRET_KEY=<generate with: python3 -c "import secrets; print(secrets.token_urlsafe(50))">
 DATABASE_URL=postgresql://bookforbook:bookforbook@localhost:5432/bookforbook
 FIELD_ENCRYPTION_KEY=<generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
+MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS=0
 ```
+
+`MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS` controls how old an account must be before it can appear in matching.
+- `0` disables the age gate (current default)
+- Set to `24` or `48` if you need anti-bot throttling later
 
 If you want USPS address verification enabled locally, also set:
 
@@ -242,6 +247,7 @@ In Railway, go to your **web service** > **Variables** and add:
 | `FRONTEND_URL` | `https://bookforbook.com` |
 | `RESEND_API_KEY` | *(your Resend API key, starts with `re_`)* |
 | `DEFAULT_FROM_EMAIL` | `noreply@bookforbook.com` |
+| `MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS` | `0` (raise later if needed for bot mitigation) |
 | `USPS_CLIENT_ID` | *(your USPS Consumer Key)* |
 | `USPS_CLIENT_SECRET` | *(your USPS Consumer Secret)* |
 | `USPS_OAUTH_BASE_URL` | `https://apis.usps.com/oauth2/v3` |

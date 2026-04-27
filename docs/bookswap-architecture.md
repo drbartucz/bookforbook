@@ -367,6 +367,10 @@ User enters ISBN
 - New UserBook or WishlistItem created
 - Periodic full scan (e.g., every 6 hours)
 
+**Eligibility gate (configurable):**
+- `MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS` controls minimum account age for match participation.
+- Default is `0` (disabled). Increase (for example, `24` or `48`) only if bot-abuse mitigation is needed.
+
 **Direct match detection:**
 ```
 For a given user A:

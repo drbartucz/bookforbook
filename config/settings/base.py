@@ -229,5 +229,7 @@ USPS_ADDRESSES_BASE_URL = config(
 # Minimum account age (in hours) before a user is eligible to appear in match
 # detection. New accounts can still browse, list books, and configure their
 # profile — they simply will not be matched until this threshold has passed.
-MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = 48
+MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = config(
+    "MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS", default=0, cast=int
+)
 USPS_API_TIMEOUT = config("USPS_API_TIMEOUT", default=8, cast=int)

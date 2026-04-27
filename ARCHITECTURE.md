@@ -160,21 +160,23 @@ browse/         available/, available/?q=, partner/:id/books/, shipping-estimate
 
 2. **Match capacity**: `max_active_matches = min(max(rating_count, 1), 10)`. New users get 1 active match slot; up to 10 for experienced traders. Checked before proposing any match.
 
-3. **Address reveal**: Shipping addresses are encrypted and only decrypted/returned when a trade is in `confirmed` status or later AND the requester is a party to that trade.
+3. **Optional account-age gate**: matching eligibility is controlled by `MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS` (default `0`, disabled). Increase to values like `24` or `48` if bot-abuse mitigation is needed.
 
-4. **1-for-1 trades only**: Proposals must have exactly one item in each direction. Enforced at the API level.
+4. **Address reveal**: Shipping addresses are encrypted and only decrypted/returned when a trade is in `confirmed` status or later AND the requester is a party to that trade.
 
-5. **Auto-close**: 3 weeks after trade confirmation, if no ratings submitted, the trade auto-closes (`auto_closed` status). Books marked as `traded`, trade counts incremented. No rating recorded.
+5. **1-for-1 trades only**: Proposals must have exactly one item in each direction. Enforced at the API level.
 
-6. **Inactivity auto-delist**: 1-month warning email, 2-month final warning, 3-month auto-delist (books hidden from matching). Books auto-relist on next login.
+6. **Auto-close**: 3 weeks after trade confirmation, if no ratings submitted, the trade auto-closes (`auto_closed` status). Books marked as `traded`, trade counts incremented. No rating recorded.
 
-7. **No dispute resolution**: The rating system is the sole accountability mechanism.
+7. **Inactivity auto-delist**: 1-month warning email, 2-month final warning, 3-month auto-delist (books hidden from matching). Books auto-relist on next login.
 
-8. **Continental USA only**: `state` field validated against continental US states only.
+8. **No dispute resolution**: The rating system is the sole accountability mechanism.
 
-9. **Ring size limit**: Exchange rings are limited to 5 participants for logistics manageability.
+9. **Continental USA only**: `state` field validated against continental US states only.
 
-10. **Institutional accounts**: Libraries and bookstores only receive donations — they do NOT trade. They require admin approval via Django admin before they can participate.
+10. **Ring size limit**: Exchange rings are limited to 5 participants for logistics manageability.
+
+11. **Institutional accounts**: Libraries and bookstores only receive donations — they do NOT trade. They require admin approval via Django admin before they can participate.
 
 ---
 
