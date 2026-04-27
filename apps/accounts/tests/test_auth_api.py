@@ -109,7 +109,9 @@ class TestRegisterView:
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     @patch("django_q.tasks.async_task")
-    def test_register_schedules_admin_alert(self, mock_async_task, api_client, settings):
+    def test_register_schedules_admin_alert(
+        self, mock_async_task, api_client, settings
+    ):
         settings.ADMIN_ACCOUNT_ALERTS_SKIP_TEST_USERS = False
         resp = api_client.post(
             self.url,
@@ -202,7 +204,9 @@ class TestVerifyEmailView:
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     @patch("django_q.tasks.async_task")
-    def test_verify_email_schedules_admin_alert(self, mock_async_task, api_client, user):
+    def test_verify_email_schedules_admin_alert(
+        self, mock_async_task, api_client, user
+    ):
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = email_verification_token.make_token(user)
 
