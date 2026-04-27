@@ -13,7 +13,7 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ['account_type', 'is_verified', 'email_verified', 'is_active', 'is_staff']
     search_fields = ['email', 'username', 'institution_name']
     ordering = ['-created_at']
-    readonly_fields = ['id', 'created_at', 'updated_at', 'last_active_at', 'email_verified_at']
+    readonly_fields = ['id', 'created_at', 'updated_at', 'last_active_at']
 
     fieldsets = (
         (None, {'fields': ('id', 'email', 'password')}),
@@ -32,3 +32,6 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('email', 'username', 'password1', 'password2', 'account_type'),
         }),
     )
+
+    class Media:
+        js = ('admin/accounts/user_admin.js',)
