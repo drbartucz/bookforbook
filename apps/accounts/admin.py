@@ -1,7 +1,41 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
+from apps.inventory.models import UserBook, WishlistItem
+
 from .models import User
+
+
+class BooksOfferedInline(admin.TabularInline):
+    model = UserBook
+    fields = ("book", "condition", "status", "created_at")
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+    ordering = ("-created_at",)
+    verbose_name = "Book Offered"
+    verbose_name_plural = "Books Offered"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class BooksWantedInline(admin.TabularInline):
+    model = WishlistItem
+    fields = ("book", "min_condition", "wishlist_status", "created_at")
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+    ordering = ("-created_at",)
+    verbose_name = "Book Wanted"
+    verbose_name_plural = "Books Wanted"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description="Status")
+    def wishlist_status(self, obj):
+        return "Active" if obj.is_active else "Inactive"
 
 
 @admin.register(User)
@@ -26,6 +60,7 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ["email", "username", "institution_name"]
     ordering = ["-created_at"]
     readonly_fields = ["id", "created_at", "updated_at", "last_active_at"]
+    inlines = [BooksOfferedInline, BooksWantedInline]
 
     fieldsets = (
         (None, {"fields": ("id", "email", "password")}),
