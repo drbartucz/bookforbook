@@ -35,6 +35,33 @@ def send_password_reset_email(user_id: str, uid: str, token: str):
     _send(user, uid, token)
 
 
+def send_admin_registration_alert(user_id: str):
+    """Send admin alert when a new account is registered."""
+    from apps.accounts.models import User
+    from apps.accounts.services.admin_alerts import notify_admin_on_registration
+
+    user = User.objects.get(pk=user_id)
+    notify_admin_on_registration(user)
+
+
+def send_admin_email_verified_alert(user_id: str):
+    """Send admin alert when a user verifies email."""
+    from apps.accounts.models import User
+    from apps.accounts.services.admin_alerts import notify_admin_on_email_verified
+
+    user = User.objects.get(pk=user_id)
+    notify_admin_on_email_verified(user)
+
+
+def send_admin_postal_verified_alert(user_id: str):
+    """Send admin alert when a user verifies postal address with USPS."""
+    from apps.accounts.models import User
+    from apps.accounts.services.admin_alerts import notify_admin_on_postal_verified
+
+    user = User.objects.get(pk=user_id)
+    notify_admin_on_postal_verified(user)
+
+
 def send_match_notification(match_id: str):
     """Email + in-app notification for all participants in a new match."""
     from apps.matching.models import Match

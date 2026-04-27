@@ -14,6 +14,7 @@ from rest_framework import status
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.accounts.models import User
 from apps.accounts.tokens import email_verification_token
 from apps.matching.models import Match, MatchLeg
 from apps.notifications.models import Notification
@@ -107,6 +108,27 @@ class TestRegisterView:
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
+    @patch("django_q.tasks.async_task")
+    def test_register_schedules_admin_alert(self, mock_async_task, api_client, settings):
+        settings.ADMIN_ACCOUNT_ALERTS_SKIP_TEST_USERS = False
+        resp = api_client.post(
+            self.url,
+            {
+                "email": "new@bookforbook.com",
+                "username": "newmember",
+                "password": "StrongPass123!",
+                "password2": "StrongPass123!",
+            },
+        )
+
+        assert resp.status_code == status.HTTP_201_CREATED
+        user = User.objects.get(email="new@bookforbook.com")
+        assert any(
+            queued[0][0] == "apps.notifications.tasks.send_admin_registration_alert"
+            and queued[0][1] == str(user.pk)
+            for queued in mock_async_task.call_args_list
+        )
+
 
 @pytest.mark.django_db
 class TestLoginView:
@@ -178,6 +200,19 @@ class TestVerifyEmailView:
     def test_verify_email_invalid_uid(self, api_client):
         resp = api_client.post(self.url, {"uid": "notauid", "token": "sometoken"})
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    @patch("django_q.tasks.async_task")
+    def test_verify_email_schedules_admin_alert(self, mock_async_task, api_client, user):
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = email_verification_token.make_token(user)
+
+        resp = api_client.post(self.url, {"uid": uid, "token": token})
+
+        assert resp.status_code == status.HTTP_200_OK
+        mock_async_task.assert_called_once_with(
+            "apps.notifications.tasks.send_admin_email_verified_alert",
+            str(user.pk),
+        )
 
 
 @pytest.mark.django_db
@@ -405,7 +440,10 @@ class TestPasswordReset:
 class TestAddressVerification:
     url = "/api/v1/users/me/address/verify/"
 
-    def test_verify_address_success(self, auth_api_client):
+    @patch("django_q.tasks.async_task")
+    def test_verify_address_success(
+        self, mock_async_task, auth_api_client, verified_user
+    ):
         from unittest.mock import patch
 
         with patch(
@@ -433,6 +471,10 @@ class TestAddressVerification:
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["address_verification_status"] == "verified"
         assert resp.data["address_line_1"] == "123 MAIN ST"
+        mock_async_task.assert_called_once_with(
+            "apps.notifications.tasks.send_admin_postal_verified_alert",
+            str(verified_user.pk),
+        )
 
     def test_verify_address_failure(self, auth_api_client):
         from unittest.mock import patch

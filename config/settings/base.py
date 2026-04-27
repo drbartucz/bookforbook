@@ -200,6 +200,27 @@ DEFAULT_FROM_EMAIL = config(
 # Frontend URL (for email links)
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173")
 
+# Admin account activity alerts
+ADMIN_ACCOUNT_ALERT_EMAIL = config(
+    "ADMIN_ACCOUNT_ALERT_EMAIL", default="john@bookforbook.com"
+)
+ADMIN_ACCOUNT_ALERTS_ENABLED = config(
+    "ADMIN_ACCOUNT_ALERTS_ENABLED", default=True, cast=bool
+)
+ADMIN_ACCOUNT_ALERTS_SKIP_TEST_USERS = config(
+    "ADMIN_ACCOUNT_ALERTS_SKIP_TEST_USERS", default=True, cast=bool
+)
+ADMIN_ACCOUNT_ALERT_TEST_DOMAINS = config(
+    "ADMIN_ACCOUNT_ALERT_TEST_DOMAINS",
+    default="example.com,test.local,example.org",
+    cast=Csv(),
+)
+ADMIN_ACCOUNT_ALERT_TEST_PREFIXES = config(
+    "ADMIN_ACCOUNT_ALERT_TEST_PREFIXES",
+    default="test,pytest,qa",
+    cast=Csv(),
+)
+
 # AWS S3 settings (optional)
 AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default="")
 AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default="")

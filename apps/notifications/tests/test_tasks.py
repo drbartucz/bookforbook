@@ -241,6 +241,36 @@ class TestSendVerificationEmailTask:
 
 
 @pytest.mark.django_db
+class TestAdminAlertTasks:
+    @patch("apps.accounts.services.admin_alerts.notify_admin_on_registration")
+    def test_send_admin_registration_alert(self, mock_notify):
+        user = UserFactory()
+        from apps.notifications.tasks import send_admin_registration_alert
+
+        send_admin_registration_alert(str(user.pk))
+
+        mock_notify.assert_called_once()
+
+    @patch("apps.accounts.services.admin_alerts.notify_admin_on_email_verified")
+    def test_send_admin_email_verified_alert(self, mock_notify):
+        user = UserFactory()
+        from apps.notifications.tasks import send_admin_email_verified_alert
+
+        send_admin_email_verified_alert(str(user.pk))
+
+        mock_notify.assert_called_once()
+
+    @patch("apps.accounts.services.admin_alerts.notify_admin_on_postal_verified")
+    def test_send_admin_postal_verified_alert(self, mock_notify):
+        user = UserFactory()
+        from apps.notifications.tasks import send_admin_postal_verified_alert
+
+        send_admin_postal_verified_alert(str(user.pk))
+
+        mock_notify.assert_called_once()
+
+
+@pytest.mark.django_db
 class TestSendMatchNotificationTask:
     def test_creates_in_app_notifications_for_all_participants(self, settings):
         settings.FRONTEND_URL = "https://app.bookforbook.com"

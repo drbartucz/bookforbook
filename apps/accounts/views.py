@@ -59,6 +59,17 @@ class RegisterView(APIView):
         except Exception:
             logger.exception("Failed to queue verification email for user %s", user.pk)
 
+        try:
+            from django_q.tasks import async_task
+
+            async_task(
+                "apps.notifications.tasks.send_admin_registration_alert", str(user.pk)
+            )
+        except Exception:
+            logger.exception(
+                "Failed to queue admin registration alert for user %s", user.pk
+            )
+
         return Response(
             {"detail": "Account created. Please verify your email address."},
             status=status.HTTP_201_CREATED,
@@ -75,6 +86,19 @@ class VerifyEmailView(APIView):
         user.email_verified = True
         user.email_verified_at = timezone.now()
         user.save(update_fields=["email_verified", "email_verified_at"])
+
+        try:
+            from django_q.tasks import async_task
+
+            async_task(
+                "apps.notifications.tasks.send_admin_email_verified_alert",
+                str(user.pk),
+            )
+        except Exception:
+            logger.exception(
+                "Failed to queue admin email-verified alert for user %s", user.pk
+            )
+
         return Response({"detail": "Email verified successfully."})
 
 
@@ -279,6 +303,18 @@ class UserAddressVerifyView(APIView):
                 "updated_at",
             ]
         )
+
+        try:
+            from django_q.tasks import async_task
+
+            async_task(
+                "apps.notifications.tasks.send_admin_postal_verified_alert",
+                str(user.pk),
+            )
+        except Exception:
+            logger.exception(
+                "Failed to queue admin USPS-verified alert for user %s", user.pk
+            )
 
         return Response(UserMeSerializer(user).data, status=status.HTTP_200_OK)
 
