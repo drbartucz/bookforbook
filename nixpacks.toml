@@ -1,0 +1,8 @@
+[phases.setup]
+# System packages required by Python dependencies.
+# zbar: required by pyzbar for barcode/ISBN image extraction.
+aptPkgs = ["libzbar0"]
+
+[variables]
+# Pin Python version to match runtime.txt / local dev environment.
+NIXPACKS_PYTHON_VERSION = "3.12"
