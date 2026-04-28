@@ -142,6 +142,13 @@ export const books = {
   lookupISBN: (isbn) => apiClient.post(`/books/lookup/`, { isbn }),
   searchBooks: (params) => apiClient.get('/books/search/', { params }),
   getBook: (bookId) => apiClient.get(`/books/${bookId}/`),
+  fromImage: (file) => {
+    const form = new FormData();
+    form.append('image', file);
+    return apiClient.post('/books/from-image/', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // ── My Books (Have-list) ──────────────────────────────────────────────────────

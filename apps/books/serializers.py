@@ -39,3 +39,28 @@ class BookLookupSerializer(serializers.Serializer):
                 "Invalid ISBN. Please enter a valid 10 or 13-digit ISBN."
             )
         return value
+
+
+class ImageBarcodeSerializer(serializers.Serializer):
+    """Validates an image file upload for barcode/ISBN extraction."""
+
+    MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+    ALLOWED_TYPES = {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/heic",
+        "image/heif",
+    }
+
+    image = serializers.ImageField()
+
+    def validate_image(self, value):
+        if value.size > self.MAX_SIZE_BYTES:
+            raise serializers.ValidationError("Image must be 10 MB or smaller.")
+        content_type = getattr(value, "content_type", "") or ""
+        if content_type and content_type not in self.ALLOWED_TYPES:
+            raise serializers.ValidationError(
+                "Unsupported image type. Upload a JPEG, PNG, WEBP, or HEIC file."
+            )
+        return value
