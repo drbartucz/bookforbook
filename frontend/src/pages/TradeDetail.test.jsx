@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -74,8 +74,8 @@ describe('TradeDetail page', () => {
     });
 
     it('shows loading spinner while data is loading', () => {
-        trades.getDetail.mockReturnValue(new Promise(() => {}));
-        trades.getMessages.mockReturnValue(new Promise(() => {}));
+        trades.getDetail.mockReturnValue(new Promise(() => { }));
+        trades.getMessages.mockReturnValue(new Promise(() => { }));
         renderWithProviders(<TradeDetail />);
         expect(screen.getByText(/loading trade details/i)).toBeInTheDocument();
     });
@@ -465,10 +465,14 @@ describe('TradeDetail page', () => {
             status: 'completed',
             i_rated: false,
             shipments: [
-                { sender: { id: 'user-1', username: 'me' }, receiver: { id: 'user-2', username: 'partner' },
-                  status: 'received', tracking_number: '', user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } } },
-                { sender: { id: 'user-2', username: 'partner' }, receiver: { id: 'user-1', username: 'me' },
-                  status: 'received', tracking_number: '', user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } } },
+                {
+                    sender: { id: 'user-1', username: 'me' }, receiver: { id: 'user-2', username: 'partner' },
+                    status: 'received', tracking_number: '', user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } }
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' }, receiver: { id: 'user-1', username: 'me' },
+                    status: 'received', tracking_number: '', user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } }
+                },
             ],
         });
         trades.getDetail.mockResolvedValue({ data: trade });
@@ -523,9 +527,25 @@ describe('TradeDetail page', () => {
         // Remove the maxLength restriction for testing the JS validation path
         textarea.removeAttribute('maxlength');
         const longMessage = 'a'.repeat(1001);
-        await userEvent.type(textarea, longMessage);
+        fireEvent.change(textarea, { target: { value: longMessage } });
         await userEvent.click(screen.getByRole('button', { name: 'Send message' }));
-        await waitFor(() => expect(screen.getByText('Message must be 1000 characters or fewer.')).toBeInTheDocument());
+        expect(await screen.findByText('Message must be 1000 characters or fewer.')).toBeInTheDocument();
+        expect(trades.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('does not send message when it exceeds max length', async () => {
+        trades.getDetail.mockResolvedValue({ data: makeTrade() });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        renderWithProviders(<TradeDetail />);
+        await screen.findByText('My Book');
+
+        const textarea = screen.getByPlaceholderText('Type a message...');
+        textarea.removeAttribute('maxlength');
+        fireEvent.change(textarea, { target: { value: 'a'.repeat(1001) } });
+
+        await userEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+        expect(trades.sendMessage).not.toHaveBeenCalled();
     });
 
     it('calls markReceived when confirm dialog is accepted', async () => {
@@ -594,7 +614,7 @@ describe('TradeDetail page', () => {
 
     it('shows messages loading spinner while messages are fetching', async () => {
         trades.getDetail.mockResolvedValue({ data: makeTrade() });
-        trades.getMessages.mockReturnValue(new Promise(() => {})); // never resolves
+        trades.getMessages.mockReturnValue(new Promise(() => { })); // never resolves
         renderWithProviders(<TradeDetail />);
         await screen.findByText('My Book'); // trade data has loaded
         // Messages section renders a loading spinner while getMessages is pending
@@ -669,10 +689,14 @@ describe('TradeDetail page', () => {
             status: 'completed',
             i_rated: false,
             shipments: [
-                { sender: { id: 'user-1', username: 'me' }, receiver: { id: 'user-2', username: 'partner' },
-                  status: 'received', tracking_number: '', user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } } },
-                { sender: { id: 'user-2', username: 'partner' }, receiver: { id: 'user-1', username: 'me' },
-                  status: 'received', tracking_number: '', user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } } },
+                {
+                    sender: { id: 'user-1', username: 'me' }, receiver: { id: 'user-2', username: 'partner' },
+                    status: 'received', tracking_number: '', user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } }
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' }, receiver: { id: 'user-1', username: 'me' },
+                    status: 'received', tracking_number: '', user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } }
+                },
             ],
         });
         trades.getDetail.mockResolvedValue({ data: trade });
@@ -724,7 +748,7 @@ describe('TradeDetail page', () => {
     it('shows "Marking..." while markShipped mutation is pending', async () => {
         trades.getDetail.mockResolvedValue({ data: makeTrade({ status: 'confirmed' }) });
         trades.getMessages.mockResolvedValue({ data: [] });
-        trades.markShipped.mockReturnValue(new Promise(() => {})); // never resolves
+        trades.markShipped.mockReturnValue(new Promise(() => { })); // never resolves
         renderWithProviders(<TradeDetail />);
         await userEvent.click(await screen.findByRole('button', { name: /mark my book as shipped/i }));
         await userEvent.click(screen.getByRole('button', { name: 'Confirm Shipped' }));
