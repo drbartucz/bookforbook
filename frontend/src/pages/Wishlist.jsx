@@ -6,6 +6,7 @@ import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
 import ISBNInput from '../components/common/ISBNInput.jsx';
 import Pagination from '../components/common/Pagination.jsx';
+import Tooltip from '../components/common/Tooltip.jsx';
 import AddressPromptModal from '../components/common/AddressPromptModal.jsx';
 import useAuth from '../hooks/useAuth.js';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
@@ -342,7 +343,10 @@ export default function Wishlist() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Acceptable formats</label>
+                  <label className="form-label">
+                    Acceptable formats
+                    <Tooltip content="Leave all unchecked to accept any format." />
+                  </label>
                   <p className="form-hint" style={{ marginBottom: '0.5rem' }}>
                     Check all formats you would accept. The edition you looked up is pre-selected.
                   </p>
@@ -357,7 +361,12 @@ export default function Wishlist() {
                           checked={formatPreferences.includes(format.value)}
                           onChange={() => toggleFormatPreference(format.value)}
                         />
-                        {format.label}
+                        {format.value === 'mass_market' ? (
+                          <>
+                            {format.label}
+                            <Tooltip content="Smaller, cheaper paperbacks typically sold in drugstores and airports. Usually cheaper than trade paperbacks." />
+                          </>
+                        ) : format.label}
                       </label>
                     ))}
                   </div>
@@ -382,6 +391,7 @@ export default function Wishlist() {
                           onChange={(e) => setExcludeAbridged(e.target.checked)}
                         />
                         Exclude abridged versions
+                        <Tooltip content="Abridged editions have content removed or shortened. Uncheck to allow them." />
                       </label>
                     </div>
                   </div>
@@ -537,13 +547,15 @@ export default function Wishlist() {
                     </div>
                   </div>
                   <div className={styles.actions}>
-                    <button
-                      className={`btn btn-sm ${item.is_active ? 'btn-secondary' : 'btn-success'}`}
-                      onClick={() => toggleMutation.mutate({ id: item.id, is_active: !item.is_active })}
-                      disabled={toggleMutation.isPending}
-                    >
-                      {item.is_active ? 'Pause' : 'Resume'}
-                    </button>
+                    <Tooltip content={item.is_active ? 'Pausing stops this book from being matched until you resume it.' : 'Resume matching for this wishlist item.'}>
+                      <button
+                        className={`btn btn-sm ${item.is_active ? 'btn-secondary' : 'btn-success'}`}
+                        onClick={() => toggleMutation.mutate({ id: item.id, is_active: !item.is_active })}
+                        disabled={toggleMutation.isPending}
+                      >
+                        {item.is_active ? 'Pause' : 'Resume'}
+                      </button>
+                    </Tooltip>
                     <button
                       className="btn btn-danger btn-sm"
                       onClick={() => handleRemove(item.id)}

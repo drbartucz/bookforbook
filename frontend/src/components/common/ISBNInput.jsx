@@ -261,6 +261,8 @@ export default function ISBNInput({
           className={`btn btn-secondary ${styles.lookupBtn}`}
           onClick={handleLookup}
           disabled={isWorking || disabled || !value.trim()}
+          title="Look up this book by ISBN using OpenLibrary. Supports ISBN-10 and ISBN-13."
+          aria-label="Look up book by ISBN"
         >
           {looking ? (
             <span className={styles.spinner} />

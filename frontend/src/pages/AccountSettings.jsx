@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { users as usersApi } from '../services/api.js';
 import useAuth from '../hooks/useAuth.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
+import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './AccountSettings.module.css';
 
 function getAddressStatusLabel(status) {
@@ -217,6 +218,13 @@ export default function AccountSettings() {
                                 <dd>{account.institution_name}</dd>
                             </div>
                         )}
+                        <div>
+                            <dt>
+                                Match capacity
+                                <Tooltip content="New accounts start with 2 active match slots. Complete trades and earn ratings to unlock up to 10 simultaneous matches." />
+                            </dt>
+                            <dd>{account?.max_active_matches ?? 2} slots</dd>
+                        </div>
                     </dl>
                 </div>
 
@@ -282,7 +290,9 @@ export default function AccountSettings() {
                                 />
                             </div>
                             <div className="form-group">
-                                <label className="form-label" htmlFor="state">State</label>
+                                <label className="form-label" htmlFor="state">
+                                    State <Tooltip content="2-letter state abbreviation, e.g. CA, NY, TX. Continental US only (48 states)." />
+                                </label>
                                 <input
                                     id="state"
                                     name="state"
@@ -338,13 +348,15 @@ export default function AccountSettings() {
                         />
                     </div>
 
-                    <button
-                        type="submit"
-                        className="btn btn-danger"
-                        disabled={deleteAccountMutation.isPending}
-                    >
-                        {deleteAccountMutation.isPending ? 'Deleting account...' : 'Delete account'}
-                    </button>
+                    <Tooltip content="Your active matches and trades will be cancelled. This cannot be undone.">
+                        <button
+                            type="submit"
+                            className="btn btn-danger"
+                            disabled={deleteAccountMutation.isPending}
+                        >
+                            {deleteAccountMutation.isPending ? 'Deleting account...' : 'Delete account'}
+                        </button>
+                    </Tooltip>
                 </form>
             </div>
         </div>

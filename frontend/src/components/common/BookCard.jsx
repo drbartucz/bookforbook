@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import ConditionBadge from './ConditionBadge.jsx';
+import Tooltip from './Tooltip.jsx';
 import { getBookCoverUrl, getBookIsbn, getBookPrimaryAuthor } from '../../utils/book.js';
 import styles from './BookCard.module.css';
 
@@ -32,6 +33,7 @@ export default function BookCard({
   copyCount = 1,
   onAction,
   actionLabel,
+  actionTooltip,
   actionLoading = false,
   extra,
   compact = false,
@@ -69,7 +71,9 @@ export default function BookCard({
           <div className={styles.meta}>
             {book.condition && <ConditionBadge condition={book.condition} />}
             {copyCount > 1 && (
-              <span className="badge badge-blue">{copyCount} copies</span>
+              <Tooltip content={`${copyCount} users are currently offering this title. Match availability depends on active listings and wishlist compatibility.`}>
+                <span className="badge badge-blue">{copyCount} copies</span>
+              </Tooltip>
             )}
             {owner && (
               <Link
@@ -83,13 +87,25 @@ export default function BookCard({
           </div>
         </div>
         {onAction && (
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={onAction}
-            disabled={actionLoading}
-          >
-            {actionLoading ? 'Loading...' : (actionLabel || 'Action')}
-          </button>
+          actionTooltip ? (
+            <Tooltip content={actionTooltip}>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={onAction}
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Loading...' : (actionLabel || 'Action')}
+              </button>
+            </Tooltip>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={onAction}
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Loading...' : (actionLabel || 'Action')}
+            </button>
+          )
         )}
         {extra && <div className={styles.extra}>{extra}</div>}
       </div>

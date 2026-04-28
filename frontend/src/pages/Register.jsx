@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { auth as authApi } from '../services/api.js';
+import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './Auth.module.css';
 
 export default function Register() {
@@ -119,6 +120,12 @@ export default function Register() {
                     {...register('account_type')}
                   />
                   {opt.label}
+                  {opt.value === 'library' && (
+                    <Tooltip content="For public or academic libraries. Institutional accounts can accept donations and list books in bulk." />
+                  )}
+                  {opt.value === 'bookstore' && (
+                    <Tooltip content="For used bookstores. Institutional accounts appear in the Institutions directory." />
+                  )}
                 </label>
               ))}
             </div>
@@ -200,7 +207,7 @@ export default function Register() {
           {/* Username */}
           <div className="form-group">
             <label className="form-label" htmlFor="username">
-              Username
+              Username <Tooltip content="Your public handle. Other users will see @username on matches and trades. Can't be changed later." />
             </label>
             <input
               id="username"

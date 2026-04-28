@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
 import ISBNInput from '../components/common/ISBNInput.jsx';
+import Tooltip from '../components/common/Tooltip.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import AddressPromptModal from '../components/common/AddressPromptModal.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
@@ -179,7 +180,7 @@ export default function MyBooks() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="addCondition">
-              Condition
+              Condition <Tooltip content="How would you honestly describe this book's physical state? Match quality is better when conditions are accurate." />
             </label>
             <select
               id="addCondition"
@@ -322,7 +323,13 @@ export default function MyBooks() {
                     </div>
                     <div className={styles.bookMeta}>
                       <ConditionBadge condition={item.condition} />
-                      <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+                      {item.status === 'in_trade' ? (
+                        <Tooltip content="This book is committed to an active trade and can't be removed or re-matched until the trade completes.">
+                          <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+                        </Tooltip>
+                      ) : (
+                        <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+                      )}
                     </div>
                   </div>
                   <div className={styles.bookActions}>
@@ -358,20 +365,42 @@ export default function MyBooks() {
                       </div>
                     ) : (
                       <>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => startEdit(item)}
-                          disabled={item.status === 'in_trade'}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleRemove(item.id)}
-                          disabled={removeMutation.isPending || item.status === 'in_trade'}
-                        >
-                          Remove
-                        </button>
+                        {item.status === 'in_trade' ? (
+                          <Tooltip content="Can't edit or remove a book that's currently part of an active trade.">
+                            <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => startEdit(item)}
+                                disabled
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => handleRemove(item.id)}
+                                disabled
+                              >
+                                Remove
+                              </button>
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => startEdit(item)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleRemove(item.id)}
+                              disabled={removeMutation.isPending}
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                   </div>

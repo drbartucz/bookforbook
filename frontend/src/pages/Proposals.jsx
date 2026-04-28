@@ -8,6 +8,7 @@ import Pagination from '../components/common/Pagination.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import useAuth from '../hooks/useAuth.js';
 import { mapProposalForCard } from '../adapters/proposals.js';
+import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './Proposals.module.css';
 
 const PAGE_SIZE = 15;
@@ -201,18 +202,23 @@ export default function Proposals() {
                   </div>
 
                   {proposal.note && (
-                    <p className={styles.note}>&ldquo;{proposal.note}&rdquo;</p>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
+                      <p className={styles.note}>&ldquo;{proposal.note}&rdquo;</p>
+                      <Tooltip content="A personal message from the proposer explaining why they'd like this trade." />
+                    </div>
                   )}
 
                   {canAct && (
                     <div className={styles.proposalActions}>
-                      <button
-                        className="btn btn-success btn-sm"
-                        onClick={() => acceptMutation.mutate(proposal.id)}
-                        disabled={acceptMutation.isPending || declineMutation.isPending}
-                      >
-                        Accept
-                      </button>
+                      <Tooltip content="Accepting starts the trade. Shipping addresses will be shared with your trade partner.">
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => acceptMutation.mutate(proposal.id)}
+                          disabled={acceptMutation.isPending || declineMutation.isPending}
+                        >
+                          Accept
+                        </button>
+                      </Tooltip>
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => declineMutation.mutate(proposal.id)}

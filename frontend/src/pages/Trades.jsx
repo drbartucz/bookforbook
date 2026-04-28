@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import useAuth from '../hooks/useAuth.js';
 import { mapTradeForView } from '../adapters/trades.js';
+import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './Trades.module.css';
 
 const PAGE_SIZE = 15;
@@ -92,7 +93,13 @@ export default function Trades() {
                 <Link key={trade.id} to={`/trades/${trade.id}`} className={`card ${styles.tradeCard}`}>
                   <div className={styles.tradeHeader}>
                     <div className={styles.tradeId}>Trade #{trade.id}</div>
-                    <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+                    {trade.status === 'one_received' ? (
+                      <Tooltip content="One package has been marked as received. Waiting on the other party to confirm receipt.">
+                        <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+                      </Tooltip>
+                    ) : (
+                      <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+                    )}
                   </div>
 
                   <div className={styles.tradeBooks}>
@@ -129,6 +136,9 @@ export default function Trades() {
                       <span className={styles.tradeDate}>
                         {format(new Date(trade.created_at), 'MMM d, yyyy')}
                       </span>
+                    )}
+                    {(trade.status === 'confirmed' || trade.status === 'shipping' || trade.status === 'one_received') && (
+                      <Tooltip content="Trades auto-close 3 weeks after both books are marked shipped if no rating is submitted." />
                     )}
                     <span className={styles.viewLink}>View details &rarr;</span>
                   </div>

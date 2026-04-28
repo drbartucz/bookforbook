@@ -6,6 +6,7 @@ import useAuth from '../hooks/useAuth.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
+import Tooltip from '../components/common/Tooltip.jsx';
 import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './PublicProfile.module.css';
@@ -235,7 +236,9 @@ export default function PublicProfile() {
               <span className="badge badge-blue">Institution</span>
             )}
             {profile.is_verified && (
-              <span className="badge badge-green">Verified</span>
+              <Tooltip content="This institution's identity has been confirmed by BookForBook.">
+                <span className="badge badge-green">Verified</span>
+              </Tooltip>
             )}
           </div>
           {profile.display_name && (
@@ -266,7 +269,10 @@ export default function PublicProfile() {
                 {Number(profile.avg_recent_rating).toFixed(1)}
                 <span className={styles.statStar}> ★</span>
               </p>
-              <p className={styles.statLabel}>Avg Rating</p>
+              <p className={styles.statLabel}>
+                Avg Rating
+                <Tooltip content="Average across their last 10 completed trades. See individual ratings below." />
+              </p>
             </div>
           )}
           {profile.created_at && (
@@ -393,7 +399,9 @@ export default function PublicProfile() {
                           </span>
                         )}
                         {item.quantity_needed && (
-                          <p className={styles.wantedQty}>Need: {item.quantity_needed}</p>
+                          <Tooltip content={`This institution needs ${item.quantity_needed} more ${item.quantity_needed === 1 ? 'copy' : 'copies'} of this book.`}>
+                            <p className={styles.wantedQty}>Need: {item.quantity_needed}</p>
+                          </Tooltip>
                         )}
                       </div>
                     </div>

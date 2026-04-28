@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { matches as matchesApi, myBooks as myBooksApi, proposals as proposalsApi, trades as tradesApi, users as usersApi, wishlist as wishlistApi } from '../services/api.js';
 import useAuth from '../hooks/useAuth.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
+import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './Dashboard.module.css';
 
 export default function Dashboard() {
@@ -83,9 +84,11 @@ export default function Dashboard() {
           <div className={styles.summaryGrid}>
             <Link to="/matches" className={styles.summaryCard}>
               <div className={styles.summaryIcon} style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
-                <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
-                  <path d="M10 1a6 6 0 00-3.815 10.631C7.237 12.5 8 13.443 8 14.456v.644a.75.75 0 00.572.729 6.016 6.016 0 002.856 0A.75.75 0 0012 15.1v-.644c0-1.013.763-1.957 1.815-2.825A6 6 0 0010 1zM8.863 17.414a.75.75 0 00-.226 1.483 9.066 9.066 0 002.726 0 .75.75 0 00-.226-1.483 7.553 7.553 0 01-2.274 0z" />
-                </svg>
+                <Tooltip content="Matches are automatically found trade opportunities. Each requires both parties to accept before a trade begins." position="bottom">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                    <path d="M10 1a6 6 0 00-3.815 10.631C7.237 12.5 8 13.443 8 14.456v.644a.75.75 0 00.572.729 6.016 6.016 0 002.856 0A.75.75 0 0012 15.1v-.644c0-1.013.763-1.957 1.815-2.825A6 6 0 0010 1zM8.863 17.414a.75.75 0 00-.226 1.483 9.066 9.066 0 002.726 0 .75.75 0 00-.226-1.483 7.553 7.553 0 01-2.274 0z" />
+                  </svg>
+                </Tooltip>
               </div>
               <div>
                 <p className={styles.summaryValue}>{activeMatchesCount}</p>
@@ -95,9 +98,11 @@ export default function Dashboard() {
 
             <Link to="/proposals" className={styles.summaryCard}>
               <div className={styles.summaryIcon} style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
-                <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
-                  <path fillRule="evenodd" d="M3.25 3A2.25 2.25 0 001 5.25v9.5A2.25 2.25 0 003.25 17h13.5A2.25 2.25 0 0019 14.75v-9.5A2.25 2.25 0 0016.75 3H3.25zm.943 2.25A.75.75 0 003.25 6v.5l6.75 4.2 6.75-4.2V6a.75.75 0 00-.75-.75H4.193z" clipRule="evenodd" />
-                </svg>
+                <Tooltip content="Direct trade requests sent to or from you, waiting for a response." position="bottom">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                    <path fillRule="evenodd" d="M3.25 3A2.25 2.25 0 001 5.25v9.5A2.25 2.25 0 003.25 17h13.5A2.25 2.25 0 0019 14.75v-9.5A2.25 2.25 0 0016.75 3H3.25zm.943 2.25A.75.75 0 003.25 6v.5l6.75 4.2 6.75-4.2V6a.75.75 0 00-.75-.75H4.193z" clipRule="evenodd" />
+                  </svg>
+                </Tooltip>
               </div>
               <div>
                 <p className={styles.summaryValue}>{pendingProposalsCount}</p>
@@ -107,9 +112,11 @@ export default function Dashboard() {
 
             <Link to="/trades" className={styles.summaryCard}>
               <div className={styles.summaryIcon} style={{ background: 'var(--color-success-light)', color: 'var(--color-success)' }}>
-                <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
-                  <path fillRule="evenodd" d="M2.5 3A1.5 1.5 0 001 4.5v4A1.5 1.5 0 002.5 10h6A1.5 1.5 0 0010 8.5v-4A1.5 1.5 0 008.5 3h-6zm11 2A1.5 1.5 0 0012 6.5v7a1.5 1.5 0 001.5 1.5h3A1.5 1.5 0 0018 13.5v-7A1.5 1.5 0 0016.5 5h-3zm-6 7A1.5 1.5 0 006 13.5v1A1.5 1.5 0 007.5 16h3a1.5 1.5 0 001.5-1.5v-1A1.5 1.5 0 0010.5 12h-3z" clipRule="evenodd" />
-                </svg>
+                <Tooltip content="Confirmed trades currently in progress — books are being shipped." position="bottom">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                    <path fillRule="evenodd" d="M2.5 3A1.5 1.5 0 001 4.5v4A1.5 1.5 0 002.5 10h6A1.5 1.5 0 0010 8.5v-4A1.5 1.5 0 008.5 3h-6zm11 2A1.5 1.5 0 0012 6.5v7a1.5 1.5 0 001.5 1.5h3A1.5 1.5 0 0018 13.5v-7A1.5 1.5 0 0016.5 5h-3zm-6 7A1.5 1.5 0 006 13.5v1A1.5 1.5 0 007.5 16h3a1.5 1.5 0 001.5-1.5v-1A1.5 1.5 0 0010.5 12h-3z" clipRule="evenodd" />
+                  </svg>
+                </Tooltip>
               </div>
               <div>
                 <p className={styles.summaryValue}>{activeTradesCount}</p>
@@ -120,9 +127,11 @@ export default function Dashboard() {
             {displayUser && (
               <div className={styles.summaryCard} style={{ cursor: 'default' }}>
                 <div className={styles.summaryIcon} style={{ background: 'var(--color-gray-100)', color: 'var(--color-gray-500)' }}>
-                  <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
-                    <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
-                  </svg>
+                  <Tooltip content="Total completed trades since you joined. Completing more trades increases your match capacity (up to 10 active matches)." position="bottom">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                      <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
+                    </svg>
+                  </Tooltip>
                 </div>
                 <div>
                   <p className={styles.summaryValue}>{displayUser.total_trades ?? 0}</p>
@@ -133,9 +142,11 @@ export default function Dashboard() {
 
             <Link to="/my-books" className={styles.summaryCard}>
               <div className={styles.summaryIcon} style={{ background: 'var(--color-info-light, #eff6ff)', color: 'var(--color-info, #3b82f6)' }}>
-                <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
-                  <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-                </svg>
+                <Tooltip content="Books you've listed as available to trade." position="bottom">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                    <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                  </svg>
+                </Tooltip>
               </div>
               <div>
                 <p className={styles.summaryValue}>{booksOfferedCount}</p>
@@ -145,9 +156,11 @@ export default function Dashboard() {
 
             <Link to="/wishlist" className={styles.summaryCard}>
               <div className={styles.summaryIcon} style={{ background: 'var(--color-purple-light, #f5f3ff)', color: 'var(--color-purple, #8b5cf6)' }}>
-                <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
-                  <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                </svg>
+                <Tooltip content="Books on your wishlist you're hoping to receive in a trade." position="bottom">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                  </svg>
+                </Tooltip>
               </div>
               <div>
                 <p className={styles.summaryValue}>{booksWantedCount}</p>

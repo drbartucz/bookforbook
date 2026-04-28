@@ -9,6 +9,7 @@ import Pagination from '../components/common/Pagination.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import useAuth from '../hooks/useAuth.js';
 import { mapMatchForCard } from '../adapters/matches.js';
+import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './Matches.module.css';
 
 const PAGE_SIZE = 15;
@@ -171,7 +172,17 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
     <div className={`card ${styles.matchCard}`}>
       <div className={styles.matchHeader}>
         <div className={styles.matchId}>Match #{match.id}</div>
-        <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+        {match.status === 'pending' ? (
+          <Tooltip content="This match was found automatically. It's waiting for both of you to accept.">
+            <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+          </Tooltip>
+        ) : match.status === 'expired' ? (
+          <Tooltip content="This match wasn't accepted in time and is no longer active. You may be re-matched with a different partner.">
+            <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+          </Tooltip>
+        ) : (
+          <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+        )}
       </div>
 
       <div className={styles.exchange}>
@@ -237,22 +248,26 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
             @{partner.username}
           </a>
           {partner.avg_recent_rating && (
-            <span className={styles.partnerRating}>
-              {' '}&bull; {Number(partner.avg_recent_rating).toFixed(1)} ★
-            </span>
+            <Tooltip content="Average rating across their last 10 completed trades. Visible on their public profile.">
+              <span className={styles.partnerRating}>
+                {' '}&bull; {Number(partner.avg_recent_rating).toFixed(1)} ★
+              </span>
+            </Tooltip>
           )}
         </p>
       )}
 
       {match.status === 'pending' && (
         <div className={styles.matchActions}>
-          <button
-            className="btn btn-success"
-            onClick={onAccept}
-            disabled={accepting || declining}
-          >
-            {accepting ? 'Accepting...' : 'Accept Match'}
-          </button>
+          <Tooltip content="Once both parties accept, the trade is confirmed and shipping addresses are exchanged.">
+            <button
+              className="btn btn-success"
+              onClick={onAccept}
+              disabled={accepting || declining}
+            >
+              {accepting ? 'Accepting...' : 'Accept Match'}
+            </button>
+          </Tooltip>
           <button
             className="btn btn-secondary"
             onClick={onDecline}

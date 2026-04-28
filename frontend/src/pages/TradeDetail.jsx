@@ -9,6 +9,7 @@ import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import { buildTradeRatingPayload, mapTradeForView } from '../adapters/trades.js';
+import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './TradeDetail.module.css';
 
 const MESSAGE_MAX_LENGTH = 1000;
@@ -243,7 +244,7 @@ export default function TradeDetail() {
                     <h2 className={styles.sectionTitle}>Mark as Shipped</h2>
                     <div className="form-group">
                       <label className="form-label" htmlFor="tracking">
-                        Tracking number (optional)
+                        Tracking number (optional) <Tooltip content="Enter the full tracking number from your shipping label. Your trade partner will be notified." />
                       </label>
                       <input
                         id="tracking"
@@ -300,7 +301,10 @@ export default function TradeDetail() {
                       Rate @{partner?.username ?? 'your trade partner'}
                     </h2>
                     <div className="form-group">
-                      <label className="form-label">Rating</label>
+                      <label className="form-label">
+                        Rating
+                        <Tooltip content="1 = Poor experience, 5 = Excellent. Ratings are visible on the partner's public profile." />
+                      </label>
                       <div className={styles.ratingRow}>
                         {[1, 2, 3, 4, 5].map((star) => (
                           <button
@@ -335,6 +339,7 @@ export default function TradeDetail() {
                         onChange={(e) => setBookConditionAccurate(e.target.checked)}
                       />
                       The book condition matched the listing.
+                      <Tooltip content="Uncheck this if the book arrived in noticeably worse condition than described. This feedback helps the community." />
                     </label>
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
                       <button
@@ -417,18 +422,26 @@ export default function TradeDetail() {
             {/* Send message form */}
             <div className={styles.sendForm}>
               <div className="form-group">
-                <select
-                  className="form-input"
-                  value={msgType}
-                  onChange={(e) => setMsgType(e.target.value)}
-                  style={{ fontSize: '0.8125rem' }}
-                >
-                  {MESSAGE_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                  <select
+                    className="form-input"
+                    value={msgType}
+                    onChange={(e) => setMsgType(e.target.value)}
+                    style={{ fontSize: '0.8125rem', flex: 1 }}
+                  >
+                    {MESSAGE_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  {msgType === 'shipping_update' && (
+                    <Tooltip content="Use this to share a tracking number or notify your partner of a shipping delay." />
+                  )}
+                  {msgType === 'issue' && (
+                    <Tooltip content="Use this if something has gone wrong with the trade, e.g. damaged book or no contact." />
+                  )}
+                </div>
               </div>
               <div className={styles.sendRow}>
                 <textarea

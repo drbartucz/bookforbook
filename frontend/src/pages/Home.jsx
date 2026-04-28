@@ -8,6 +8,7 @@ import BookCard from '../components/common/BookCard.jsx';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import Pagination from '../components/common/Pagination.jsx';
+import Tooltip from '../components/common/Tooltip.jsx';
 import { getBookIsbn } from '../utils/book.js';
 import styles from './Home.module.css';
 
@@ -166,18 +167,21 @@ export default function Home() {
                 aria-label="Search books"
               />
             </div>
-            <select
-              className={`form-input ${styles.conditionSelect}`}
-              value={offerCondition}
-              onChange={handleOfferConditionChange}
-              aria-label="Filter by condition"
-            >
-              {CONDITION_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+              <select
+                className={`form-input ${styles.conditionSelect}`}
+                value={offerCondition}
+                onChange={handleOfferConditionChange}
+                aria-label="Filter by condition"
+              >
+                {CONDITION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <Tooltip content="Show only books listed at exactly this condition. Use 'Any condition' to see all." />
+            </div>
           </div>
 
           {!offerQuery.isLoading && !offerQuery.isError && (
@@ -226,6 +230,7 @@ export default function Home() {
                           : undefined
                       }
                       actionLabel={alreadyAdded ? 'Added!' : 'Want this'}
+                      actionTooltip="Adds this book to your wishlist. You'll be matched automatically when someone who wants a book you own lists one you want."
                       actionLoading={
                         addToWishlistMutation.isPending &&
                         addToWishlistMutation.variables?.isbn === isbn

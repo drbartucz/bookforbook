@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import useAuth from '../../hooks/useAuth.js';
 import { notifications as notificationsApi } from '../../services/api.js';
+import Tooltip from '../common/Tooltip.jsx';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
@@ -97,7 +98,9 @@ export default function Navbar() {
               <NavLink to="/matches" className={navLinkClass}>
                 Matches
                 {totalPending > 0 && (
-                  <span className={styles.badge}>{totalPending > 99 ? '99+' : totalPending}</span>
+                  <Tooltip content={`${totalPending} match${totalPending === 1 ? '' : 'es'} waiting for your response.`} position="bottom">
+                    <span className={styles.badge}>{totalPending > 99 ? '99+' : totalPending}</span>
+                  </Tooltip>
                 )}
               </NavLink>
               <NavLink to="/trades" className={navLinkClass}>
@@ -127,9 +130,11 @@ export default function Navbar() {
                     <path d="M7.75 15.5a2.25 2.25 0 004.5 0h-4.5z" />
                   </svg>
                   {unreadNotifications > 0 && (
-                    <span className={styles.notificationsBadge}>
-                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                    </span>
+                    <Tooltip content={`${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}.`} position="bottom">
+                      <span className={styles.notificationsBadge}>
+                        {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                      </span>
+                    </Tooltip>
                   )}
                 </button>
 
