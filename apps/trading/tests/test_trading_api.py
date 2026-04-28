@@ -958,8 +958,12 @@ class TestTradeListStatusFilter:
         """Helper to create a trade with two shipments at the given status."""
         a = UserFactory()
         b = UserFactory()
-        book_a = UserBookFactory(user=a, book=BookFactory(), status=UserBook.Status.RESERVED)
-        book_b = UserBookFactory(user=b, book=BookFactory(), status=UserBook.Status.RESERVED)
+        book_a = UserBookFactory(
+            user=a, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
+        book_b = UserBookFactory(
+            user=b, book=BookFactory(), status=UserBook.Status.RESERVED
+        )
 
         trade = Trade.objects.create(
             source_type=Trade.SourceType.PROPOSAL,
@@ -1015,7 +1019,9 @@ class TestTradeListStatusFilter:
         assert str(trade_confirmed.id) not in ids
 
     def test_status_auto_closed_included_in_completed_filter(self, api_client):
-        trade_auto_closed, a, b = self._create_trade_with_status(Trade.Status.AUTO_CLOSED)
+        trade_auto_closed, a, b = self._create_trade_with_status(
+            Trade.Status.AUTO_CLOSED
+        )
 
         client = _auth(api_client, a)
         resp = client.get(reverse("trade-list"), {"status": "completed"})
@@ -1148,3 +1154,253 @@ class TestTradeRateViewEdgeCases:
         # Both parties rated — should now be COMPLETED
         assert trade.status == Trade.Status.COMPLETED
         assert trade.completed_at is not None
+
+
+# ---------------------------------------------------------------------------
+# Institution proposals (institutions as trade parties in manual proposals)
+# ---------------------------------------------------------------------------
+
+
+def _make_institution():
+    """Create a verified institution user (library)."""
+    inst = UserFactory(
+        account_type=User.AccountType.LIBRARY,
+        is_verified=True,
+        institution_name="City Library",
+    )
+    return inst
+
+
+def _give_verified_address(
+    user, street="123 Main St", city="Denver", state="CO", zip_code="80202"
+):
+    """Set a USPS-verified shipping address on any user."""
+    user.full_name = user.full_name or user.username
+    user.address_line_1 = street
+    user.city = city
+    user.state = state
+    user.zip_code = zip_code
+    user.address_verification_status = User.AddressVerificationStatus.VERIFIED
+    user.save()
+
+
+class TestInstitutionProposals:
+    """Verify that institutions can participate in manual trade proposals."""
+
+    def test_individual_can_propose_to_institution(self, api_client):
+        """An individual can send a proposal whose recipient is an institution."""
+        individual = UserFactory()
+        institution = _make_institution()
+
+        ind_book = UserBookFactory(user=individual, book=BookFactory())
+        inst_book = UserBookFactory(user=institution, book=BookFactory())
+
+        client = _auth(api_client, individual)
+        resp = _make_proposal(client, ind_book, institution, inst_book)
+
+        assert resp.status_code == 201
+        assert resp.data["status"] == "pending"
+        assert resp.data["recipient"]["id"] == str(institution.id)
+
+    def test_institution_can_propose_to_individual(self, api_client):
+        """An institution can send a proposal to an individual."""
+        institution = _make_institution()
+        individual = UserFactory()
+
+        inst_book = UserBookFactory(user=institution, book=BookFactory())
+        ind_book = UserBookFactory(user=individual, book=BookFactory())
+
+        client = _auth(api_client, institution)
+        resp = _make_proposal(client, inst_book, individual, ind_book)
+
+        assert resp.status_code == 201
+        assert resp.data["status"] == "pending"
+        assert resp.data["proposer"]["id"] == str(institution.id)
+
+    def test_institution_recipient_requires_verified_address_to_accept(
+        self, api_client
+    ):
+        """Institution without a verified address gets 409 when trying to accept."""
+        individual = UserFactory()
+        institution = _make_institution()
+        # Institution deliberately has NO verified address
+
+        ind_book = UserBookFactory(user=individual, book=BookFactory())
+        inst_book = UserBookFactory(user=institution, book=BookFactory())
+
+        client = _auth(api_client, individual)
+        create_resp = _make_proposal(client, ind_book, institution, inst_book)
+        proposal_id = create_resp.data["id"]
+
+        client = _auth(api_client, institution)
+        resp = client.post(
+            reverse("proposal-accept", kwargs={"pk": proposal_id}), format="json"
+        )
+
+        assert resp.status_code == 409
+        assert resp.data["code"] == "address_verification_required"
+
+    def test_institution_accepts_proposal_creates_trade(self, api_client):
+        """Institution with a verified address can accept a proposal and create a trade."""
+        individual = UserFactory()
+        _give_verified_address(
+            individual, street="1 Ind St", city="Austin", state="TX", zip_code="73301"
+        )
+
+        institution = _make_institution()
+        _give_verified_address(
+            institution,
+            street="1 Library Pl",
+            city="Portland",
+            state="OR",
+            zip_code="97201",
+        )
+
+        ind_book = UserBookFactory(user=individual, book=BookFactory())
+        inst_book = UserBookFactory(user=institution, book=BookFactory())
+
+        client = _auth(api_client, individual)
+        create_resp = _make_proposal(client, ind_book, institution, inst_book)
+        proposal_id = create_resp.data["id"]
+
+        client = _auth(api_client, institution)
+        resp = client.post(
+            reverse("proposal-accept", kwargs={"pk": proposal_id}), format="json"
+        )
+
+        assert resp.status_code == 200
+        assert "trade" in resp.data
+
+        trade = Trade.objects.get(pk=resp.data["trade"]["id"])
+        assert trade.status == Trade.Status.CONFIRMED
+        assert trade.source_type == Trade.SourceType.PROPOSAL
+
+        # Both books reserved
+        ind_book.refresh_from_db()
+        inst_book.refresh_from_db()
+        assert ind_book.status == UserBook.Status.RESERVED
+        assert inst_book.status == UserBook.Status.RESERVED
+
+        # Exactly two shipments
+        assert trade.shipments.count() == 2
+
+    @pytest.mark.slow
+    def test_proposal_pipeline_individual_to_institution_full_lifecycle(
+        self, api_client
+    ):
+        """Full pipeline: propose → institution accepts → ship both ways → receive → rate."""
+        from rest_framework.test import APIClient
+
+        individual = UserFactory()
+        _give_verified_address(
+            individual, street="1 Ind St", city="Austin", state="TX", zip_code="73301"
+        )
+
+        institution = _make_institution()
+        _give_verified_address(
+            institution,
+            street="1 Library Pl",
+            city="Portland",
+            state="OR",
+            zip_code="97201",
+        )
+
+        ind_book = UserBookFactory(
+            user=individual, book=BookFactory(), condition="good"
+        )
+        inst_book = UserBookFactory(
+            user=institution, book=BookFactory(), condition="very_good"
+        )
+
+        client_ind = APIClient()
+        client_ind.force_authenticate(user=individual)
+        client_inst = APIClient()
+        client_inst.force_authenticate(user=institution)
+
+        # Create proposal
+        create_resp = client_ind.post(
+            reverse("proposal-list-create"),
+            {
+                "recipient_id": str(institution.id),
+                "proposer_book_id": str(ind_book.id),
+                "recipient_book_id": str(inst_book.id),
+            },
+            format="json",
+        )
+        assert create_resp.status_code == 201
+        proposal_id = create_resp.data["id"]
+
+        # Institution accepts
+        accept_resp = client_inst.post(
+            reverse("proposal-accept", kwargs={"pk": proposal_id}), format="json"
+        )
+        assert accept_resp.status_code == 200
+        trade_id = accept_resp.data["trade"]["id"]
+        trade = Trade.objects.get(pk=trade_id)
+
+        # Both ship
+        resp = client_ind.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade_id}),
+            {"tracking_number": "IND-TRK-001", "shipping_method": "USPS"},
+            format="json",
+        )
+        assert resp.status_code == 200
+
+        resp = client_inst.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade_id}),
+            {"tracking_number": "INST-TRK-001", "shipping_method": "USPS"},
+            format="json",
+        )
+        assert resp.status_code == 200
+
+        # Institution receives individual's book
+        resp = client_inst.post(
+            reverse("trade-mark-received", kwargs={"pk": trade_id}), format="json"
+        )
+        assert resp.status_code == 200
+
+        # Individual receives institution's book
+        resp = client_ind.post(
+            reverse("trade-mark-received", kwargs={"pk": trade_id}), format="json"
+        )
+        assert resp.status_code == 200
+
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.COMPLETED
+
+        ind_book.refresh_from_db()
+        inst_book.refresh_from_db()
+        assert ind_book.status == UserBook.Status.TRADED
+        assert inst_book.status == UserBook.Status.TRADED
+
+        # Rate each other
+        resp = client_ind.post(
+            reverse("trade-rate", kwargs={"pk": trade_id}),
+            {
+                "rated_user_id": str(institution.id),
+                "score": 5,
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert resp.status_code == 201
+
+        resp = client_inst.post(
+            reverse("trade-rate", kwargs={"pk": trade_id}),
+            {
+                "rated_user_id": str(individual.id),
+                "score": 4,
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert resp.status_code == 201
+
+        from apps.ratings.models import Rating
+
+        assert Rating.objects.filter(trade=trade).count() == 2
+
+        individual.refresh_from_db()
+        institution.refresh_from_db()
+        assert individual.rating_count == 1
+        assert institution.rating_count == 1

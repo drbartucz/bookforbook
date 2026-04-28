@@ -8,6 +8,7 @@ from django.urls import reverse
 from apps.accounts.models import User
 from apps.inventory.models import UserBook
 from apps.notifications.models import Notification
+from apps.ratings.models import Rating
 from apps.tests.factories import BookFactory, UserBookFactory, UserFactory
 from apps.donations.models import Donation
 from apps.trading.models import Trade, TradeShipment
@@ -385,3 +386,230 @@ class TestDonationNotificationExceptions:
             )
 
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Donation trade lifecycle (shipping / receipt / rating after acceptance)
+# ---------------------------------------------------------------------------
+
+
+def _setup_accepted_donation(api_client):
+    """Return (client_donor, client_inst, trade, donation, donor, institution, user_book)."""
+    from rest_framework.test import APIClient
+
+    donor = UserFactory()
+    institution = _make_institution()
+    institution.full_name = "City Library"
+    institution.address_line_1 = "1 Library Plaza"
+    institution.city = "Portland"
+    institution.state = "OR"
+    institution.zip_code = "97201"
+    institution.address_verification_status = User.AddressVerificationStatus.VERIFIED
+    institution.save()
+
+    user_book = UserBookFactory(user=donor, book=BookFactory())
+
+    client_donor = APIClient()
+    client_donor.force_authenticate(user=donor)
+    client_inst = APIClient()
+    client_inst.force_authenticate(user=institution)
+
+    offer_resp = client_donor.post(
+        reverse("donation-list-create"),
+        {"institution_id": str(institution.id), "user_book_id": str(user_book.id)},
+        format="json",
+    )
+    donation_id = offer_resp.data["id"]
+
+    client_inst.post(
+        reverse("donation-accept", kwargs={"pk": donation_id}), format="json"
+    )
+
+    trade = Trade.objects.get(source_type=Trade.SourceType.DONATION)
+    donation = Donation.objects.get(pk=donation_id)
+    return client_donor, client_inst, trade, donation, donor, institution, user_book
+
+
+class TestDonationTradePipeline:
+    """Post-acceptance lifecycle: shipping, receipt, and rating for donation-sourced trades."""
+
+    def test_donor_can_mark_book_shipped(self, api_client):
+        """Donor (the sender) can mark the single donation shipment as shipped."""
+        client_donor, _client_inst, trade, _donation, _donor, _inst, _book = (
+            _setup_accepted_donation(api_client)
+        )
+
+        resp = client_donor.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "USPS-DON-001", "shipping_method": "USPS"},
+            format="json",
+        )
+
+        assert resp.status_code == 200
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.SHIPPING
+
+        shipment = trade.shipments.get()
+        assert shipment.status == TradeShipment.Status.SHIPPED
+
+    def test_institution_can_mark_book_received_completes_trade(self, api_client):
+        """Institution (receiver) marks received → trade COMPLETED, book TRADED."""
+        client_donor, client_inst, trade, _donation, _donor, _inst, user_book = (
+            _setup_accepted_donation(api_client)
+        )
+
+        client_donor.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "USPS-DON-002"},
+            format="json",
+        )
+
+        resp = client_inst.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+
+        assert resp.status_code == 200
+        trade.refresh_from_db()
+        # Single-shipment donation: all received → COMPLETED immediately
+        assert trade.status == Trade.Status.COMPLETED
+
+        user_book.refresh_from_db()
+        assert user_book.status == UserBook.Status.TRADED
+
+    def test_donor_total_trades_incremented_on_completion(self, api_client):
+        """donor.total_trades increments when the donation trade completes."""
+        client_donor, client_inst, trade, _donation, donor, _inst, _book = (
+            _setup_accepted_donation(api_client)
+        )
+
+        client_donor.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "USPS-DON-003"},
+            format="json",
+        )
+        client_inst.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+
+        donor.refresh_from_db()
+        assert donor.total_trades == 1
+
+    def test_donor_can_rate_institution_after_completion(self, api_client):
+        """Donor can submit a rating for the institution once the trade is completed."""
+        client_donor, client_inst, trade, _donation, _donor, institution, _book = (
+            _setup_accepted_donation(api_client)
+        )
+
+        client_donor.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "USPS-DON-004"},
+            format="json",
+        )
+        client_inst.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+
+        resp = client_donor.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(institution.id),
+                "score": 5,
+                "comment": "Great library!",
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 201
+        assert Rating.objects.filter(trade=trade, rated=institution).count() == 1
+        institution.refresh_from_db()
+        assert institution.avg_recent_rating is not None
+
+    def test_institution_can_rate_donor_after_completion(self, api_client):
+        """Institution can submit a rating for the donor once the trade is completed."""
+        client_donor, client_inst, trade, _donation, donor, _inst, _book = (
+            _setup_accepted_donation(api_client)
+        )
+
+        client_donor.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "USPS-DON-005"},
+            format="json",
+        )
+        client_inst.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+
+        resp = client_inst.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(donor.id),
+                "score": 4,
+                "comment": "Nice donation, thank you!",
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 201
+        assert Rating.objects.filter(trade=trade, rated=donor).count() == 1
+
+    def test_full_donation_pipeline_offer_to_mutual_ratings(self, api_client):
+        """End-to-end: offer → accept → ship → receive → both parties rate."""
+        client_donor, client_inst, trade, donation, donor, institution, user_book = (
+            _setup_accepted_donation(api_client)
+        )
+
+        assert donation.status == Donation.Status.ACCEPTED
+        assert trade.status == Trade.Status.CONFIRMED
+
+        resp = client_donor.post(
+            reverse("trade-mark-shipped", kwargs={"pk": trade.id}),
+            {"tracking_number": "USPS-DON-E2E"},
+            format="json",
+        )
+        assert resp.status_code == 200
+
+        resp = client_inst.post(
+            reverse("trade-mark-received", kwargs={"pk": trade.id}),
+            format="json",
+        )
+        assert resp.status_code == 200
+
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.COMPLETED
+
+        user_book.refresh_from_db()
+        assert user_book.status == UserBook.Status.TRADED
+
+        resp = client_donor.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(institution.id),
+                "score": 5,
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert resp.status_code == 201
+
+        resp = client_inst.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(donor.id),
+                "score": 5,
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+        assert resp.status_code == 201
+
+        assert Rating.objects.filter(trade=trade).count() == 2
+        donor.refresh_from_db()
+        institution.refresh_from_db()
+        assert donor.rating_count == 1
+        assert institution.rating_count == 1
