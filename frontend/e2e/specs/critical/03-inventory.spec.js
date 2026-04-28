@@ -34,7 +34,7 @@ test.describe('My Books', () => {
     await page.getByRole('button', { name: /add book/i }).click();
 
     // Look up a new ISBN (mock intercepts any ISBN)
-    const isbnInput = page.getByLabel(/isbn/i);
+    const isbnInput = page.getByRole('textbox', { name: /^isbn$/i });
     await isbnInput.fill('9780451524935');
     await page.getByRole('button', { name: /lookup/i }).click();
 
@@ -112,7 +112,7 @@ test.describe('Wishlist', () => {
     await addBtn.click();
 
     // Fill ISBN and look up
-    await page.getByLabel(/isbn/i).fill('9780741234567');
+    await page.getByRole('textbox', { name: /^isbn$/i }).fill('9780741234567');
     await page.getByRole('button', { name: /lookup/i }).click();
 
     // Preview appears — use .first() because the edition-preference dialog also
