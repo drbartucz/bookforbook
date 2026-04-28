@@ -46,6 +46,7 @@ class UserAdmin(BaseUserAdmin):
         "account_type",
         "is_verified",
         "email_verified",
+        "address_verification_label",
         "is_active",
         "total_trades",
         "created_at",
@@ -54,6 +55,7 @@ class UserAdmin(BaseUserAdmin):
         "account_type",
         "is_verified",
         "email_verified",
+        "address_verification_status",
         "is_active",
         "is_staff",
     ]
@@ -86,6 +88,15 @@ class UserAdmin(BaseUserAdmin):
                     "city",
                     "state",
                     "zip_code",
+                )
+            },
+        ),
+        (
+            "Address Verification",
+            {
+                "fields": (
+                    "address_verification_status",
+                    "address_verified_at",
                 )
             },
         ),
@@ -131,6 +142,13 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
     )
+
+    @admin.display(
+        description="Address verification",
+        ordering="address_verification_status",
+    )
+    def address_verification_label(self, obj):
+        return obj.get_address_verification_status_display()
 
     class Media:
         js = ("admin/accounts/user_admin.js",)

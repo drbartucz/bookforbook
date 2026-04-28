@@ -109,6 +109,15 @@ If a user did not receive their verification email:
 
 Users can list books without an address on file, but they must have a USPS-verified address before accepting a match or trade proposal.
 
+**In the admin panel:**
+1. Go to **Accounts > Users**
+2. Open the user record
+3. In **Address Verification**, set `address_verification_status` (`unverified`, `verified`, `failed`)
+4. Set `address_verified_at` if needed
+5. Save
+
+You can also filter users in the changelist by `address_verification_status`.
+
 Relevant user fields in admin:
 - `full_name`
 - `address_line_1`
