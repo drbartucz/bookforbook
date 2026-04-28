@@ -135,6 +135,9 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 class UserPublicProfileSerializer(serializers.ModelSerializer):
     """Public profile — no address, no private fields."""
 
+    offered_count = serializers.IntegerField(read_only=True)
+    wanted_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -145,6 +148,8 @@ class UserPublicProfileSerializer(serializers.ModelSerializer):
             "institution_name",
             "institution_url",
             "total_trades",
+            "offered_count",
+            "wanted_count",
             "avg_recent_rating",
             "rating_count",
             "created_at",

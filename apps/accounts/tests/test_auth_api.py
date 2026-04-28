@@ -840,6 +840,61 @@ class TestInstitutionEndpoints:
         assert str(library.id) in ids
         assert str(bookstore.id) not in ids
 
+    def test_institution_list_includes_offered_and_wanted_counts(self, api_client, db):
+        from apps.inventory.models import UserBook
+
+        inst = self._make_institution()
+        other_inst = UserFactory(
+            account_type=User.AccountType.BOOKSTORE,
+            institution_name="Corner Bookstore",
+            is_verified=True,
+            email_verified=True,
+        )
+
+        book_1 = BookFactory()
+        book_2 = BookFactory()
+        book_3 = BookFactory()
+        book_4 = BookFactory()
+
+        UserBookFactory(user=inst, book=book_1, status=UserBook.Status.AVAILABLE)
+        UserBookFactory(user=inst, book=book_2, status=UserBook.Status.RESERVED)
+        WishlistItemFactory(user=inst, book=book_3, is_active=True)
+        WishlistItemFactory(user=inst, book=book_4, is_active=False)
+
+        UserBookFactory(
+            user=other_inst, book=BookFactory(), status=UserBook.Status.AVAILABLE
+        )
+        WishlistItemFactory(user=other_inst, book=BookFactory(), is_active=True)
+
+        resp = api_client.get(self.list_url)
+        assert resp.status_code == status.HTTP_200_OK
+
+        results = resp.data.get("results", resp.data)
+        inst_row = next(item for item in results if item["id"] == str(inst.id))
+        other_row = next(item for item in results if item["id"] == str(other_inst.id))
+
+        assert inst_row["offered_count"] == 1
+        assert inst_row["wanted_count"] == 1
+        assert other_row["offered_count"] == 1
+        assert other_row["wanted_count"] == 1
+
+    def test_institution_detail_includes_offered_and_wanted_counts(
+        self, api_client, db
+    ):
+        from apps.inventory.models import UserBook
+
+        inst = self._make_institution()
+
+        UserBookFactory(user=inst, book=BookFactory(), status=UserBook.Status.AVAILABLE)
+        UserBookFactory(user=inst, book=BookFactory(), status=UserBook.Status.RESERVED)
+        WishlistItemFactory(user=inst, book=BookFactory(), is_active=True)
+        WishlistItemFactory(user=inst, book=BookFactory(), is_active=False)
+
+        resp = api_client.get(f"/api/v1/institutions/{inst.id}/")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["offered_count"] == 1
+        assert resp.data["wanted_count"] == 1
+
     def test_institution_detail_404_for_unknown_id(self, api_client):
         import uuid
 

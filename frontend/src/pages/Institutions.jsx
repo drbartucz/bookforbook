@@ -157,6 +157,11 @@ function InstitutionCard({ institution }) {
               {institution.total_trades} trades
             </span>
           )}
+          {institution.offered_count != null && (
+            <span className={styles.institutionStat}>
+              {institution.offered_count} books offered
+            </span>
+          )}
           {institution.wanted_count != null && (
             <span className={styles.institutionStat}>
               {institution.wanted_count} books wanted

@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -409,13 +410,26 @@ class InstitutionListView(generics.ListAPIView):
     serializer_class = UserPublicProfileSerializer
 
     def get_queryset(self):
-        from django.db.models import Q
-
-        qs = User.objects.filter(
-            account_type__in=[User.AccountType.LIBRARY, User.AccountType.BOOKSTORE],
-            is_verified=True,
-            is_active=True,
-        ).order_by("institution_name")
+        qs = (
+            User.objects.filter(
+                account_type__in=[User.AccountType.LIBRARY, User.AccountType.BOOKSTORE],
+                is_verified=True,
+                is_active=True,
+            )
+            .annotate(
+                offered_count=Count(
+                    "user_books",
+                    filter=Q(user_books__status="available"),
+                    distinct=True,
+                ),
+                wanted_count=Count(
+                    "wishlist_items",
+                    filter=Q(wishlist_items__is_active=True),
+                    distinct=True,
+                ),
+            )
+            .order_by("institution_name")
+        )
 
         search = self.request.query_params.get("search", "").strip()
         if search:
@@ -441,6 +455,17 @@ class InstitutionDetailView(generics.RetrieveAPIView):
             account_type__in=[User.AccountType.LIBRARY, User.AccountType.BOOKSTORE],
             is_verified=True,
             is_active=True,
+        ).annotate(
+            offered_count=Count(
+                "user_books",
+                filter=Q(user_books__status="available"),
+                distinct=True,
+            ),
+            wanted_count=Count(
+                "wishlist_items",
+                filter=Q(wishlist_items__is_active=True),
+                distinct=True,
+            ),
         )
 
     lookup_field = "id"

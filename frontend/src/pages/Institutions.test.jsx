@@ -36,6 +36,7 @@ describe('Institutions page', () => {
                         location: 'Portland, OR',
                         bio: 'Community-focused public library system.',
                         total_trades: 12,
+                        offered_count: 8,
                         wanted_count: 5,
                         avg_recent_rating: 4.8,
                     },
@@ -50,6 +51,7 @@ describe('Institutions page', () => {
         expect(screen.getByText('library')).toBeInTheDocument();
         expect(screen.getByText('Portland, OR')).toBeInTheDocument();
         expect(screen.getByText('12 trades')).toBeInTheDocument();
+        expect(screen.getByText('8 books offered')).toBeInTheDocument();
         expect(screen.getByText('5 books wanted')).toBeInTheDocument();
         expect(screen.getByText('4.8 ★')).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'View Profile →' })).toHaveAttribute('href', '/profile/inst-1');
@@ -74,6 +76,7 @@ describe('Institutions page', () => {
                         is_verified: true,
                         location: 'Seattle, WA',
                         total_trades: 5,
+                        offered_count: 4,
                         wanted_count: 2,
                         avg_recent_rating: 4.5,
                     },
@@ -85,6 +88,7 @@ describe('Institutions page', () => {
                         is_verified: false,
                         location: null,
                         total_trades: 3,
+                        offered_count: 1,
                         wanted_count: 1,
                         avg_recent_rating: null,
                     },
@@ -99,6 +103,7 @@ describe('Institutions page', () => {
                         },
                         // No display_name, no name → uses user.username (covers ?? right branch)
                         total_trades: 0,
+                        offered_count: 0,
                         wanted_count: 0,
                         avg_recent_rating: null,
                     },
@@ -129,6 +134,7 @@ describe('Institutions page', () => {
                         is_verified: true,
                         location: 'Denver, CO',
                         total_trades: 1,
+                        offered_count: 1,
                         wanted_count: 0,
                         avg_recent_rating: null,
                     },
@@ -153,6 +159,7 @@ describe('Institutions page', () => {
                         institution_type: 'library',
                         is_verified: false,
                         total_trades: 0,
+                        offered_count: 0,
                         wanted_count: 0,
                         avg_recent_rating: null,
                         // user exists but has no id — covers user.id ?? institution.id right side (line 122)
