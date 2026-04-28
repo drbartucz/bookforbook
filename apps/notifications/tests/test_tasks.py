@@ -31,8 +31,9 @@ from apps.tests.factories import (
     TradeShipmentFactory,
     UserBookFactory,
     UserFactory,
+    WishlistItemFactory,
 )
-from apps.inventory.models import UserBook
+from apps.inventory.models import UserBook, WishlistItem
 
 
 # ---------------------------------------------------------------------------
@@ -592,6 +593,66 @@ class TestCheckInactivityTask:
         library_user.refresh_from_db()
         assert book.status == UserBook.Status.AVAILABLE
         assert library_user.books_delisted_at is None
+
+
+@pytest.mark.django_db
+class TestReconcileInventoryUserOwnershipTask:
+    def test_delists_inactive_user_books_and_deactivates_wishlist(self):
+        active_user = UserFactory(is_active=True)
+        inactive_user = UserFactory(is_active=False)
+
+        active_available = UserBookFactory(
+            user=active_user,
+            status=UserBook.Status.AVAILABLE,
+        )
+        inactive_available = UserBookFactory(
+            user=inactive_user,
+            status=UserBook.Status.AVAILABLE,
+        )
+        inactive_reserved = UserBookFactory(
+            user=inactive_user,
+            status=UserBook.Status.RESERVED,
+        )
+
+        active_wish = WishlistItemFactory(user=active_user, is_active=True)
+        inactive_wish = WishlistItemFactory(user=inactive_user, is_active=True)
+
+        from apps.notifications.tasks import reconcile_inventory_user_ownership
+
+        result = reconcile_inventory_user_ownership()
+
+        active_available.refresh_from_db()
+        inactive_available.refresh_from_db()
+        inactive_reserved.refresh_from_db()
+        active_wish.refresh_from_db()
+        inactive_wish.refresh_from_db()
+
+        assert active_available.status == UserBook.Status.AVAILABLE
+        assert inactive_available.status == UserBook.Status.DELISTED
+        assert inactive_reserved.status == UserBook.Status.RESERVED
+
+        assert active_wish.is_active is True
+        assert inactive_wish.is_active is False
+
+        assert result["delisted_books"] >= 1
+        assert result["deactivated_wishlist"] >= 1
+        assert result["orphaned_user_books_deleted"] == 0
+        assert result["orphaned_wishlist_deleted"] == 0
+
+    @patch("apps.accounts.models.User.objects.values_list", return_value=[])
+    def test_deletes_orphaned_rows_when_user_ids_are_missing(self, _mock_user_ids):
+        user = UserFactory(is_active=True)
+        user_book = UserBookFactory(user=user, status=UserBook.Status.AVAILABLE)
+        wishlist = WishlistItemFactory(user=user, is_active=True)
+
+        from apps.notifications.tasks import reconcile_inventory_user_ownership
+
+        result = reconcile_inventory_user_ownership()
+
+        assert not UserBook.objects.filter(pk=user_book.pk).exists()
+        assert not WishlistItem.objects.filter(pk=wishlist.pk).exists()
+        assert result["orphaned_user_books_deleted"] >= 1
+        assert result["orphaned_wishlist_deleted"] >= 1
 
 
 # ---------------------------------------------------------------------------

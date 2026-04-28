@@ -142,6 +142,11 @@ If a user is blocked from accepting a match or proposal, check these fields firs
 
 Deactivated users cannot log in. Their books will no longer appear in matching. Any active matches they are part of should be manually cancelled (see below) or will expire naturally.
 
+Nightly maintenance now also enforces this automatically:
+- Any `available` listings owned by inactive users are changed to `delisted`.
+- Any active wishlist entries owned by inactive users are set inactive.
+- Any orphaned listing/wishlist rows with missing user IDs are removed.
+
 To re-activate: check **Is active** again.
 
 ---
@@ -212,6 +217,10 @@ If a donation offer is stuck (neither accepted nor declined), you can manually s
 
 ## Background Tasks
 
+Recommended production defaults:
+- Run `apps.notifications.tasks.check_inactivity` nightly at `0 2 * * *`
+- Run `apps.notifications.tasks.reconcile_inventory_user_ownership` nightly at `30 2 * * *`
+
 ### How Tasks Work on Railway
 
 Django-Q2 runs as a separate **worker** service alongside the web service. The worker process (`python manage.py qcluster`) picks up tasks from the PostgreSQL-backed queue and executes them.
@@ -231,6 +240,9 @@ railway run python manage.py run_periodic_tasks --task=expire_matches
 
 # Inactivity check (warnings + auto-delist)
 railway run python manage.py run_periodic_tasks --task=inactivity
+
+# Inventory ownership reconcile (inactive users + orphan cleanup)
+railway run python manage.py run_periodic_tasks --task=inventory_ownership
 
 # Rating reminders
 railway run python manage.py run_periodic_tasks --task=rating_reminders
@@ -272,10 +284,15 @@ Django-Q2 supports scheduled/recurring tasks via the admin panel. Set these up o
 | Full matching scan | `apps.matching.tasks.run_periodic_matching` | Cron | `0 */6 * * *` |
 | Expire old matches | `apps.matching.tasks.expire_old_matches` | Cron | `0 * * * *` |
 | Inactivity check | `apps.notifications.tasks.check_inactivity` | Cron | `0 2 * * *` |
+| Inventory ownership reconcile | `apps.notifications.tasks.reconcile_inventory_user_ownership` | Cron | `30 2 * * *` |
 | Rating reminders | `apps.trading.tasks.send_rating_reminders` | Cron | `0 3 * * 0` |
 | Auto-close trades | `apps.trading.tasks.auto_close_trades` | Cron | `15 3 * * 0` |
 
 The qcluster worker picks up and executes these automatically — no cron needed.
+
+Recommended nightly pair for listing integrity:
+- `check_inactivity` at `0 2 * * *`
+- `reconcile_inventory_user_ownership` at `30 2 * * *`
 
 ---
 

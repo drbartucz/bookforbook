@@ -304,3 +304,60 @@ def check_inactivity():
     for user in to_warn_1m:
         async_task("apps.notifications.tasks.send_inactivity_warning_1m", str(user.pk))
         logger.info("Sent 1m inactivity warning to user %s", user.pk)
+
+
+def reconcile_inventory_user_ownership():
+    """
+    Nightly maintenance for inventory ownership consistency.
+
+    - Delist AVAILABLE user books that belong to inactive users.
+    - Deactivate active wishlist items that belong to inactive users.
+    - Delete orphaned user books/wishlist rows whose user_id no longer exists.
+      (Should be rare because FKs use CASCADE, but this keeps data healthy
+      if rows were imported outside normal ORM constraints.)
+    """
+    from apps.accounts.models import User
+    from apps.inventory.models import UserBook, WishlistItem
+
+    valid_user_ids = User.objects.values_list("id", flat=True)
+
+    orphaned_user_books_qs = UserBook.objects.exclude(user_id__in=valid_user_ids)
+    orphaned_wishlist_qs = WishlistItem.objects.exclude(user_id__in=valid_user_ids)
+
+    orphaned_user_books_deleted = orphaned_user_books_qs.count()
+    orphaned_wishlist_deleted = orphaned_wishlist_qs.count()
+
+    # count() first so logs reflect row counts rather than Django's delete tuple
+    if orphaned_user_books_deleted:
+        orphaned_user_books_qs.delete()
+    if orphaned_wishlist_deleted:
+        orphaned_wishlist_qs.delete()
+
+    delisted_books = UserBook.objects.filter(
+        user__is_active=False,
+        status=UserBook.Status.AVAILABLE,
+    ).update(status=UserBook.Status.DELISTED)
+
+    deactivated_wishlist = WishlistItem.objects.filter(
+        user__is_active=False,
+        is_active=True,
+    ).update(is_active=False)
+
+    logger.info(
+        (
+            "Inventory ownership reconcile complete: delisted_books=%s, "
+            "deactivated_wishlist=%s, orphaned_user_books_deleted=%s, "
+            "orphaned_wishlist_deleted=%s"
+        ),
+        delisted_books,
+        deactivated_wishlist,
+        orphaned_user_books_deleted,
+        orphaned_wishlist_deleted,
+    )
+
+    return {
+        "delisted_books": delisted_books,
+        "deactivated_wishlist": deactivated_wishlist,
+        "orphaned_user_books_deleted": orphaned_user_books_deleted,
+        "orphaned_wishlist_deleted": orphaned_wishlist_deleted,
+    }

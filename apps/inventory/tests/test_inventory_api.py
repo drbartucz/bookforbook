@@ -634,13 +634,93 @@ class TestBrowseAvailableView:
     def test_browse_groups_duplicates_with_copy_count(self, api_client, db):
         book = BookFactory(title="Dune")
         UserBookFactory(book=book, status=UserBook.Status.AVAILABLE, condition="good")
-        UserBookFactory(book=book, status=UserBook.Status.AVAILABLE, condition="very_good")
+        UserBookFactory(
+            book=book, status=UserBook.Status.AVAILABLE, condition="very_good"
+        )
         resp = api_client.get(self.url)
         assert resp.status_code == status.HTTP_200_OK
         results = [r for r in resp.data["results"] if r["title"] == "Dune"]
         assert len(results) == 1
         assert results[0]["copy_count"] == 2
         assert results[0]["condition"] == "very_good"
+
+    def test_browse_excludes_inactive_users_from_supply_and_counts(self, api_client):
+        active_user = UserFactory(is_active=True)
+        inactive_user = UserFactory(is_active=False)
+
+        book_active = BookFactory(title="Active Owner Book")
+        book_mixed = BookFactory(title="Mixed Owners Book")
+        book_inactive_only = BookFactory(title="Inactive Only Book")
+
+        UserBookFactory(
+            user=active_user,
+            book=book_active,
+            status=UserBook.Status.AVAILABLE,
+            condition="good",
+        )
+
+        UserBookFactory(
+            user=active_user,
+            book=book_mixed,
+            status=UserBook.Status.AVAILABLE,
+            condition="good",
+        )
+        UserBookFactory(
+            user=inactive_user,
+            book=book_mixed,
+            status=UserBook.Status.AVAILABLE,
+            condition="like_new",
+        )
+
+        UserBookFactory(
+            user=inactive_user,
+            book=book_inactive_only,
+            status=UserBook.Status.AVAILABLE,
+            condition="very_good",
+        )
+
+        resp = api_client.get(self.url)
+        assert resp.status_code == status.HTTP_200_OK
+
+        by_title = {item["title"]: item for item in resp.data["results"]}
+        assert "Active Owner Book" in by_title
+        assert "Mixed Owners Book" in by_title
+        assert "Inactive Only Book" not in by_title
+
+        # Inactive owner's copy should not contribute to counts/condition.
+        assert by_title["Mixed Owners Book"]["copy_count"] == 1
+        assert by_title["Mixed Owners Book"]["condition"] == "good"
+
+
+@pytest.mark.django_db
+class TestBrowseWantedView:
+    url = "/api/v1/browse/wanted/"
+
+    def test_browse_wanted_excludes_inactive_users_from_demand(self, api_client):
+        active_user = UserFactory(is_active=True)
+        inactive_user = UserFactory(is_active=False)
+
+        active_only_book = BookFactory(title="Active Wanted Book")
+        mixed_book = BookFactory(title="Mixed Wanted Book")
+        inactive_only_book = BookFactory(title="Inactive Wanted Book")
+
+        WishlistItemFactory(user=active_user, book=active_only_book, is_active=True)
+
+        WishlistItemFactory(user=active_user, book=mixed_book, is_active=True)
+        WishlistItemFactory(user=inactive_user, book=mixed_book, is_active=True)
+
+        WishlistItemFactory(user=inactive_user, book=inactive_only_book, is_active=True)
+
+        resp = api_client.get(self.url)
+        assert resp.status_code == status.HTTP_200_OK
+
+        by_title = {item["title"]: item for item in resp.data["results"]}
+        assert "Active Wanted Book" in by_title
+        assert "Mixed Wanted Book" in by_title
+        assert "Inactive Wanted Book" not in by_title
+
+        # Inactive owner's wishlist should not contribute to counts.
+        assert by_title["Mixed Wanted Book"]["want_count"] == 1
 
 
 @pytest.mark.django_db
@@ -785,7 +865,9 @@ class TestMyBooksSortByAuthorSQLiteFallback:
         UserBookFactory(user=verified_user, book=book_a)
         UserBookFactory(user=verified_user, book=book_b)
 
-        resp = auth_api_client.get(self.url, {"sort_by": "author", "sort_order": "desc"})
+        resp = auth_api_client.get(
+            self.url, {"sort_by": "author", "sort_order": "desc"}
+        )
         assert resp.status_code == status.HTTP_200_OK
         results = resp.data["results"]
         assert len(results) == 2

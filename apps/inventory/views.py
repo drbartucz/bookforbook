@@ -291,7 +291,7 @@ class BrowseAvailableView(generics.ListAPIView):
         condition_filter = self.request.query_params.get("condition", "").strip()
         q = self.request.query_params.get("q", "").strip()
 
-        available_q = Q(status=UserBook.Status.AVAILABLE)
+        available_q = Q(status=UserBook.Status.AVAILABLE, user__is_active=True)
         if condition_filter:
             available_q &= Q(condition=condition_filter)
         available_book_ids = (
@@ -304,6 +304,7 @@ class BrowseAvailableView(generics.ListAPIView):
             UserBook.objects.filter(
                 book=OuterRef("pk"),
                 status=UserBook.Status.AVAILABLE,
+                user__is_active=True,
             )
             .annotate(
                 rank=Case(
@@ -326,7 +327,10 @@ class BrowseAvailableView(generics.ListAPIView):
             .annotate(
                 copy_count=Count(
                     "user_listings",
-                    filter=Q(user_listings__status=UserBook.Status.AVAILABLE),
+                    filter=Q(
+                        user_listings__status=UserBook.Status.AVAILABLE,
+                        user_listings__user__is_active=True,
+                    ),
                     distinct=True,
                 ),
                 best_condition=Subquery(best_condition_sq),
@@ -361,7 +365,7 @@ class BrowseWantedView(generics.ListAPIView):
         q = self.request.query_params.get("q", "").strip()
 
         wanted_book_ids = (
-            WishlistItem.objects.filter(is_active=True)
+            WishlistItem.objects.filter(is_active=True, user__is_active=True)
             .values_list("book_id", flat=True)
             .distinct()
         )
@@ -371,7 +375,10 @@ class BrowseWantedView(generics.ListAPIView):
             .annotate(
                 want_count=Count(
                     "wishlist_entries",
-                    filter=Q(wishlist_entries__is_active=True),
+                    filter=Q(
+                        wishlist_entries__is_active=True,
+                        wishlist_entries__user__is_active=True,
+                    ),
                     distinct=True,
                 )
             )

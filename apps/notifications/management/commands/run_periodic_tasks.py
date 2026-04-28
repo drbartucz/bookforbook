@@ -12,6 +12,8 @@ Crontab example:
 
     # Daily — inactivity check
     0 2 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=inactivity
+    # Daily — inventory ownership reconcile
+    30 2 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=inventory_ownership
 
     # Weekly — rating reminders + auto-close trades (Sunday 3am)
     0 3 * * 0 /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=rating_reminders
@@ -31,6 +33,7 @@ TASKS = {
     "matching": "apps.matching.tasks.run_periodic_matching",
     "expire_matches": "apps.matching.tasks.expire_old_matches",
     "inactivity": "apps.notifications.tasks.check_inactivity",
+    "inventory_ownership": "apps.notifications.tasks.reconcile_inventory_user_ownership",
     "account_deletions": "apps.notifications.tasks.finalize_scheduled_account_deletions",
     "rating_reminders": "apps.trading.tasks.send_rating_reminders",
     "auto_close": "apps.trading.tasks.auto_close_trades",
