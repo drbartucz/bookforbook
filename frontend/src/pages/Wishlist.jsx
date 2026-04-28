@@ -15,7 +15,7 @@ const PAGE_SIZE = 20;
 
 // Helper function to normalize bibliographic format for display.
 function getFormatLabel(formatValue) {
-  return formatValue?.trim() || 'Unknown';
+  return formatValue?.trim() || 'Not listed';
 }
 
 // Helper to format date
@@ -148,8 +148,8 @@ export default function Wishlist() {
         data?.isbn?.[0]?.toLowerCase().includes('already')
           ? 'Already in your wishlist!'
           : data?.detail ||
-            data?.non_field_errors?.join(' ') ||
-            'Failed to add to wishlist.';
+          data?.non_field_errors?.join(' ') ||
+          'Failed to add to wishlist.';
       setAddError(msg);
     },
   });

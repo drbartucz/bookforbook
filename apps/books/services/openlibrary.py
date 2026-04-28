@@ -310,9 +310,9 @@ def fetch_from_open_library(isbn_13: str) -> dict:
         if books_api_data:
             data = _merge_book_data(data, books_api_data)
 
-    # Last resort: fetch edition record for physical_format if still missing
-    if not data.get("physical_format"):
-        edition_key = search_data.get("edition_key")
+    # Last resort: fetch edition record when format or cover is still missing.
+    if not data.get("physical_format") or not data.get("cover_image_url"):
+        edition_key = search_data.get("edition_key") or data.get("edition_key")
         if edition_key:
             data = _merge_book_data(data, _fetch_edition_data(edition_key))
 
@@ -436,6 +436,8 @@ def _parse_isbn_response_collect_keys(
 
     data["title"] = raw.get("title", "")
     data["open_library_key"] = raw.get("key", "")
+    if isinstance(raw.get("key"), str) and raw["key"].startswith("/books/"):
+        data["edition_key"] = raw["key"].split("/books/", 1)[1]
 
     # Authors: collect keys for parallel resolution; use inline names when available
     inline_authors = []
@@ -790,17 +792,26 @@ def _apply_known_isbn_metadata_overrides(isbn_13: str, data: dict) -> dict:
 def _fetch_edition_data(edition_key: str) -> dict:
     """Fetch additional metadata from an Open Library edition record."""
     data = {}
+    normalized_key = str(edition_key).strip()
+    if normalized_key.startswith("/books/"):
+        normalized_key = normalized_key.split("/books/", 1)[1]
+
     try:
         resp = requests.get(
-            OPEN_LIBRARY_WORKS_URL.format(key=f"/books/{edition_key}"),
+            OPEN_LIBRARY_WORKS_URL.format(key=f"/books/{normalized_key}"),
             timeout=REQUEST_TIMEOUT,
         )
         if resp.status_code == 200:
-            raw = _response_json_object(resp, f"edition lookup for {edition_key}")
+            raw = _response_json_object(resp, f"edition lookup for {normalized_key}")
             if raw:
                 data["physical_format"] = _normalize_physical_format(
                     raw.get("physical_format") or raw.get("format")
                 )
+                covers = raw.get("covers")
+                if isinstance(covers, list) and covers:
+                    data["cover_image_url"] = (
+                        f"https://covers.openlibrary.org/b/id/{covers[0]}-M.jpg"
+                    )
                 author_keys = []
                 inline_authors = []
                 for author_ref in raw.get("authors", []):
@@ -814,7 +825,7 @@ def _fetch_edition_data(edition_key: str) -> dict:
                 if authors:
                     data["authors"] = authors
     except requests.RequestException as e:
-        logger.debug("Edition data fetch failed for %s: %s", edition_key, e)
+        logger.debug("Edition data fetch failed for %s: %s", normalized_key, e)
     return data
 
 

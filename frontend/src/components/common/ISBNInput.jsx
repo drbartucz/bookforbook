@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { books as booksApi } from '../../services/api.js';
 import {
   getBookCoverUrl,
@@ -41,13 +41,24 @@ export default function ISBNInput({
   const [hasLookupAttempted, setHasLookupAttempted] = useState(false);
   // Multiple ISBN candidates from OCR (rare edge case)
   const [isbnCandidates, setIsbnCandidates] = useState(null);
+  const [uploadedPreviewUrl, setUploadedPreviewUrl] = useState(null);
 
   const fileInputRef = useRef(null);
+  const uploadedPreviewUrlRef = useRef(null);
 
   const displayBook = foundBook ?? localBook;
   const previewAuthor = getBookPrimaryAuthor(displayBook);
   const previewYear = getBookPublishYear(displayBook);
   const previewCover = getBookCoverUrl(displayBook);
+  const effectivePreviewCover = previewCover || uploadedPreviewUrl;
+
+  useEffect(() => {
+    return () => {
+      if (uploadedPreviewUrlRef.current) {
+        URL.revokeObjectURL(uploadedPreviewUrlRef.current);
+      }
+    };
+  }, []);
 
   // ── ISBN text lookup ────────────────────────────────────────────────────────
 
@@ -111,6 +122,13 @@ export default function ISBNInput({
     // Reset so the same file can be re-selected after a failure
     e.target.value = '';
     if (!file) return;
+
+    if (uploadedPreviewUrlRef.current) {
+      URL.revokeObjectURL(uploadedPreviewUrlRef.current);
+    }
+    const nextPreviewUrl = URL.createObjectURL(file);
+    uploadedPreviewUrlRef.current = nextPreviewUrl;
+    setUploadedPreviewUrl(nextPreviewUrl);
 
     setScanning(true);
     setLookupError(null);
@@ -278,11 +296,19 @@ export default function ISBNInput({
 
       {displayBook && (
         <div className={styles.bookPreview}>
-          {previewCover && (
+          {effectivePreviewCover && (
             <img
-              src={previewCover}
+              src={effectivePreviewCover}
               alt="Book cover"
               className={styles.previewCover}
+              onError={(e) => {
+                if (
+                  uploadedPreviewUrl &&
+                  e.currentTarget.src !== uploadedPreviewUrl
+                ) {
+                  e.currentTarget.src = uploadedPreviewUrl;
+                }
+              }}
             />
           )}
           <div className={styles.previewInfo}>

@@ -25,7 +25,7 @@ const STATUS_CONFIG = {
 
 // Helper function to normalize bibliographic format for display.
 function getFormatLabel(formatValue) {
-  return formatValue?.trim() || 'Unknown';
+  return formatValue?.trim() || 'Not listed';
 }
 
 // Helper to format date
