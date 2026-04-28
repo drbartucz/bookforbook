@@ -128,8 +128,8 @@ test.describe('Authentication', () => {
     await page.getByLabel(/confirm password/i).fill('SecureTestPass1!');
     await page.getByRole('button', { name: /create account/i }).click();
 
-    // Success state: "Check your email" message
-    await expect(page.getByText(/check your email/i)).toBeVisible({ timeout: 10_000 });
+    // Success state: "Please check your email" message
+    await expect(page.getByText(/Please check your email/i)).toBeVisible({ timeout: 10_000 });
   });
 
   test('registration shows error for duplicate email', async ({ guestPage: page }) => {

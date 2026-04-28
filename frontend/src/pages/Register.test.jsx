@@ -41,7 +41,7 @@ describe('Register page', () => {
         expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument();
     });
 
-    it('shows "Check your email" screen on successful registration', async () => {
+    it('shows "Please check your email" screen on successful registration', async () => {
         authApi.register.mockResolvedValueOnce({ data: {} });
 
         renderWithProviders(<Register />);
@@ -49,7 +49,7 @@ describe('Register page', () => {
         await userEvent.click(screen.getByRole('button', { name: /create account/i }));
 
         await waitFor(() => {
-            expect(screen.getByText(/check your email/i)).toBeInTheDocument();
+            expect(screen.getByText(/Please check your email/i)).toBeInTheDocument();
         });
         expect(authApi.register).toHaveBeenCalledWith(expect.objectContaining({
             account_type: 'individual',

@@ -34,7 +34,7 @@ export class RegisterPage {
     this.confirmPasswordInput = page.getByLabel(/confirm password/i);
     this.submitButton = page.getByRole('button', { name: /create account|register/i });
     this.errorAlert = page.locator('.alert-error');
-    this.successBox = page.getByText(/check your email/i);
+    this.successBox = page.getByText(/Please check your email/i);
   }
 
   async goto() {

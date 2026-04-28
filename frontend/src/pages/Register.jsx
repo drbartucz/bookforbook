@@ -66,7 +66,7 @@ export default function Register() {
         <div className={`card ${styles.card}`}>
           <div className={styles.successBox}>
             <div className={styles.successIcon}>📬</div>
-            <h1 className={styles.successTitle}>Check your email</h1>
+            <h1 className={styles.successTitle}>Please check your email</h1>
             <p className={styles.successMessage}>
               We&apos;ve sent a verification link to your email address. Click the link to activate your account and start trading books.
             </p>
