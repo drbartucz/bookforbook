@@ -24,21 +24,43 @@ const CONDITION_OPTIONS = [
 export default function Home() {
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [condition, setCondition] = useState('');
+
+  const [activeTab, setActiveTab] = useState('offer');
+
+  // Offer tab state
+  const [offerPage, setOfferPage] = useState(1);
+  const [offerSearch, setOfferSearch] = useState('');
+  const [offerCondition, setOfferCondition] = useState('');
   const [addedToWishlist, setAddedToWishlist] = useState(new Set());
 
-  const debouncedSearch = useDebounce(search, 400);
+  // Wanted tab state
+  const [wantedPage, setWantedPage] = useState(1);
+  const [wantedSearch, setWantedSearch] = useState('');
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['browse', 'available', debouncedSearch, condition, page],
+  const debouncedOfferSearch = useDebounce(offerSearch, 400);
+  const debouncedWantedSearch = useDebounce(wantedSearch, 400);
+
+  const offerQuery = useQuery({
+    queryKey: ['browse', 'available', debouncedOfferSearch, offerCondition, offerPage],
     queryFn: async () => {
-      const params = { page, page_size: PAGE_SIZE };
-      const trimmedSearch = debouncedSearch.trim();
+      const params = { page: offerPage, page_size: PAGE_SIZE };
+      const trimmedSearch = debouncedOfferSearch.trim();
       if (trimmedSearch) params.q = trimmedSearch;
-      if (condition) params.condition = condition;
+      if (offerCondition) params.condition = offerCondition;
       const res = await browse.available(params);
+      return res.data;
+    },
+    keepPreviousData: true,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  const wantedQuery = useQuery({
+    queryKey: ['browse', 'wanted', debouncedWantedSearch, wantedPage],
+    queryFn: async () => {
+      const params = { page: wantedPage, page_size: PAGE_SIZE };
+      const trimmedSearch = debouncedWantedSearch.trim();
+      if (trimmedSearch) params.q = trimmedSearch;
+      const res = await browse.wanted(params);
       return res.data;
     },
     keepPreviousData: true,
@@ -53,18 +75,31 @@ export default function Home() {
     },
   });
 
-  const books = data?.results ?? [];
-  const totalCount = data?.count ?? 0;
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const offerBooks = offerQuery.data?.results ?? [];
+  const offerTotal = offerQuery.data?.count ?? 0;
+  const offerTotalPages = Math.ceil(offerTotal / PAGE_SIZE);
 
-  function handleSearchChange(e) {
-    setSearch(e.target.value);
-    setPage(1);
+  const wantedBooks = wantedQuery.data?.results ?? [];
+  const wantedTotal = wantedQuery.data?.count ?? 0;
+  const wantedTotalPages = Math.ceil(wantedTotal / PAGE_SIZE);
+
+  function handleOfferSearchChange(e) {
+    setOfferSearch(e.target.value);
+    setOfferPage(1);
   }
 
-  function handleConditionChange(e) {
-    setCondition(e.target.value);
-    setPage(1);
+  function handleOfferConditionChange(e) {
+    setOfferCondition(e.target.value);
+    setOfferPage(1);
+  }
+
+  function handleWantedSearchChange(e) {
+    setWantedSearch(e.target.value);
+    setWantedPage(1);
+  }
+
+  function handleTabChange(tab) {
+    setActiveTab(tab);
   }
 
   return (
@@ -87,98 +122,201 @@ export default function Home() {
         )}
       </div>
 
-      {/* Filters */}
-      <div className={styles.filters}>
-        <div className={styles.searchWrapper}>
-          <svg className={styles.searchIcon} viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-            <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
-          </svg>
-          <input
-            type="search"
-            className={`form-input ${styles.searchInput}`}
-            placeholder="Search by title, author, or ISBN..."
-            value={search}
-            onChange={handleSearchChange}
-            aria-label="Search books"
-          />
-        </div>
-        <select
-          className={`form-input ${styles.conditionSelect}`}
-          value={condition}
-          onChange={handleConditionChange}
-          aria-label="Filter by condition"
+      {/* Tabs */}
+      <div className={styles.tabs} role="tablist" aria-label="Browse books">
+        <button
+          role="tab"
+          aria-selected={activeTab === 'offer'}
+          className={`${styles.tab} ${activeTab === 'offer' ? styles.tabActive : ''}`}
+          onClick={() => handleTabChange('offer')}
         >
-          {CONDITION_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          Books on Offer
+          {offerTotal > 0 && (
+            <span className={styles.tabCount}>{offerTotal}</span>
+          )}
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'wanted'}
+          className={`${styles.tab} ${activeTab === 'wanted' ? styles.tabActive : ''}`}
+          onClick={() => handleTabChange('wanted')}
+        >
+          Books Wanted
+          {wantedTotal > 0 && (
+            <span className={styles.tabCount}>{wantedTotal}</span>
+          )}
+        </button>
       </div>
 
-      {/* Results header */}
-      {!isLoading && !isError && (
-        <div className={styles.resultsHeader}>
-          <p className={styles.resultsCount}>
-            {totalCount === 0
-              ? 'No books found'
-              : `${totalCount} book${totalCount === 1 ? '' : 's'} available`}
-          </p>
+      {/* ── ON OFFER TAB ─────────────────────────────────────────── */}
+      {activeTab === 'offer' && (
+        <div role="tabpanel" aria-label="Books on Offer">
+          {/* Filters */}
+          <div className={styles.filters}>
+            <div className={styles.searchWrapper}>
+              <svg className={styles.searchIcon} viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+              </svg>
+              <input
+                type="search"
+                className={`form-input ${styles.searchInput}`}
+                placeholder="Search by title, author, or ISBN..."
+                value={offerSearch}
+                onChange={handleOfferSearchChange}
+                aria-label="Search books"
+              />
+            </div>
+            <select
+              className={`form-input ${styles.conditionSelect}`}
+              value={offerCondition}
+              onChange={handleOfferConditionChange}
+              aria-label="Filter by condition"
+            >
+              {CONDITION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {!offerQuery.isLoading && !offerQuery.isError && (
+            <div className={styles.resultsHeader}>
+              <p className={styles.resultsCount}>
+                {offerTotal === 0
+                  ? 'No books found'
+                  : `${offerTotal} book${offerTotal === 1 ? '' : 's'} available`}
+              </p>
+            </div>
+          )}
+
+          {offerQuery.isLoading ? (
+            <LoadingSpinner center size="lg" label="Loading available books..." />
+          ) : offerQuery.isError ? (
+            <ErrorMessage error={offerQuery.error} onRetry={offerQuery.refetch} />
+          ) : offerBooks.length === 0 ? (
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>No books found</p>
+              <p className={styles.emptySubtitle}>
+                {offerSearch || offerCondition
+                  ? 'Try adjusting your search or filters.'
+                  : 'Be the first to add a book! Sign up and list your books.'}
+              </p>
+              {!isAuthenticated && (
+                <Link to="/register" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+                  Start trading
+                </Link>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className={`grid grid-cols-1 grid-sm-2 grid-md-3 grid-lg-4 ${styles.grid}`}>
+                {offerBooks.map((item) => {
+                  const isbn = getBookIsbn(item);
+                  const alreadyAdded = isbn && addedToWishlist.has(isbn);
+
+                  return (
+                    <BookCard
+                      key={item.id}
+                      book={item}
+                      copyCount={item.copy_count ?? 1}
+                      onAction={
+                        isAuthenticated && !alreadyAdded
+                          ? () => addToWishlistMutation.mutate({ isbn })
+                          : undefined
+                      }
+                      actionLabel={alreadyAdded ? 'Added!' : 'Want this'}
+                      actionLoading={
+                        addToWishlistMutation.isPending &&
+                        addToWishlistMutation.variables?.isbn === isbn
+                      }
+                    />
+                  );
+                })}
+              </div>
+              <Pagination
+                page={offerPage}
+                totalPages={offerTotalPages}
+                onPageChange={setOfferPage}
+                disabled={offerQuery.isLoading}
+              />
+            </>
+          )}
         </div>
       )}
 
-      {/* Content */}
-      {isLoading ? (
-        <LoadingSpinner center size="lg" label="Loading available books..." />
-      ) : isError ? (
-        <ErrorMessage error={error} onRetry={refetch} />
-      ) : books.length === 0 ? (
-        <div className={styles.empty}>
-          <p className={styles.emptyTitle}>No books found</p>
-          <p className={styles.emptySubtitle}>
-            {search || condition
-              ? 'Try adjusting your search or filters.'
-              : 'Be the first to add a book! Sign up and list your books.'}
-          </p>
-          {!isAuthenticated && (
-            <Link to="/register" className="btn btn-primary" style={{ marginTop: '1rem' }}>
-              Start trading
-            </Link>
+      {/* ── WANTED TAB ───────────────────────────────────────────── */}
+      {activeTab === 'wanted' && (
+        <div role="tabpanel" aria-label="Books Wanted">
+          {/* Search */}
+          <div className={styles.filters}>
+            <div className={styles.searchWrapper}>
+              <svg className={styles.searchIcon} viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+              </svg>
+              <input
+                type="search"
+                className={`form-input ${styles.searchInput}`}
+                placeholder="Search by title, author, or ISBN..."
+                value={wantedSearch}
+                onChange={handleWantedSearchChange}
+                aria-label="Search wanted books"
+              />
+            </div>
+          </div>
+
+          {!wantedQuery.isLoading && !wantedQuery.isError && (
+            <div className={styles.resultsHeader}>
+              <p className={styles.resultsCount}>
+                {wantedTotal === 0
+                  ? 'No books found'
+                  : `${wantedTotal} book${wantedTotal === 1 ? '' : 's'} wanted`}
+              </p>
+            </div>
+          )}
+
+          {wantedQuery.isLoading ? (
+            <LoadingSpinner center size="lg" label="Loading wanted books..." />
+          ) : wantedQuery.isError ? (
+            <ErrorMessage error={wantedQuery.error} onRetry={wantedQuery.refetch} />
+          ) : wantedBooks.length === 0 ? (
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>No books found</p>
+              <p className={styles.emptySubtitle}>
+                {wantedSearch
+                  ? 'Try adjusting your search.'
+                  : 'No one has added books to their wishlist yet. Sign up and add the books you want!'}
+              </p>
+              {!isAuthenticated && (
+                <Link to="/register" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+                  Start trading
+                </Link>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className={`grid grid-cols-1 grid-sm-2 grid-md-3 grid-lg-4 ${styles.grid}`}>
+                {wantedBooks.map((item) => (
+                  <BookCard
+                    key={item.id}
+                    book={item}
+                    extra={
+                      item.want_count > 1
+                        ? <span className="badge badge-blue">{item.want_count} people want this</span>
+                        : <span className="badge badge-blue">1 person wants this</span>
+                    }
+                  />
+                ))}
+              </div>
+              <Pagination
+                page={wantedPage}
+                totalPages={wantedTotalPages}
+                onPageChange={setWantedPage}
+                disabled={wantedQuery.isLoading}
+              />
+            </>
           )}
         </div>
-      ) : (
-        <>
-          <div className={`grid grid-cols-1 grid-sm-2 grid-md-3 grid-lg-4 ${styles.grid}`}>
-            {books.map((item) => {
-              const isbn = getBookIsbn(item);
-              const alreadyAdded = isbn && addedToWishlist.has(isbn);
-
-              return (
-                <BookCard
-                  key={item.id}
-                  book={item}
-                  copyCount={item.copy_count ?? 1}
-                  onAction={
-                    isAuthenticated && !alreadyAdded
-                      ? () => addToWishlistMutation.mutate({ isbn })
-                      : undefined
-                  }
-                  actionLabel={alreadyAdded ? 'Added!' : 'Want this'}
-                  actionLoading={
-                    addToWishlistMutation.isPending &&
-                    addToWishlistMutation.variables?.isbn === isbn
-                  }
-                />
-              );
-            })}
-          </div>
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            disabled={isLoading}
-          />
-        </>
       )}
     </div>
   );

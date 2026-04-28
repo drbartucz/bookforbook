@@ -9,6 +9,7 @@ import Home from './Home.jsx';
 vi.mock('../services/api.js', () => ({
     browse: {
         available: vi.fn(),
+        wanted: vi.fn(),
     },
     wishlist: {
         add: vi.fn(),
@@ -29,6 +30,8 @@ import useAuth from '../hooks/useAuth.js';
 describe('Home page', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // default wanted response so the tab counter doesn't interfere
+        browse.wanted.mockResolvedValue({ data: { count: 0, results: [] } });
     });
 
     it('renders books from the current API shape and adds wishlist items using isbn_13', async () => {
@@ -99,8 +102,8 @@ describe('Home page', () => {
             data: {
                 count: 3,
                 results: [
-                    { id: 'b1', title: 'Book One',   authors: ['A'], isbn_13: '1111111111111', cover_image_url: null, copy_count: 1 },
-                    { id: 'b2', title: 'Book Two',   authors: ['B'], isbn_13: '2222222222222', cover_image_url: null, copy_count: 1 },
+                    { id: 'b1', title: 'Book One', authors: ['A'], isbn_13: '1111111111111', cover_image_url: null, copy_count: 1 },
+                    { id: 'b2', title: 'Book Two', authors: ['B'], isbn_13: '2222222222222', cover_image_url: null, copy_count: 1 },
                     { id: 'b3', title: 'Book Three', authors: ['C'], isbn_13: '3333333333333', cover_image_url: null, copy_count: 1 },
                 ],
             },
@@ -159,8 +162,8 @@ describe('Home page', () => {
             data: {
                 count: 2,
                 results: [
-                    { id: 'b1', title: 'Dune',       authors: ['Herbert'], isbn_13: '9780441013593', condition: 'very_good', copy_count: 3 },
-                    { id: 'b2', title: 'Foundation',  authors: ['Asimov'],  isbn_13: '9780553293357', condition: 'good',      copy_count: 1 },
+                    { id: 'b1', title: 'Dune', authors: ['Herbert'], isbn_13: '9780441013593', condition: 'very_good', copy_count: 3 },
+                    { id: 'b2', title: 'Foundation', authors: ['Asimov'], isbn_13: '9780553293357', condition: 'good', copy_count: 1 },
                 ],
             },
         });
@@ -180,5 +183,67 @@ describe('Home page', () => {
         await waitFor(() => {
             expect(browse.available).toHaveBeenCalledWith(expect.objectContaining({ condition: 'good' }));
         });
+    });
+
+    it('renders the two tabs', async () => {
+        useAuth.mockReturnValue({ isAuthenticated: false });
+        browse.available.mockResolvedValue({ data: { count: 0, results: [] } });
+        renderWithProviders(<Home />);
+        expect(screen.getByRole('tab', { name: /books on offer/i })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /books wanted/i })).toBeInTheDocument();
+    });
+
+    it('switches to wanted tab and shows wanted books', async () => {
+        useAuth.mockReturnValue({ isAuthenticated: false });
+        browse.available.mockResolvedValue({ data: { count: 0, results: [] } });
+        browse.wanted.mockResolvedValue({
+            data: {
+                count: 1,
+                results: [
+                    {
+                        id: 'w1',
+                        title: 'Wanted Book',
+                        authors: ['Some Author'],
+                        isbn_13: '9781234567890',
+                        cover_image_url: null,
+                        want_count: 2,
+                    },
+                ],
+            },
+        });
+
+        renderWithProviders(<Home />);
+
+        await userEvent.click(screen.getByRole('tab', { name: /books wanted/i }));
+
+        expect(await screen.findByText('Wanted Book')).toBeInTheDocument();
+        expect(screen.getByText(/2 people want this/i)).toBeInTheDocument();
+    });
+
+    it('shows "X books wanted" count in wanted tab', async () => {
+        useAuth.mockReturnValue({ isAuthenticated: false });
+        browse.available.mockResolvedValue({ data: { count: 0, results: [] } });
+        browse.wanted.mockResolvedValue({
+            data: {
+                count: 5,
+                results: [
+                    { id: 'w1', title: 'Wanted One', authors: ['A'], isbn_13: '1000000000001', cover_image_url: null, want_count: 1 },
+                ],
+            },
+        });
+
+        renderWithProviders(<Home />);
+        await userEvent.click(screen.getByRole('tab', { name: /books wanted/i }));
+        expect(await screen.findByText(/5 books wanted/i)).toBeInTheDocument();
+    });
+
+    it('shows empty state on wanted tab when no results', async () => {
+        useAuth.mockReturnValue({ isAuthenticated: false });
+        browse.available.mockResolvedValue({ data: { count: 0, results: [] } });
+        browse.wanted.mockResolvedValue({ data: { count: 0, results: [] } });
+
+        renderWithProviders(<Home />);
+        await userEvent.click(screen.getByRole('tab', { name: /books wanted/i }));
+        expect(await screen.findByText(/no one has added books to their wishlist yet/i)).toBeInTheDocument();
     });
 });

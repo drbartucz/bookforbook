@@ -14,6 +14,7 @@ from apps.accounts.models import User
 from .models import UserBook, WishlistItem
 from .serializers import (
     BrowseBookSerializer,
+    BrowseWantedSerializer,
     UserBookCreateSerializer,
     UserBookSerializer,
     UserBookUpdateSerializer,
@@ -277,7 +278,15 @@ class BrowseAvailableView(generics.ListAPIView):
 
     def get_queryset(self):
         from apps.books.models import Book
-        from django.db.models import Case, Count, IntegerField, OuterRef, Q, Subquery, When
+        from django.db.models import (
+            Case,
+            Count,
+            IntegerField,
+            OuterRef,
+            Q,
+            Subquery,
+            When,
+        )
 
         condition_filter = self.request.query_params.get("condition", "").strip()
         q = self.request.query_params.get("q", "").strip()
@@ -323,6 +332,50 @@ class BrowseAvailableView(generics.ListAPIView):
                 best_condition=Subquery(best_condition_sq),
             )
             .order_by("-copy_count", "-created_at")
+        )
+
+        if q:
+            qs = qs.filter(
+                Q(title__icontains=q)
+                | Q(authors__icontains=q)
+                | Q(isbn_13__icontains=q)
+            )
+
+        return qs
+
+
+class BrowseWantedView(generics.ListAPIView):
+    """
+    GET /api/v1/browse/wanted/
+    Public endpoint to browse books that users want, grouped by title.
+    Each result is a unique Book with want_count.
+    """
+
+    permission_classes = [permissions.AllowAny]
+    serializer_class = BrowseWantedSerializer
+
+    def get_queryset(self):
+        from apps.books.models import Book
+        from django.db.models import Count, Q
+
+        q = self.request.query_params.get("q", "").strip()
+
+        wanted_book_ids = (
+            WishlistItem.objects.filter(is_active=True)
+            .values_list("book_id", flat=True)
+            .distinct()
+        )
+
+        qs = (
+            Book.objects.filter(id__in=wanted_book_ids)
+            .annotate(
+                want_count=Count(
+                    "wishlist_entries",
+                    filter=Q(wishlist_entries__is_active=True),
+                    distinct=True,
+                )
+            )
+            .order_by("-want_count", "-created_at")
         )
 
         if q:

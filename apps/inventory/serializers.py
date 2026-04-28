@@ -32,6 +32,27 @@ class BrowseBookSerializer(serializers.ModelSerializer):
         return getattr(obj, "best_condition", None)
 
 
+class BrowseWantedSerializer(serializers.ModelSerializer):
+    """Serializer for the browse/wanted endpoint. Emits Book fields plus
+    want_count (number of active wishlist entries for this book)."""
+
+    want_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Book
+        fields = [
+            "id",
+            "isbn_13",
+            "isbn_10",
+            "title",
+            "authors",
+            "cover_image_url",
+            "physical_format",
+            "publish_year",
+            "want_count",
+        ]
+
+
 class UserBookSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)
     user_id = serializers.UUIDField(read_only=True, source="user.id")
