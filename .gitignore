@@ -229,4 +229,4 @@ backups/*.sql
 junit*.xml
 test-report*.xml
 
-superusers.json
+superusers.jsondb_e2e.sqlite3

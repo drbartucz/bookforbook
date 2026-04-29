@@ -183,7 +183,7 @@ Q_CLUSTER = {
 FIELD_ENCRYPTION_KEY = config(
     "FIELD_ENCRYPTION_KEY",
     # Development/test fallback only. Override via environment in production.
-    default="NmzoBw3C4Rvblhs8AsAsnF-GYGVQatPZnEuvj_aZZUE=",
+    default="6UT73Rb3OllRdfuVxXhLjzjqn1Nn8yIMiLXiUGX4hJA=",
 )
 
 # Email settings (defaults match Proton Mail SMTP submission; overridden per environment)
