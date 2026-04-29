@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    env:
+      FIELD_ENCRYPTION_KEY: ZmFrZS1mZXJuZXQta2V5LXRlc3QtZm9yLWRldg==
       - name: Checkout
         uses: actions/checkout@v5
 
@@ -70,6 +72,7 @@ jobs:
       DATABASE_URL: sqlite:///db_e2e.sqlite3
       SECRET_KEY: e2e-ci-secret-key-not-for-production
       DEBUG: "True"
+      FIELD_ENCRYPTION_KEY: ZmFrZS1mZXJuZXQta2V5LXRlc3QtZm9yLWRldg==
 
     steps:
       - name: Checkout
