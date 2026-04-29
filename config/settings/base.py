@@ -184,11 +184,11 @@ Q_CLUSTER = {
     "ack_failures": True,
 }
 
+
 # Encrypted model fields
 FIELD_ENCRYPTION_KEY = config(
     "FIELD_ENCRYPTION_KEY",
-    # Development/test fallback only. Override via environment in production.
-    default="6UT73Rb3OllRdfuVxXhLjzjqn1Nn8yIMiLXiUGX4hJA=",
+    # No default for security. Must be set via environment.
 )
 
 # Email settings (defaults match Proton Mail SMTP submission; overridden per environment)
