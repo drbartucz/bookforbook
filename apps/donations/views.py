@@ -69,20 +69,28 @@ class DonationAcceptView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        donation = get_object_or_404(
-            Donation, pk=pk, institution=request.user, status=Donation.Status.OFFERED
-        )
-
         with transaction.atomic():
+            # Lock the donation row for update
+            donation = (
+                Donation.objects.select_for_update()
+                .filter(pk=pk, institution=request.user, status=Donation.Status.OFFERED)
+                .first()
+            )
+            if not donation:
+                return Response({"detail": "Donation is no longer available or already accepted."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Lock the user_book row for update
+            from apps.inventory.models import UserBook
+            user_book = UserBook.objects.select_for_update().filter(pk=donation.user_book_id).first()
+            if not user_book:
+                return Response({"detail": "Book is no longer available."}, status=status.HTTP_400_BAD_REQUEST)
+
             donation.status = Donation.Status.ACCEPTED
             donation.save(update_fields=["status"])
 
             # Reserve the book
-            from apps.inventory.models import UserBook
-
-            UserBook.objects.filter(pk=donation.user_book_id).update(
-                status=UserBook.Status.RESERVED
-            )
+            user_book.status = UserBook.Status.RESERVED
+            user_book.save(update_fields=["status"])
 
             # Create a Trade record — must succeed for the accept to be valid
             from apps.trading.models import Trade, TradeShipment
