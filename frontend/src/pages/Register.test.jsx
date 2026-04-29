@@ -26,7 +26,7 @@ async function fillForm(options = {}) {
     } = options;
 
     await userEvent.type(screen.getByLabelText(/email address/i), email);
-    await userEvent.type(screen.getByLabelText(/^username$/i), username);
+    await userEvent.type(screen.getByRole('textbox', { name: /^username/i }), username);
     await userEvent.type(screen.getByLabelText(/^password$/i), password);
     await userEvent.type(screen.getByLabelText(/confirm password/i), confirmPassword);
 }
@@ -35,7 +35,7 @@ describe('Register page', () => {
     it('renders registration form fields', () => {
         renderWithProviders(<Register />);
         expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
-        expect(screen.getByLabelText(/^username$/i)).toBeInTheDocument();
+        expect(screen.getByRole('textbox', { name: /^username/i })).toBeInTheDocument();
         expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument();

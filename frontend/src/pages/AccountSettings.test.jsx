@@ -24,7 +24,7 @@ const updateUser = vi.fn();
 const logout = vi.fn();
 
 beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     useAuth.mockReturnValue({
         user: { id: 'user-1', username: 'reader', email: 'reader@example.com', account_type: 'individual' },
         updateUser,
@@ -97,7 +97,7 @@ describe('AccountSettings page', () => {
         await userEvent.type(await screen.findByLabelText(/full name/i), 'Jane Reader');
         await userEvent.type(screen.getByLabelText(/address line 1/i), '123 Main St');
         await userEvent.type(screen.getByLabelText(/^city$/i), 'Portland');
-        await userEvent.type(screen.getByLabelText(/state/i), 'or');
+        await userEvent.type(screen.getByRole('textbox', { name: /^state/i }), 'or');
         await userEvent.type(screen.getByLabelText(/zip code/i), '97201');
         await userEvent.click(screen.getByRole('button', { name: /verify and save address/i }));
 

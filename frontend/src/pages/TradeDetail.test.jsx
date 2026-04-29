@@ -99,7 +99,7 @@ describe('TradeDetail page', () => {
         trades.getMessages.mockResolvedValue({ data: [] });
         renderWithProviders(<TradeDetail />);
         await userEvent.click(await screen.findByRole('button', { name: /mark my book as shipped/i }));
-        expect(screen.getByLabelText(/tracking number/i)).toBeInTheDocument();
+        expect(screen.getByRole('textbox', { name: /tracking number/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /confirm shipped/i })).toBeInTheDocument();
     });
 
@@ -109,7 +109,7 @@ describe('TradeDetail page', () => {
         renderWithProviders(<TradeDetail />);
         await userEvent.click(await screen.findByRole('button', { name: /mark my book as shipped/i }));
         await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
-        expect(screen.queryByLabelText(/tracking number/i)).not.toBeInTheDocument();
+        expect(screen.queryByRole('textbox', { name: /tracking number/i })).not.toBeInTheDocument();
     });
 
     it('submits mark-shipped with tracking number', async () => {
@@ -118,7 +118,7 @@ describe('TradeDetail page', () => {
         trades.markShipped.mockResolvedValue({ data: {} });
         renderWithProviders(<TradeDetail />);
         await userEvent.click(await screen.findByRole('button', { name: /mark my book as shipped/i }));
-        await userEvent.type(screen.getByLabelText(/tracking number/i), 'TRACK123');
+        await userEvent.type(screen.getByRole('textbox', { name: /tracking number/i }), 'TRACK123');
         await userEvent.click(screen.getByRole('button', { name: /confirm shipped/i }));
         await waitFor(() => expect(trades.markShipped).toHaveBeenCalledWith('trade-1', { tracking_number: 'TRACK123' }));
     });

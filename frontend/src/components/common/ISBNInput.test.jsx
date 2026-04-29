@@ -52,7 +52,7 @@ describe('ISBNInput', () => {
             />
         );
 
-        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+        await userEvent.click(screen.getByRole('button', { name: /look\s*up/i }));
 
         expect(await screen.findByText('The Food Lab')).toBeInTheDocument();
         expect(screen.getByText('J. Kenji Lopez-Alt')).toBeInTheDocument();
@@ -84,7 +84,7 @@ describe('ISBNInput', () => {
             <ISBNInput value="9999999999999" onChange={onChange} onBookFound={onBookFound} />
         );
 
-        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+        await userEvent.click(screen.getByRole('button', { name: /look\s*up/i }));
 
         expect(await screen.findByText('ISBN not found in database.')).toBeInTheDocument();
         expect(onBookFound).toHaveBeenCalledWith(null);
@@ -116,7 +116,7 @@ describe('ISBNInput', () => {
         );
 
         // Click Lookup with a 5-digit ISBN — too short, so lines 45-47 fire
-        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+        await userEvent.click(screen.getByRole('button', { name: /look\s*up/i }));
 
         // hasLookupAttempted=true → shouldShowError=true → shows lookupError
         expect(screen.getByText('ISBN must be 10 or 13 digits.')).toBeInTheDocument();
@@ -135,7 +135,7 @@ describe('ISBNInput', () => {
             <ISBNInput value="9780393081084" onChange={onChange} onBookFound={onBookFound} />
         );
 
-        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+        await userEvent.click(screen.getByRole('button', { name: /look\s*up/i }));
 
         expect(await screen.findByText('Book lookup service unavailable.')).toBeInTheDocument();
     });
@@ -151,7 +151,7 @@ describe('ISBNInput', () => {
             <ISBNInput value="9780393081084" onChange={onChange} onBookFound={onBookFound} />
         );
 
-        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+        await userEvent.click(screen.getByRole('button', { name: /look\s*up/i }));
 
         expect(await screen.findByText('Book not found for this ISBN.')).toBeInTheDocument();
     });
@@ -164,7 +164,7 @@ describe('ISBNInput', () => {
 
         // A single dash strips to empty string after replace(/[\s-]/g, '')
         render(<ISBNInput value="-" onChange={onChange} onBookFound={onBookFound} />);
-        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+        await userEvent.click(screen.getByRole('button', { name: /look\s*up/i }));
 
         // isbn is empty after stripping → early return before calling lookupISBN
         expect(books.lookupISBN).not.toHaveBeenCalled();
@@ -183,7 +183,7 @@ describe('ISBNInput', () => {
             <ISBNInput value="9780393081084" onChange={onChange} onBookFound={onBookFound} />
         );
 
-        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+        await userEvent.click(screen.getByRole('button', { name: /look\s*up/i }));
         expect(await screen.findByText('Found Book')).toBeInTheDocument();
 
         // Type a new character — should clear the result
@@ -222,7 +222,7 @@ describe('ISBNInput', () => {
             <ISBNInput value="  9780393081084  " onChange={onChange} onBookFound={onBookFound} />
         );
 
-        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+        await userEvent.click(screen.getByRole('button', { name: /look\s*up/i }));
 
         // Should strip whitespace and call API with clean ISBN
         expect(books.lookupISBN).toHaveBeenCalledWith('9780393081084');
@@ -243,7 +243,7 @@ describe('ISBNInput', () => {
             <ISBNInput value="978 0 545 01022 1" onChange={onChange} onBookFound={onBookFound} />
         );
 
-        await userEvent.click(screen.getByRole('button', { name: /lookup/i }));
+        await userEvent.click(screen.getByRole('button', { name: /look\s*up/i }));
 
         // Should strip internal spaces and call API with clean ISBN
         expect(books.lookupISBN).toHaveBeenCalledWith('9780545010221');
