@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { users } from '../../services/api.js';
 
 export default function AddressPromptModal({ open, onClose }) {
@@ -14,6 +14,12 @@ export default function AddressPromptModal({ open, onClose }) {
         zip_code: '',
     });
 
+    const mountedRef = useRef(true);
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => { mountedRef.current = false; };
+    }, []);
+
     if (!open) {
         return null;
     }
@@ -24,14 +30,15 @@ export default function AddressPromptModal({ open, onClose }) {
         setError(null);
         try {
             await users.verifyAddress(form);
-            onClose();
+            if (mountedRef.current) onClose();
         } catch (err) {
+            if (!mountedRef.current) return;
             const msg =
                 err?.response?.data?.detail ||
                 'Unable to verify address with USPS. Please check your address and try again.';
             setError(msg);
         } finally {
-            setSubmitting(false);
+            if (mountedRef.current) setSubmitting(false);
         }
     }
 

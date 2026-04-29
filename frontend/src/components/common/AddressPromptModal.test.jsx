@@ -148,4 +148,63 @@ describe('AddressPromptModal', () => {
             expect(addr2.value).toBe('Apt 4B');
         });
     });
+
+    describe('unmount safety', () => {
+        async function fillAndSubmit(onClose = vi.fn()) {
+            const { unmount } = renderWithProviders(
+                <AddressPromptModal open={true} onClose={onClose} />
+            );
+            await userEvent.click(screen.getByRole('button', { name: /add address/i }));
+            await userEvent.type(screen.getByLabelText(/full name/i), 'Jane Doe');
+            await userEvent.type(screen.getByLabelText(/address line 1/i), '123 Main St');
+            await userEvent.type(screen.getByLabelText(/city/i), 'Denver');
+            await userEvent.type(screen.getByLabelText(/state/i), 'CO');
+            await userEvent.type(screen.getByLabelText(/zip/i), '80202');
+            await userEvent.click(screen.getByRole('button', { name: /verify with usps/i }));
+            return { unmount };
+        }
+
+        it('does not call onClose after unmount when verify succeeds', async () => {
+            let resolve;
+            users.verifyAddress.mockReturnValue(new Promise((r) => { resolve = r; }));
+            const onClose = vi.fn();
+            const { unmount } = await fillAndSubmit(onClose);
+
+            unmount();
+            resolve({ data: {} });
+
+            // Give any pending microtasks time to flush
+            await new Promise((r) => setTimeout(r, 0));
+            expect(onClose).not.toHaveBeenCalled();
+        });
+
+        it('does not show error after unmount when verify rejects', async () => {
+            let reject;
+            users.verifyAddress.mockReturnValue(
+                new Promise((_, r) => { reject = r; })
+            );
+            const { unmount } = await fillAndSubmit();
+
+            unmount();
+            reject({ response: { data: { detail: 'Late error' } } });
+
+            await new Promise((r) => setTimeout(r, 0));
+            // Component is unmounted — no dialog in DOM, no stale error rendered
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        });
+
+        it('button transitions work normally when component stays mounted', async () => {
+            let resolve;
+            users.verifyAddress.mockReturnValue(new Promise((r) => { resolve = r; }));
+            const onClose = vi.fn();
+            await fillAndSubmit(onClose);
+
+            expect(
+                await screen.findByRole('button', { name: /verifying/i })
+            ).toBeDisabled();
+
+            resolve({ data: {} });
+            await waitFor(() => expect(onClose).toHaveBeenCalled());
+        });
+    });
 });
