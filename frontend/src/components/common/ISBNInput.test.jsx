@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import ISBNInput from './ISBNInput.jsx';
@@ -7,8 +7,35 @@ import ISBNInput from './ISBNInput.jsx';
 vi.mock('../../services/api.js', () => ({
     books: {
         lookupISBN: vi.fn(),
+        fromImage: vi.fn(),
     },
 }));
+
+vi.mock('../../utils/isbnDetect.js', () => ({
+    detectISBNFromFile: vi.fn(),
+}));
+
+function deferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+}
+
+beforeEach(() => {
+    vi.restoreAllMocks();
+    if (!URL.createObjectURL) {
+        URL.createObjectURL = () => 'blob:preview';
+    }
+    if (!URL.revokeObjectURL) {
+        URL.revokeObjectURL = () => { };
+    }
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:preview');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => { });
+});
 
 describe('ISBNInput', () => {
     it('shows external validation error only after blur', async () => {
@@ -248,5 +275,142 @@ describe('ISBNInput', () => {
         // Should strip internal spaces and call API with clean ISBN
         expect(books.lookupISBN).toHaveBeenCalledWith('9780545010221');
         expect(await screen.findByText('Space Separated Book')).toBeInTheDocument();
+    });
+
+    it('test_rapid_uploads_only_latest_result_applies', async () => {
+        const onBookFound = vi.fn();
+        const onChange = vi.fn();
+        const { books } = await import('../../services/api.js');
+        const { detectISBNFromFile } = await import('../../utils/isbnDetect.js');
+
+        const firstDetect = deferred();
+        const secondDetect = deferred();
+        const firstLookup = deferred();
+        const secondLookup = deferred();
+
+        detectISBNFromFile
+            .mockImplementationOnce(() => firstDetect.promise)
+            .mockImplementationOnce(() => secondDetect.promise);
+
+        books.lookupISBN.mockImplementation((isbn) => (
+            isbn === '2222222222' ? secondLookup.promise : firstLookup.promise
+        ));
+
+        render(
+            <ISBNInput value="" onChange={onChange} onBookFound={onBookFound} />
+        );
+
+        const fileInput = document.querySelector('input[type="file"]');
+        const firstFile = new File(['a'], 'first.png', { type: 'image/png' });
+        const secondFile = new File(['b'], 'second.png', { type: 'image/png' });
+
+        fireEvent.change(fileInput, { target: { files: [firstFile] } });
+        fireEvent.change(fileInput, { target: { files: [secondFile] } });
+
+        expect(detectISBNFromFile).toHaveBeenCalledTimes(2);
+
+        await act(async () => {
+            secondDetect.resolve({ status: 'found', isbn: '2222222222' });
+            await Promise.resolve();
+        });
+
+        await waitFor(() => {
+            expect(books.lookupISBN).toHaveBeenCalledWith('2222222222');
+        });
+
+        await act(async () => {
+            secondLookup.resolve({
+                data: { title: 'Second Book', authors: ['Second Author'], publish_year: 2021 },
+            });
+            await Promise.resolve();
+        });
+
+        expect(await screen.findByText('Second Book')).toBeInTheDocument();
+
+        await act(async () => {
+            firstDetect.resolve({ status: 'found', isbn: '1111111111' });
+            await Promise.resolve();
+            firstLookup.resolve({
+                data: { title: 'First Book', authors: ['First Author'], publish_year: 2020 },
+            });
+            await Promise.resolve();
+        });
+
+        expect(screen.getByText('Second Book')).toBeInTheDocument();
+        expect(screen.queryByText('First Book')).not.toBeInTheDocument();
+        expect(onBookFound).toHaveBeenLastCalledWith(
+            expect.objectContaining({ title: 'Second Book' })
+        );
+    });
+
+    it('test_stale_lookup_error_does_not_override_latest_success', async () => {
+        const onBookFound = vi.fn();
+        const onChange = vi.fn();
+        const { books } = await import('../../services/api.js');
+        const { detectISBNFromFile } = await import('../../utils/isbnDetect.js');
+
+        const firstLookup = deferred();
+
+        detectISBNFromFile
+            .mockResolvedValueOnce({ status: 'found', isbn: '1111111111' })
+            .mockResolvedValueOnce({ status: 'found', isbn: '2222222222' });
+
+        books.lookupISBN
+            .mockImplementationOnce(() => firstLookup.promise)
+            .mockResolvedValueOnce({
+                data: { title: 'Latest Success', authors: ['Author'], publish_year: 2024 },
+            });
+
+        render(<ISBNInput value="" onChange={onChange} onBookFound={onBookFound} />);
+
+        const fileInput = document.querySelector('input[type="file"]');
+        const firstFile = new File(['a'], 'first.png', { type: 'image/png' });
+        const secondFile = new File(['b'], 'second.png', { type: 'image/png' });
+
+        await userEvent.upload(fileInput, firstFile);
+        await userEvent.upload(fileInput, secondFile);
+
+        expect(await screen.findByText('Latest Success')).toBeInTheDocument();
+
+        await act(async () => {
+            firstLookup.reject({ response: { data: { detail: 'Old request failed' } } });
+            await Promise.resolve();
+        });
+
+        expect(screen.getByText('Latest Success')).toBeInTheDocument();
+        expect(screen.queryByText('Old request failed')).not.toBeInTheDocument();
+        expect(onBookFound).toHaveBeenLastCalledWith(
+            expect.objectContaining({ title: 'Latest Success' })
+        );
+    });
+
+    it('test_scan_cleanup_resets_candidates_and_error_per_new_upload', async () => {
+        const onBookFound = vi.fn();
+        const onChange = vi.fn();
+        const { books } = await import('../../services/api.js');
+        const { detectISBNFromFile } = await import('../../utils/isbnDetect.js');
+
+        detectISBNFromFile
+            .mockResolvedValueOnce({ status: 'multiple', candidates: ['1234567890', '0987654321'] })
+            .mockResolvedValueOnce({ status: 'not_found' });
+
+        books.fromImage
+            .mockResolvedValueOnce({ data: {} })
+            .mockResolvedValueOnce({ data: {} });
+
+        render(<ISBNInput value="" onChange={onChange} onBookFound={onBookFound} />);
+
+        const fileInput = document.querySelector('input[type="file"]');
+        const firstFile = new File(['a'], 'first.png', { type: 'image/png' });
+        const secondFile = new File(['b'], 'second.png', { type: 'image/png' });
+
+        await userEvent.upload(fileInput, firstFile);
+
+        expect(await screen.findByText('Multiple ISBNs found — pick one:')).toBeInTheDocument();
+
+        await userEvent.upload(fileInput, secondFile);
+
+        expect(screen.queryByText('Multiple ISBNs found — pick one:')).not.toBeInTheDocument();
+        expect(await screen.findByText('No ISBN found in image. Try a clearer photo or enter it manually.')).toBeInTheDocument();
     });
 });

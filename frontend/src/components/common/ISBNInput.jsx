@@ -45,6 +45,7 @@ export default function ISBNInput({
 
   const fileInputRef = useRef(null);
   const uploadedPreviewUrlRef = useRef(null);
+  const latestScanRequestIdRef = useRef(0);
 
   const displayBook = foundBook ?? localBook;
   const previewAuthor = getBookPrimaryAuthor(displayBook);
@@ -62,15 +63,21 @@ export default function ISBNInput({
 
   // ── ISBN text lookup ────────────────────────────────────────────────────────
 
-  async function performLookup(isbn) {
+  async function performLookup(isbn, scanRequestId = null) {
+    const isStaleScanRequest = () => (
+      scanRequestId !== null && latestScanRequestIdRef.current !== scanRequestId
+    );
+
     setLooking(true);
     setLookupError(null);
     try {
       const res = await booksApi.lookupISBN(isbn);
+      if (isStaleScanRequest()) return;
       const bookData = res.data;
       setLocalBook(bookData);
       if (onBookFound) onBookFound(bookData);
     } catch (err) {
+      if (isStaleScanRequest()) return;
       const msg =
         err?.response?.data?.detail ||
         err?.response?.data?.message ||
@@ -79,7 +86,9 @@ export default function ISBNInput({
       setLocalBook(null);
       if (onBookFound) onBookFound(null);
     } finally {
-      setLooking(false);
+      if (!isStaleScanRequest()) {
+        setLooking(false);
+      }
     }
   }
 
@@ -123,6 +132,10 @@ export default function ISBNInput({
     e.target.value = '';
     if (!file) return;
 
+    const scanRequestId = latestScanRequestIdRef.current + 1;
+    latestScanRequestIdRef.current = scanRequestId;
+    const isStaleScanRequest = () => latestScanRequestIdRef.current !== scanRequestId;
+
     if (uploadedPreviewUrlRef.current) {
       URL.revokeObjectURL(uploadedPreviewUrlRef.current);
     }
@@ -140,12 +153,13 @@ export default function ISBNInput({
       // Tier 1 + 2: client-side barcode detection then OCR
       setScanPhase('barcode');
       const result = await detectISBNFromFile(file);
+      if (isStaleScanRequest()) return;
 
       if (result.status === 'found') {
         onChange(result.isbn);
         setScanning(false);
         setScanPhase(null);
-        await performLookup(result.isbn);
+        await performLookup(result.isbn, scanRequestId);
         return;
       }
 
@@ -161,15 +175,17 @@ export default function ISBNInput({
       setScanPhase('server');
       try {
         const res = await booksApi.fromImage(file);
+        if (isStaleScanRequest()) return;
         const isbn = res.data?.isbn;
         if (isbn) {
           onChange(isbn);
           setScanning(false);
           setScanPhase(null);
-          await performLookup(isbn);
+          await performLookup(isbn, scanRequestId);
           return;
         }
       } catch (backendErr) {
+        if (isStaleScanRequest()) return;
         if (backendErr?.response?.status !== 404) {
           // 404 = no barcode found, other errors are unexpected
           setLookupError('Server error during scan. Please try again or enter ISBN manually.');
@@ -180,12 +196,16 @@ export default function ISBNInput({
       }
 
       // All tiers exhausted
+      if (isStaleScanRequest()) return;
       setLookupError('No ISBN found in image. Try a clearer photo or enter it manually.');
     } catch {
+      if (isStaleScanRequest()) return;
       setLookupError('Could not read image. Please try again or enter the ISBN manually.');
     } finally {
-      setScanning(false);
-      setScanPhase(null);
+      if (!isStaleScanRequest()) {
+        setScanning(false);
+        setScanPhase(null);
+      }
     }
   }
 
