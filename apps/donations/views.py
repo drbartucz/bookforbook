@@ -77,13 +77,24 @@ class DonationAcceptView(APIView):
                 .first()
             )
             if not donation:
-                return Response({"detail": "Donation is no longer available or already accepted."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "Donation is no longer available or already accepted."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Lock the user_book row for update
             from apps.inventory.models import UserBook
-            user_book = UserBook.objects.select_for_update().filter(pk=donation.user_book_id).first()
+
+            user_book = (
+                UserBook.objects.select_for_update()
+                .filter(pk=donation.user_book_id)
+                .first()
+            )
             if not user_book:
-                return Response({"detail": "Book is no longer available."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "Book is no longer available."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             donation.status = Donation.Status.ACCEPTED
             donation.save(update_fields=["status"])
