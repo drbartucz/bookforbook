@@ -12,35 +12,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    env:
-      FIELD_ENCRYPTION_KEY: ZmFrZS1mZXJuZXQta2V5LXRlc3QtZm9yLWRldg==
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
+        backend:
+          name: Backend (pytest)
+          runs-on: ubuntu-latest
+          env:
+            FIELD_ENCRYPTION_KEY: ZmFrZS1mZXJuZXQta2V5LXRlc3QtZm9yLWRldg==
+          steps:
+            - name: Checkout
+              uses: actions/checkout@v5
 
-      - name: Install backend dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+            - name: Set up Python
+              uses: actions/setup-python@v6
+              with:
+                python-version: '3.12'
 
-      - name: Run backend tests with coverage
-        run: pytest --cov=apps --cov-report=term-missing --cov-report=xml
+            - name: Install backend dependencies
+              run: |
+                python -m pip install --upgrade pip
+                pip install -r requirements.txt
 
-  frontend:
-    name: Frontend (vitest)
-    runs-on: ubuntu-latest
-    env:
-      NODE_ENV: test
-    defaults:
-      run:
-        working-directory: frontend
-
-    steps:
-      - name: Checkout
+            - name: Run backend tests with coverage
+              run: pytest --cov=apps --cov-report=term-missing --cov-report=xml
         uses: actions/checkout@v5
 
       - name: Set up Node
@@ -72,7 +69,6 @@ jobs:
       DATABASE_URL: sqlite:///db_e2e.sqlite3
       SECRET_KEY: e2e-ci-secret-key-not-for-production
       DEBUG: "True"
-      FIELD_ENCRYPTION_KEY: ZmFrZS1mZXJuZXQta2V5LXRlc3QtZm9yLWRldg==
 
     steps:
       - name: Checkout
@@ -144,17 +140,19 @@ jobs:
           DJANGO_BASE_URL: http://localhost:8000
 
       # ── Artifacts ───────────────────────────────────────────────────────
+
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 7
 
+
       - name: Upload test traces
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-traces
           path: frontend/test-results/
