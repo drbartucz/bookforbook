@@ -1,6 +1,7 @@
 import logging
 
 from django.db import transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status
@@ -77,10 +78,7 @@ class DonationAcceptView(APIView):
                 .first()
             )
             if not donation:
-                return Response(
-                    {"detail": "Donation is no longer available or already accepted."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                raise Http404
 
             # Lock the user_book row for update
             from apps.inventory.models import UserBook
@@ -91,10 +89,7 @@ class DonationAcceptView(APIView):
                 .first()
             )
             if not user_book:
-                return Response(
-                    {"detail": "Book is no longer available."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                raise Http404
 
             donation.status = Donation.Status.ACCEPTED
             donation.save(update_fields=["status"])
