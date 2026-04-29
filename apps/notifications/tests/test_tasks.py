@@ -724,3 +724,48 @@ class TestSendTradeConfirmedNotificationTask:
         recipients = {m.to[0] for m in mail.outbox}
         assert "sender@example.com" in recipients
         assert "receiver@example.com" in recipients
+
+
+@pytest.mark.django_db
+class TestTaskMissingRecordGuards:
+    def test_send_match_notification_missing_match_logs_warning(self):
+        from uuid import uuid4
+
+        from apps.notifications.tasks import send_match_notification
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_match_notification(str(uuid4()))
+
+        mock_logger.warning.assert_called_once()
+
+    def test_send_trade_confirmed_notification_missing_trade_logs_warning(self):
+        from uuid import uuid4
+
+        from apps.notifications.tasks import send_trade_confirmed_notification
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_trade_confirmed_notification(str(uuid4()))
+
+        mock_logger.warning.assert_called_once()
+
+    def test_send_rating_reminder_missing_user_logs_warning(self):
+        from uuid import uuid4
+
+        trade = TradeFactory()
+        from apps.notifications.tasks import send_rating_reminder
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_rating_reminder(str(trade.pk), str(uuid4()))
+
+        mock_logger.warning.assert_called_once()
+
+    def test_send_rating_reminder_missing_trade_logs_warning(self):
+        user = UserFactory()
+        from uuid import uuid4
+
+        from apps.notifications.tasks import send_rating_reminder
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_rating_reminder(str(uuid4()), str(user.pk))
+
+        mock_logger.warning.assert_called_once()

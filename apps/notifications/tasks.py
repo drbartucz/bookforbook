@@ -15,7 +15,13 @@ def send_verification_email(user_id: str, uid: str, token: str):
     logger.info("send_verification_email: starting for user_id=%s", user_id)
     from apps.accounts.models import User
 
-    user = User.objects.get(pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning(
+            "send_verification_email skipped: user %s not found", user_id
+        )
+        return
     from apps.notifications.email import send_verification_email as _send
 
     success = _send(user, uid, token)
@@ -29,7 +35,13 @@ def send_password_reset_email(user_id: str, uid: str, token: str):
     """Send password reset email."""
     from apps.accounts.models import User
 
-    user = User.objects.get(pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning(
+            "send_password_reset_email skipped: user %s not found", user_id
+        )
+        return
     from apps.notifications.email import send_password_reset_email as _send
 
     _send(user, uid, token)
@@ -40,7 +52,13 @@ def send_admin_registration_alert(user_id: str):
     from apps.accounts.models import User
     from apps.accounts.services.admin_alerts import notify_admin_on_registration
 
-    user = User.objects.get(pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning(
+            "send_admin_registration_alert skipped: user %s not found", user_id
+        )
+        return
     notify_admin_on_registration(user)
 
 
@@ -49,7 +67,13 @@ def send_admin_email_verified_alert(user_id: str):
     from apps.accounts.models import User
     from apps.accounts.services.admin_alerts import notify_admin_on_email_verified
 
-    user = User.objects.get(pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning(
+            "send_admin_email_verified_alert skipped: user %s not found", user_id
+        )
+        return
     notify_admin_on_email_verified(user)
 
 
@@ -58,7 +82,13 @@ def send_admin_postal_verified_alert(user_id: str):
     from apps.accounts.models import User
     from apps.accounts.services.admin_alerts import notify_admin_on_postal_verified
 
-    user = User.objects.get(pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning(
+            "send_admin_postal_verified_alert skipped: user %s not found", user_id
+        )
+        return
     notify_admin_on_postal_verified(user)
 
 
@@ -67,9 +97,13 @@ def send_match_notification(match_id: str):
     from apps.matching.models import Match
     from apps.notifications.models import Notification
 
-    match = Match.objects.prefetch_related("legs__sender", "legs__receiver").get(
-        pk=match_id
-    )
+    try:
+        match = Match.objects.prefetch_related("legs__sender", "legs__receiver").get(
+            pk=match_id
+        )
+    except Match.DoesNotExist:
+        logger.warning("send_match_notification skipped: match %s not found", match_id)
+        return
 
     # Collect unique senders (they need to accept)
     participants = set()
@@ -100,9 +134,15 @@ def send_trade_confirmed_notification(trade_id: str):
     """Email all parties when a trade is confirmed."""
     from apps.trading.models import Trade
 
-    trade = Trade.objects.prefetch_related(
-        "shipments__sender", "shipments__receiver"
-    ).get(pk=trade_id)
+    try:
+        trade = Trade.objects.prefetch_related(
+            "shipments__sender", "shipments__receiver"
+        ).get(pk=trade_id)
+    except Trade.DoesNotExist:
+        logger.warning(
+            "send_trade_confirmed_notification skipped: trade %s not found", trade_id
+        )
+        return
 
     parties = set()
     for shipment in trade.shipments.all():
@@ -120,8 +160,17 @@ def send_rating_reminder(trade_id: str, user_id: str):
     from apps.accounts.models import User
     from apps.trading.models import Trade
 
-    user = User.objects.get(pk=user_id)
-    trade = Trade.objects.get(pk=trade_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning("send_rating_reminder skipped: user %s not found", user_id)
+        return
+
+    try:
+        trade = Trade.objects.get(pk=trade_id)
+    except Trade.DoesNotExist:
+        logger.warning("send_rating_reminder skipped: trade %s not found", trade_id)
+        return
     from apps.notifications.email import send_rating_reminder_email
 
     send_rating_reminder_email(user, trade)
@@ -131,7 +180,11 @@ def send_inactivity_warning_1m(user_id: str):
     """Send 1-month inactivity warning."""
     from apps.accounts.models import User
 
-    user = User.objects.get(pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning("send_inactivity_warning_1m skipped: user %s not found", user_id)
+        return
     from apps.notifications.email import send_inactivity_warning_1m_email
 
     send_inactivity_warning_1m_email(user)
@@ -143,7 +196,11 @@ def send_inactivity_warning_2m(user_id: str):
     """Send 2-month inactivity warning."""
     from apps.accounts.models import User
 
-    user = User.objects.get(pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning("send_inactivity_warning_2m skipped: user %s not found", user_id)
+        return
     from apps.notifications.email import send_inactivity_warning_2m_email
 
     send_inactivity_warning_2m_email(user)
@@ -156,7 +213,13 @@ def send_books_delisted_notification(user_id: str):
     from apps.accounts.models import User
     from apps.notifications.models import Notification
 
-    user = User.objects.get(pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning(
+            "send_books_delisted_notification skipped: user %s not found", user_id
+        )
+        return
     from apps.notifications.email import send_books_delisted_email
 
     send_books_delisted_email(user)
@@ -177,7 +240,13 @@ def send_account_deletion_initiated(user_id: str):
         send_account_deletion_export_email,
     )
 
-    user = User.objects.get(pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning(
+            "send_account_deletion_initiated skipped: user %s not found", user_id
+        )
+        return
     export_data = _build_user_export(user)
 
     send_account_deletion_email(user)

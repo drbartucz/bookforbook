@@ -405,6 +405,37 @@ class TestSendRatingReminders:
 
         mock_task.assert_not_called()
 
+    def test_counter_not_incremented_when_all_enqueues_fail(self):
+        a = UserFactory()
+        b = UserFactory()
+        trade, _s1, _s2 = _make_trade(a, b, Trade.Status.SHIPPING)
+        assert trade.rating_reminders_sent == 0
+
+        with patch(
+            "django_q.tasks.async_task", side_effect=RuntimeError("queue down")
+        ):
+            send_rating_reminders()
+
+        trade.refresh_from_db()
+        assert trade.rating_reminders_sent == 0
+
+    def test_counter_increments_when_at_least_one_enqueue_succeeds(self):
+        a = UserFactory()
+        b = UserFactory()
+        trade, _s1, _s2 = _make_trade(a, b, Trade.Status.SHIPPING)
+        assert trade.rating_reminders_sent == 0
+
+        def _async_side_effect(_task_name, _trade_id, user_id):
+            if str(user_id) == str(a.id):
+                raise RuntimeError("single enqueue failure")
+            return None
+
+        with patch("django_q.tasks.async_task", side_effect=_async_side_effect):
+            send_rating_reminders()
+
+        trade.refresh_from_db()
+        assert trade.rating_reminders_sent == 1
+
 
 class TestTradeUniquenessAndIdempotency:
     def test_trade_source_unique_constraint_blocks_duplicates(self):

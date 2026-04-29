@@ -117,9 +117,6 @@ class ProposalAcceptView(APIView):
             )
 
         with transaction.atomic():
-            proposal.status = TradeProposal.Status.ACCEPTED
-            proposal.save(update_fields=["status"])
-
             try:
                 from apps.trading.services.trade_workflow import (
                     create_trade_from_proposal,
@@ -372,6 +369,12 @@ class TradeRateView(APIView):
         except User.DoesNotExist:
             return Response(
                 {"detail": "Rated user not found."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if rated_user.id == request.user.id:
+            return Response(
+                {"detail": "You cannot rate yourself."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Verify rated_user is also a party to this trade

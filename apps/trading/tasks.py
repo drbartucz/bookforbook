@@ -42,11 +42,13 @@ def send_rating_reminders():
 
         unrated_user_ids = user_ids - rated_user_ids
 
+        queued_count = 0
         for uid in unrated_user_ids:
             try:
                 async_task(
                     "apps.notifications.tasks.send_rating_reminder", str(trade.pk), uid
                 )
+                queued_count += 1
             except Exception:
                 logger.exception(
                     "Failed to queue rating reminder for trade %s, user %s",
@@ -54,8 +56,9 @@ def send_rating_reminders():
                     uid,
                 )
 
-        trade.rating_reminders_sent += 1
-        trade.save(update_fields=["rating_reminders_sent"])
+        if queued_count > 0:
+            trade.rating_reminders_sent += 1
+            trade.save(update_fields=["rating_reminders_sent"])
 
 
 def auto_close_trades():

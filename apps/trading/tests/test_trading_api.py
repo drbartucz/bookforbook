@@ -247,6 +247,38 @@ class TestProposalAccept:
         assert "no longer available" in resp.data["detail"].lower()
         assert Trade.objects.count() == 0
 
+    def test_accept_failure_keeps_proposal_pending(self, api_client):
+        from unittest.mock import patch
+
+        proposer = UserFactory()
+        recipient = UserFactory()
+        recipient.full_name = "Reader Two"
+        recipient.address_line_1 = "456 Oak Ave"
+        recipient.city = "Austin"
+        recipient.state = "TX"
+        recipient.zip_code = "73301"
+        recipient.address_verification_status = "verified"
+        recipient.save()
+
+        pbook = UserBookFactory(user=proposer, book=BookFactory())
+        rbook = UserBookFactory(user=recipient, book=BookFactory())
+
+        client = _auth(api_client, proposer)
+        create_resp = _make_proposal(client, pbook, recipient, rbook)
+        proposal_id = create_resp.data["id"]
+
+        client = _auth(api_client, recipient)
+        url = reverse("proposal-accept", kwargs={"pk": proposal_id})
+        with patch(
+            "apps.trading.services.trade_workflow.create_trade_from_proposal",
+            side_effect=ValueError("Proposal is invalid for trade creation."),
+        ):
+            resp = client.post(url, format="json")
+
+        assert resp.status_code == 400
+        proposal = TradeProposal.objects.get(pk=proposal_id)
+        assert proposal.status == TradeProposal.Status.PENDING
+
 
 # ---------------------------------------------------------------------------
 # Proposal: decline
@@ -1092,6 +1124,23 @@ class TestTradeRateViewEdgeCases:
         )
         assert resp.status_code == 400
         assert "not part of this trade" in resp.data["detail"]
+
+    def test_self_rating_returns_400(self, api_client):
+        trade, a, _b = self._setup_ratable_trade()
+
+        client = _auth(api_client, a)
+        resp = client.post(
+            reverse("trade-rate", kwargs={"pk": trade.id}),
+            {
+                "rated_user_id": str(a.id),
+                "score": 5,
+                "book_condition_accurate": True,
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 400
+        assert "cannot rate yourself" in resp.data["detail"].lower()
 
     def test_recompute_rating_exception_still_returns_201(self, api_client):
         """Lines 460-461: exception in recompute_rating_average is silenced."""
