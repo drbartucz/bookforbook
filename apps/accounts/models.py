@@ -6,6 +6,7 @@ from django.contrib.auth.models import (
     PermissionsMixin,
 )
 from django.db import models
+from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField
 
 
@@ -152,6 +153,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Login-based heartbeat policy: this field is updated only on successful login.
     last_active_at = models.DateTimeField(auto_now_add=True)
 
     # Django admin flags
@@ -201,3 +203,23 @@ class User(AbstractBaseUser, PermissionsMixin):
             and self.state
             and self.zip_code
         )
+
+    def mark_login_activity(self, now=None, clear_inactivity_flags: bool = False):
+        """Record user activity for the login-based inactivity policy."""
+        current_time = now or timezone.now()
+        self.last_active_at = current_time
+        update_fields = ["last_active_at"]
+
+        if clear_inactivity_flags:
+            self.books_delisted_at = None
+            self.inactivity_warned_1m = None
+            self.inactivity_warned_2m = None
+            update_fields.extend(
+                [
+                    "books_delisted_at",
+                    "inactivity_warned_1m",
+                    "inactivity_warned_2m",
+                ]
+            )
+
+        self.save(update_fields=update_fields)

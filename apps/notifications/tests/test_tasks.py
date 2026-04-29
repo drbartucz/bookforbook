@@ -451,6 +451,23 @@ class TestCheckInactivityTask:
         )
 
     @patch("django_q.tasks.async_task")
+    def test_exactly_30_days_inactive_is_not_warned(self, mock_async):
+        fixed_now = timezone.now()
+        user = UserFactory(inactivity_warned_1m=None, books_delisted_at=None)
+        from apps.accounts.models import User as UserModel
+        from apps.notifications.tasks import check_inactivity
+
+        UserModel.objects.filter(pk=user.pk).update(
+            last_active_at=fixed_now - timedelta(days=30)
+        )
+
+        with patch("apps.notifications.tasks.timezone.now", return_value=fixed_now):
+            check_inactivity()
+
+        calls_str = str(mock_async.call_args_list)
+        assert "send_inactivity_warning_1m" not in calls_str
+
+    @patch("django_q.tasks.async_task")
     def test_institutional_users_do_not_get_1m_warning(self, mock_async):
         library_user = UserFactory(
             account_type="library",
@@ -492,6 +509,27 @@ class TestCheckInactivityTask:
         )
 
     @patch("django_q.tasks.async_task")
+    def test_exactly_60_days_inactive_is_not_warned_2m(self, mock_async):
+        fixed_now = timezone.now()
+        user = UserFactory(
+            inactivity_warned_1m=fixed_now - timedelta(days=31),
+            inactivity_warned_2m=None,
+            books_delisted_at=None,
+        )
+        from apps.accounts.models import User as UserModel
+        from apps.notifications.tasks import check_inactivity
+
+        UserModel.objects.filter(pk=user.pk).update(
+            last_active_at=fixed_now - timedelta(days=60)
+        )
+
+        with patch("apps.notifications.tasks.timezone.now", return_value=fixed_now):
+            check_inactivity()
+
+        calls_str = str(mock_async.call_args_list)
+        assert "send_inactivity_warning_2m" not in calls_str
+
+    @patch("django_q.tasks.async_task")
     def test_institutional_users_do_not_get_2m_warning(self, mock_async):
         bookstore_user = UserFactory(
             account_type="bookstore",
@@ -528,6 +566,32 @@ class TestCheckInactivityTask:
         mock_async.assert_any_call(
             "apps.notifications.tasks.send_books_delisted_notification", str(user.pk)
         )
+
+    @patch("django_q.tasks.async_task")
+    def test_exactly_90_days_inactive_is_not_delisted(self, mock_async):
+        fixed_now = timezone.now()
+        user = UserFactory(
+            inactivity_warned_1m=fixed_now - timedelta(days=65),
+            inactivity_warned_2m=fixed_now - timedelta(days=35),
+            books_delisted_at=None,
+        )
+        book = UserBookFactory(user=user, status=UserBook.Status.AVAILABLE)
+        from apps.accounts.models import User as UserModel
+        from apps.notifications.tasks import check_inactivity
+
+        UserModel.objects.filter(pk=user.pk).update(
+            last_active_at=fixed_now - timedelta(days=90)
+        )
+
+        with patch("apps.notifications.tasks.timezone.now", return_value=fixed_now):
+            check_inactivity()
+
+        book.refresh_from_db()
+        user.refresh_from_db()
+        assert book.status == UserBook.Status.AVAILABLE
+        assert user.books_delisted_at is None
+        calls_str = str(mock_async.call_args_list)
+        assert "send_books_delisted_notification" not in calls_str
 
     @patch("django_q.tasks.async_task")
     def test_does_not_delist_twice(self, mock_async):
@@ -728,7 +792,73 @@ class TestSendTradeConfirmedNotificationTask:
 
 @pytest.mark.django_db
 class TestTaskMissingRecordGuards:
-    def test_send_match_notification_missing_match_logs_warning(self):
+    def _assert_no_side_effects(self):
+        assert len(mail.outbox) == 0
+        assert Notification.objects.count() == 0
+
+    def test_send_verification_email_missing_user_logs_warning_and_no_side_effects(
+        self,
+    ):
+        from uuid import uuid4
+        from apps.notifications.tasks import send_verification_email
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_verification_email(str(uuid4()), "uid", "token")
+
+        mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
+
+    def test_send_password_reset_email_missing_user_logs_warning_and_no_side_effects(
+        self,
+    ):
+        from uuid import uuid4
+        from apps.notifications.tasks import send_password_reset_email
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_password_reset_email(str(uuid4()), "uid", "token")
+
+        mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
+
+    def test_send_admin_registration_alert_missing_user_logs_warning_and_no_side_effects(
+        self,
+    ):
+        from uuid import uuid4
+        from apps.notifications.tasks import send_admin_registration_alert
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_admin_registration_alert(str(uuid4()))
+
+        mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
+
+    def test_send_admin_email_verified_alert_missing_user_logs_warning_and_no_side_effects(
+        self,
+    ):
+        from uuid import uuid4
+        from apps.notifications.tasks import send_admin_email_verified_alert
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_admin_email_verified_alert(str(uuid4()))
+
+        mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
+
+    def test_send_admin_postal_verified_alert_missing_user_logs_warning_and_no_side_effects(
+        self,
+    ):
+        from uuid import uuid4
+        from apps.notifications.tasks import send_admin_postal_verified_alert
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_admin_postal_verified_alert(str(uuid4()))
+
+        mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
+
+    def test_send_match_notification_missing_match_logs_warning_and_no_side_effects(
+        self,
+    ):
         from uuid import uuid4
 
         from apps.notifications.tasks import send_match_notification
@@ -737,8 +867,11 @@ class TestTaskMissingRecordGuards:
             send_match_notification(str(uuid4()))
 
         mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
 
-    def test_send_trade_confirmed_notification_missing_trade_logs_warning(self):
+    def test_send_trade_confirmed_notification_missing_trade_logs_warning_and_no_side_effects(
+        self,
+    ):
         from uuid import uuid4
 
         from apps.notifications.tasks import send_trade_confirmed_notification
@@ -747,8 +880,9 @@ class TestTaskMissingRecordGuards:
             send_trade_confirmed_notification(str(uuid4()))
 
         mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
 
-    def test_send_rating_reminder_missing_user_logs_warning(self):
+    def test_send_rating_reminder_missing_user_logs_warning_and_no_side_effects(self):
         from uuid import uuid4
 
         trade = TradeFactory()
@@ -758,8 +892,9 @@ class TestTaskMissingRecordGuards:
             send_rating_reminder(str(trade.pk), str(uuid4()))
 
         mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
 
-    def test_send_rating_reminder_missing_trade_logs_warning(self):
+    def test_send_rating_reminder_missing_trade_logs_warning_and_no_side_effects(self):
         user = UserFactory()
         from uuid import uuid4
 
@@ -769,3 +904,62 @@ class TestTaskMissingRecordGuards:
             send_rating_reminder(str(uuid4()), str(user.pk))
 
         mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
+
+    def test_send_inactivity_warning_1m_missing_user_logs_warning_and_no_side_effects(
+        self,
+    ):
+        from uuid import uuid4
+
+        witness = UserFactory(inactivity_warned_1m=None)
+        from apps.notifications.tasks import send_inactivity_warning_1m
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_inactivity_warning_1m(str(uuid4()))
+
+        witness.refresh_from_db()
+        mock_logger.warning.assert_called_once()
+        assert witness.inactivity_warned_1m is None
+        self._assert_no_side_effects()
+
+    def test_send_inactivity_warning_2m_missing_user_logs_warning_and_no_side_effects(
+        self,
+    ):
+        from uuid import uuid4
+
+        witness = UserFactory(inactivity_warned_2m=None)
+        from apps.notifications.tasks import send_inactivity_warning_2m
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_inactivity_warning_2m(str(uuid4()))
+
+        witness.refresh_from_db()
+        mock_logger.warning.assert_called_once()
+        assert witness.inactivity_warned_2m is None
+        self._assert_no_side_effects()
+
+    def test_send_books_delisted_notification_missing_user_logs_warning_and_no_side_effects(
+        self,
+    ):
+        from uuid import uuid4
+
+        from apps.notifications.tasks import send_books_delisted_notification
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_books_delisted_notification(str(uuid4()))
+
+        mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()
+
+    def test_send_account_deletion_initiated_missing_user_logs_warning_and_no_side_effects(
+        self,
+    ):
+        from uuid import uuid4
+
+        from apps.notifications.tasks import send_account_deletion_initiated
+
+        with patch("apps.notifications.tasks.logger") as mock_logger:
+            send_account_deletion_initiated(str(uuid4()))
+
+        mock_logger.warning.assert_called_once()
+        self._assert_no_side_effects()

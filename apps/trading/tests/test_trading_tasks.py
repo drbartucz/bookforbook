@@ -254,6 +254,96 @@ class TestAutoCloseTrades:
         assert s1.user_book.status == UserBook.Status.TRADED
         assert s2.user_book.status == UserBook.Status.TRADED
 
+    def test_shipping_auto_close_rolls_back_on_midway_mutation_failure(self):
+        """If one core mutation fails, all trade mutations roll back for that trade."""
+        a = UserFactory()
+        b = UserFactory()
+        trade, s1, s2 = _make_trade(a, b, Trade.Status.SHIPPING, overdue=True)
+
+        def _user_filter_side_effect(*_args, **_kwargs):
+            class _BrokenQuerySet:
+                def update(self, **_update_kwargs):
+                    raise RuntimeError("counter update failed")
+
+            return _BrokenQuerySet()
+
+        with patch(
+            "apps.accounts.models.User.objects.filter",
+            side_effect=_user_filter_side_effect,
+        ):
+            auto_close_trades()
+
+        trade.refresh_from_db()
+        s1.refresh_from_db()
+        s2.refresh_from_db()
+        s1.user_book.refresh_from_db()
+        s2.user_book.refresh_from_db()
+        a.refresh_from_db()
+        b.refresh_from_db()
+
+        assert trade.status == Trade.Status.SHIPPING
+        assert trade.completed_at is None
+        assert s1.status == TradeShipment.Status.PENDING
+        assert s2.status == TradeShipment.Status.PENDING
+        assert s1.user_book.status == UserBook.Status.RESERVED
+        assert s2.user_book.status == UserBook.Status.RESERVED
+        assert a.total_trades == 0
+        assert b.total_trades == 0
+
+    def test_notification_failure_does_not_rollback_committed_auto_close(self):
+        """Notification errors are best-effort and must not undo committed core state."""
+        a = UserFactory()
+        b = UserFactory()
+        trade, s1, s2 = _make_trade(a, b, Trade.Status.SHIPPING, overdue=True)
+
+        with patch(
+            "apps.notifications.models.Notification.objects.create",
+            side_effect=RuntimeError("notify failed"),
+        ):
+            auto_close_trades()
+
+        trade.refresh_from_db()
+        s1.refresh_from_db()
+        s2.refresh_from_db()
+        s1.user_book.refresh_from_db()
+        s2.user_book.refresh_from_db()
+        a.refresh_from_db()
+        b.refresh_from_db()
+
+        assert trade.status == Trade.Status.AUTO_CLOSED
+        assert trade.completed_at is not None
+        assert s1.status == TradeShipment.Status.RECEIVED
+        assert s2.status == TradeShipment.Status.RECEIVED
+        assert s1.user_book.status == UserBook.Status.TRADED
+        assert s2.user_book.status == UserBook.Status.TRADED
+        assert a.total_trades == 1
+        assert b.total_trades == 1
+
+    def test_shipping_auto_close_updates_all_core_state(self):
+        """Success path updates shipments, books, counters, and trade completion fields."""
+        a = UserFactory()
+        b = UserFactory()
+        trade, s1, s2 = _make_trade(a, b, Trade.Status.SHIPPING, overdue=True)
+
+        auto_close_trades()
+
+        trade.refresh_from_db()
+        s1.refresh_from_db()
+        s2.refresh_from_db()
+        s1.user_book.refresh_from_db()
+        s2.user_book.refresh_from_db()
+        a.refresh_from_db()
+        b.refresh_from_db()
+
+        assert trade.status == Trade.Status.AUTO_CLOSED
+        assert trade.completed_at is not None
+        assert s1.status == TradeShipment.Status.RECEIVED
+        assert s2.status == TradeShipment.Status.RECEIVED
+        assert s1.user_book.status == UserBook.Status.TRADED
+        assert s2.user_book.status == UserBook.Status.TRADED
+        assert a.total_trades == 1
+        assert b.total_trades == 1
+
 
 # ---------------------------------------------------------------------------
 # check_trade_completion — ONE_RECEIVED for multi-leg rings
@@ -411,9 +501,7 @@ class TestSendRatingReminders:
         trade, _s1, _s2 = _make_trade(a, b, Trade.Status.SHIPPING)
         assert trade.rating_reminders_sent == 0
 
-        with patch(
-            "django_q.tasks.async_task", side_effect=RuntimeError("queue down")
-        ):
+        with patch("django_q.tasks.async_task", side_effect=RuntimeError("queue down")):
             send_rating_reminders()
 
         trade.refresh_from_db()

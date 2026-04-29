@@ -1,5 +1,6 @@
 import logging
 
+from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -90,34 +91,35 @@ def auto_close_trades():
                 user_ids.add(s.sender_id)
                 user_ids.add(s.receiver_id)
 
-            if trade.status == Trade.Status.CONFIRMED:
-                # Nothing was shipped — restore books to available, don't count as a trade
-                UserBook.objects.filter(pk__in=book_ids).update(
-                    status=UserBook.Status.AVAILABLE
-                )
-            else:
-                # Books are in transit (SHIPPING / ONE_RECEIVED) — treat as delivered
-                TradeShipment.objects.filter(
-                    trade=trade,
-                    status__in=[
-                        TradeShipment.Status.PENDING,
-                        TradeShipment.Status.SHIPPED,
-                    ],
-                ).update(
-                    status=TradeShipment.Status.RECEIVED,
-                    received_at=now,
-                )
-                UserBook.objects.filter(pk__in=book_ids).update(
-                    status=UserBook.Status.TRADED
-                )
-                User.objects.filter(pk__in=user_ids).update(
-                    total_trades=F("total_trades") + 1
-                )
+            with transaction.atomic():
+                if trade.status == Trade.Status.CONFIRMED:
+                    # Nothing was shipped — restore books to available, don't count as a trade
+                    UserBook.objects.filter(pk__in=book_ids).update(
+                        status=UserBook.Status.AVAILABLE
+                    )
+                else:
+                    # Books are in transit (SHIPPING / ONE_RECEIVED) — treat as delivered
+                    TradeShipment.objects.filter(
+                        trade=trade,
+                        status__in=[
+                            TradeShipment.Status.PENDING,
+                            TradeShipment.Status.SHIPPED,
+                        ],
+                    ).update(
+                        status=TradeShipment.Status.RECEIVED,
+                        received_at=now,
+                    )
+                    UserBook.objects.filter(pk__in=book_ids).update(
+                        status=UserBook.Status.TRADED
+                    )
+                    User.objects.filter(pk__in=user_ids).update(
+                        total_trades=F("total_trades") + 1
+                    )
 
-            # Close trade
-            trade.status = Trade.Status.AUTO_CLOSED
-            trade.completed_at = now
-            trade.save(update_fields=["status", "completed_at"])
+                # Close trade
+                trade.status = Trade.Status.AUTO_CLOSED
+                trade.completed_at = now
+                trade.save(update_fields=["status", "completed_at"])
 
             # Notify
             for uid in user_ids:
