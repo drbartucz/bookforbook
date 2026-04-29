@@ -157,8 +157,6 @@ def reveal_addresses(trade, requesting_user) -> dict:
         Trade.Status.CONFIRMED,
         Trade.Status.SHIPPING,
         Trade.Status.ONE_RECEIVED,
-        Trade.Status.COMPLETED,
-        Trade.Status.AUTO_CLOSED,
     ]:
         return {}
 

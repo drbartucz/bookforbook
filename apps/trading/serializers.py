@@ -91,31 +91,54 @@ class TradeProposalCreateSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
+        from django.db import transaction
+        from apps.inventory.models import UserBook
         from apps.trading.models import TradeProposalItem
 
         proposer = validated_data['proposer']
         recipient = validated_data['recipient']
-        proposer_book = validated_data['proposer_book']
-        recipient_book = validated_data['recipient_book']
         message = validated_data.get('message', '')
         origin_match_id = validated_data.get('origin_match_id')
 
-        proposal = TradeProposal.objects.create(
-            proposer=proposer,
-            recipient=recipient,
-            message=message,
-            origin_match_id=origin_match_id,
-        )
-        TradeProposalItem.objects.create(
-            proposal=proposal,
-            direction=TradeProposalItem.Direction.PROPOSER_SENDS,
-            user_book=proposer_book,
-        )
-        TradeProposalItem.objects.create(
-            proposal=proposal,
-            direction=TradeProposalItem.Direction.RECIPIENT_SENDS,
-            user_book=recipient_book,
-        )
+        with transaction.atomic():
+            try:
+                proposer_book = UserBook.objects.select_for_update().get(
+                    pk=validated_data['proposer_book'].pk,
+                    user=proposer,
+                    status=UserBook.Status.AVAILABLE,
+                )
+            except UserBook.DoesNotExist:
+                raise serializers.ValidationError(
+                    {'proposer_book_id': 'Book is no longer available.'}
+                )
+
+            try:
+                recipient_book = UserBook.objects.select_for_update().get(
+                    pk=validated_data['recipient_book'].pk,
+                    user=recipient,
+                    status=UserBook.Status.AVAILABLE,
+                )
+            except UserBook.DoesNotExist:
+                raise serializers.ValidationError(
+                    {'recipient_book_id': 'Book is no longer available.'}
+                )
+
+            proposal = TradeProposal.objects.create(
+                proposer=proposer,
+                recipient=recipient,
+                message=message,
+                origin_match_id=origin_match_id,
+            )
+            TradeProposalItem.objects.create(
+                proposal=proposal,
+                direction=TradeProposalItem.Direction.PROPOSER_SENDS,
+                user_book=proposer_book,
+            )
+            TradeProposalItem.objects.create(
+                proposal=proposal,
+                direction=TradeProposalItem.Direction.RECIPIENT_SENDS,
+                user_book=recipient_book,
+            )
         return proposal
 
 

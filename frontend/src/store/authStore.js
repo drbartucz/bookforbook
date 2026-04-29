@@ -71,7 +71,9 @@ const useAuthStore = create(
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
+        // refreshToken intentionally not persisted to localStorage —
+        // keeping it in memory only limits the XSS exfiltration window
+        // to the active session rather than the full 7-day token lifetime.
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;

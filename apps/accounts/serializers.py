@@ -216,6 +216,8 @@ class UserMeSerializer(serializers.ModelSerializer):
 class UserMeUpdateSerializer(serializers.ModelSerializer):
     """PATCH — only updatable fields."""
 
+    _ADDRESS_FIELDS = {"full_name", "address_line_1", "address_line_2", "city", "state", "zip_code"}
+
     class Meta:
         model = User
         fields = [
@@ -245,6 +247,12 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
                 "Enter a valid US ZIP code (e.g. 12345 or 12345-6789)."
             )
         return value
+
+    def update(self, instance, validated_data):
+        if self._ADDRESS_FIELDS & set(validated_data):
+            validated_data["address_verification_status"] = User.AddressVerificationStatus.UNVERIFIED
+            validated_data["address_verified_at"] = None
+        return super().update(instance, validated_data)
 
 
 class AccountDeletionSerializer(serializers.Serializer):
