@@ -36,7 +36,7 @@ test.describe('My Books', () => {
     // Look up a new ISBN (mock intercepts any ISBN)
     const isbnInput = page.getByRole('textbox', { name: /^isbn$/i });
     await isbnInput.fill('9780451524935');
-    await page.getByRole('button', { name: /lookup/i }).click();
+    await page.getByRole('button', { name: /look\s*up/i }).click();
 
     // Wait for book preview to appear
     await expect(page.getByText(MOCK_BOOK_LOOKUP.title)).toBeVisible({ timeout: 8_000 });
@@ -113,7 +113,7 @@ test.describe('Wishlist', () => {
 
     // Fill ISBN and look up
     await page.getByRole('textbox', { name: /^isbn$/i }).fill('9780741234567');
-    await page.getByRole('button', { name: /lookup/i }).click();
+    await page.getByRole('button', { name: /look\s*up/i }).click();
 
     // Preview appears — use .first() because the edition-preference dialog also
     // contains the title, which would cause a strict-mode violation

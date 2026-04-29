@@ -72,7 +72,7 @@ test.describe('Auth — Extended', () => {
   test('register: selecting Library reveals institution fields', async ({ guestPage: page }) => {
     await page.goto('/register');
 
-    await page.getByRole('radio', { name: /^library$/i }).click();
+    await page.getByRole('radio', { name: /^library/i }).click();
 
     await expect(page.getByLabel(/institution name/i)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByLabel(/institution website/i)).toBeVisible();
@@ -81,7 +81,7 @@ test.describe('Auth — Extended', () => {
   test('register: selecting Bookstore reveals institution fields', async ({ guestPage: page }) => {
     await page.goto('/register');
 
-    await page.getByRole('radio', { name: /^bookstore$/i }).click();
+    await page.getByRole('radio', { name: /^bookstore/i }).click();
 
     await expect(page.getByLabel(/institution name/i)).toBeVisible({ timeout: 5_000 });
   });
@@ -89,7 +89,7 @@ test.describe('Auth — Extended', () => {
   test('register: institution name required when Library selected', async ({ guestPage: page }) => {
     await page.goto('/register');
 
-    await page.getByRole('radio', { name: /^library$/i }).click();
+    await page.getByRole('radio', { name: /^library/i }).click();
     await page.getByLabel(/email address/i).fill('lib@example.com');
     await page.getByLabel(/^username/i).fill('testlibrary');
     await page.getByLabel(/^password$/i).fill('TestPass123!');
@@ -115,10 +115,10 @@ test.describe('Auth — Extended', () => {
   test('register: switching back to Individual hides institution fields', async ({ guestPage: page }) => {
     await page.goto('/register');
 
-    await page.getByRole('radio', { name: /^library$/i }).click();
+    await page.getByRole('radio', { name: /^library/i }).click();
     await expect(page.getByLabel(/institution name/i)).toBeVisible({ timeout: 5_000 });
 
-    await page.getByRole('radio', { name: /^individual$/i }).click();
+    await page.getByRole('radio', { name: /^individual/i }).click();
     await expect(page.getByLabel(/institution name/i)).not.toBeVisible();
   });
 
