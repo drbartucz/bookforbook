@@ -27,7 +27,10 @@ from .serializers import (
     UserPublicProfileSerializer,
 )
 from .throttles import (
+    DataExportRateThrottle,
+    EmailVerifyRateThrottle,
     LoginRateThrottle,
+    PasswordResetConfirmRateThrottle,
     PasswordResetRateThrottle,
     RegisterRateThrottle,
 )
@@ -79,6 +82,7 @@ class RegisterView(APIView):
 
 class VerifyEmailView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [EmailVerifyRateThrottle]
 
     def post(self, request):
         serializer = EmailVerificationSerializer(data=request.data)
@@ -177,6 +181,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetConfirmRateThrottle]
 
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
@@ -184,6 +189,23 @@ class PasswordResetConfirmView(APIView):
         user = serializer.validated_data["user"]
         user.set_password(serializer.validated_data["new_password"])
         user.save(update_fields=["password"])
+
+        try:
+            from rest_framework_simplejwt.token_blacklist.models import (
+                BlacklistedToken,
+                OutstandingToken,
+            )
+
+            outstanding = OutstandingToken.objects.filter(user=user)
+            BlacklistedToken.objects.bulk_create(
+                [BlacklistedToken(token=t) for t in outstanding],
+                ignore_conflicts=True,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to blacklist tokens for user %s after password reset", user.pk
+            )
+
         return Response({"detail": "Password reset successfully."})
 
 
@@ -322,6 +344,7 @@ class UserAddressVerifyView(APIView):
 
 class UserMeExportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [DataExportRateThrottle]
 
     def get(self, request):
         user = request.user

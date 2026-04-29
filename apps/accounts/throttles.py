@@ -1,4 +1,4 @@
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -11,3 +11,15 @@ class RegisterRateThrottle(AnonRateThrottle):
 
 class PasswordResetRateThrottle(AnonRateThrottle):
     scope = "auth_password_reset"
+
+
+class EmailVerifyRateThrottle(AnonRateThrottle):
+    scope = "auth_email_verify"
+
+
+class PasswordResetConfirmRateThrottle(AnonRateThrottle):
+    scope = "auth_reset_confirm"
+
+
+class DataExportRateThrottle(UserRateThrottle):
+    scope = "data_export"

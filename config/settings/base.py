@@ -31,6 +31,7 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "dbbackup",
     "storages",
+    "csp",
 ]
 
 LOCAL_APPS = [
@@ -58,6 +59,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "csp.middleware.CSPMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -132,6 +134,9 @@ REST_FRAMEWORK = {
         "auth_login": "10/hour",
         "auth_register": "5/hour",
         "auth_password_reset": "5/hour",
+        "auth_email_verify": "10/hour",
+        "auth_reset_confirm": "10/hour",
+        "data_export": "5/day",
     },
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",

@@ -77,6 +77,15 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
 
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": ["'none'"],
+        "connect-src": ["'self'"],
+        "frame-ancestors": ["'none'"],
+        "form-action": ["'self'"],
+    },
+}
+
 # Railway terminates TLS at the proxy — tell Django to trust the forwarded header
 # instead of redirecting in an infinite loop
 SECURE_SSL_REDIRECT = True

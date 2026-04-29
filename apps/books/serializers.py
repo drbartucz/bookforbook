@@ -59,7 +59,7 @@ class ImageBarcodeSerializer(serializers.Serializer):
         if value.size > self.MAX_SIZE_BYTES:
             raise serializers.ValidationError("Image must be 10 MB or smaller.")
         content_type = getattr(value, "content_type", "") or ""
-        if content_type and content_type not in self.ALLOWED_TYPES:
+        if content_type not in self.ALLOWED_TYPES:
             raise serializers.ValidationError(
                 "Unsupported image type. Upload a JPEG, PNG, WEBP, or HEIC file."
             )

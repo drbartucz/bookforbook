@@ -17,6 +17,17 @@ OPEN_LIBRARY_BOOKS_API_URL = "https://openlibrary.org/api/books"
 OPEN_LIBRARY_WORKS_URL = "https://openlibrary.org{key}.json"
 OPEN_LIBRARY_WORK_EDITIONS_URL = "https://openlibrary.org{key}/editions.json"
 
+_EDITION_KEY_RE = re.compile(r"^/books/[A-Za-z0-9]+$")
+_WORK_KEY_RE = re.compile(r"^/works/[A-Za-z0-9]+$")
+
+
+def _is_valid_edition_key(key: str) -> bool:
+    return bool(_EDITION_KEY_RE.match(str(key)))
+
+
+def _is_valid_work_key(key: str) -> bool:
+    return bool(_WORK_KEY_RE.match(str(key)))
+
 # Curated corrections for known edition edge cases where Open Library endpoints are
 # missing or return work-level mismatches for specific ISBNs.
 KNOWN_ISBN_METADATA_OVERRIDES = {
@@ -627,7 +638,7 @@ def _find_same_work_print_format(
 
     if not edition_key:
         return None
-    if not str(edition_key).startswith("/books/"):
+    if not _is_valid_edition_key(str(edition_key)):
         return None
 
     try:
@@ -646,7 +657,7 @@ def _find_same_work_print_format(
         if not works or not isinstance(works[0], dict):
             return None
         work_key = works[0].get("key")
-        if not work_key:
+        if not work_key or not _is_valid_work_key(work_key):
             return None
 
         editions_resp = requests.get(
@@ -713,7 +724,7 @@ def _find_same_work_format_for_current_isbn(
     if not edition_key and search_edition_key:
         edition_key = f"/books/{search_edition_key}"
 
-    if not edition_key or not str(edition_key).startswith("/books/"):
+    if not edition_key or not _is_valid_edition_key(str(edition_key)):
         return None
 
     try:
@@ -734,7 +745,7 @@ def _find_same_work_format_for_current_isbn(
             return None
 
         work_key = works[0].get("key")
-        if not work_key:
+        if not work_key or not _is_valid_work_key(work_key):
             return None
 
         editions_resp = requests.get(
@@ -796,9 +807,13 @@ def _fetch_edition_data(edition_key: str) -> dict:
     if normalized_key.startswith("/books/"):
         normalized_key = normalized_key.split("/books/", 1)[1]
 
+    full_key = f"/books/{normalized_key}"
+    if not _is_valid_edition_key(full_key):
+        return data
+
     try:
         resp = requests.get(
-            OPEN_LIBRARY_WORKS_URL.format(key=f"/books/{normalized_key}"),
+            OPEN_LIBRARY_WORKS_URL.format(key=full_key),
             timeout=REQUEST_TIMEOUT,
         )
         if resp.status_code == 200:
