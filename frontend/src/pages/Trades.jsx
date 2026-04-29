@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import useAuth from '../hooks/useAuth.js';
 import { mapTradeForView } from '../adapters/trades.js';
+import { parsePaginatedResponse } from '../utils/pagination.js';
 import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './Trades.module.css';
 
@@ -43,9 +44,9 @@ export default function Trades() {
     },
   });
 
-  const rawItems = Array.isArray(data) ? data : (data?.results ?? []);
+  const { results: rawItems, count } = parsePaginatedResponse(data);
   const items = rawItems.map((trade) => mapTradeForView(trade, user?.id));
-  const totalPages = Math.ceil((Array.isArray(data) ? data.length : (data?.count ?? 0)) / PAGE_SIZE);
+  const totalPages = Math.ceil(count / PAGE_SIZE);
 
   return (
     <div>

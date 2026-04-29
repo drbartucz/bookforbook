@@ -120,7 +120,7 @@ describe('Proposals page', () => {
     });
 
     it('shows loading spinner while fetching', () => {
-        proposals.list.mockReturnValue(new Promise(() => {}));
+        proposals.list.mockReturnValue(new Promise(() => { }));
         renderWithProviders(<Proposals />);
         expect(document.querySelector('[class*="spinner"]') || document.querySelector('[class*="loading"]')).toBeTruthy();
     });
@@ -167,20 +167,23 @@ describe('Proposals page', () => {
         await waitFor(() => expect(proposals.decline).toHaveBeenCalledWith('proposal-2'));
     });
 
-    it('renders proposals from array-format API response', async () => {
+    it('renders proposals from paginated API response', async () => {
         proposals.list.mockResolvedValue({
-            data: [  // Array directly, not {results: []}
-                {
-                    id: 'proposal-arr',
-                    status: 'accepted',
-                    proposer: { id: 'user-2', username: 'alice' },
-                    recipient: { id: 'user-1', username: 'bart0605' },
-                    items: [
-                        { direction: 'proposer_sends', user_book: { id: 'ub-1', condition: 'good', book: { id: 'b1', title: 'Array Book A', authors: [] } } },
-                        { direction: 'recipient_sends', user_book: { id: 'ub-2', condition: 'good', book: { id: 'b2', title: 'Array Book B', authors: [] } } },
-                    ],
-                },
-            ],
+            data: {
+                count: 1,
+                results: [
+                    {
+                        id: 'proposal-arr',
+                        status: 'accepted',
+                        proposer: { id: 'user-2', username: 'alice' },
+                        recipient: { id: 'user-1', username: 'bart0605' },
+                        items: [
+                            { direction: 'proposer_sends', user_book: { id: 'ub-1', condition: 'good', book: { id: 'b1', title: 'Array Book A', authors: [] } } },
+                            { direction: 'recipient_sends', user_book: { id: 'ub-2', condition: 'good', book: { id: 'b2', title: 'Array Book B', authors: [] } } },
+                        ],
+                    },
+                ],
+            },
         });
         renderWithProviders(<Proposals />);
         expect(await screen.findByText('Array Book A')).toBeInTheDocument();

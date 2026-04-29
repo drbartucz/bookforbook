@@ -20,6 +20,7 @@ import Donations from './pages/Donations.jsx';
 import PublicProfile from './pages/PublicProfile.jsx';
 import Institutions from './pages/Institutions.jsx';
 import useAuth from './hooks/useAuth.js';
+import AppErrorBoundary from './components/AppErrorBoundary.jsx';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
@@ -40,125 +41,127 @@ function GuestRoute({ children }) {
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        {/* Public routes */}
-        <Route path="/" element={<Home />} />
-        <Route path="/institutions" element={<Institutions />} />
-        <Route path="/profile/:id" element={<PublicProfile />} />
+    <AppErrorBoundary>
+      <Routes>
+        <Route element={<Layout />}>
+          {/* Public routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/institutions" element={<Institutions />} />
+          <Route path="/profile/:id" element={<PublicProfile />} />
 
-        {/* Guest-only routes */}
-        <Route
-          path="/login"
-          element={
-            <GuestRoute>
-              <Login />
-            </GuestRoute>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <GuestRoute>
-              <Register />
-            </GuestRoute>
-          }
-        />
-        <Route
-          path="/forgot-password"
-          element={
-            <GuestRoute>
-              <ForgotPassword />
-            </GuestRoute>
-          }
-        />
-        <Route
-          path="/reset-password"
-          element={
-            <GuestRoute>
-              <ResetPassword />
-            </GuestRoute>
-          }
-        />
-        <Route path="/verify-email" element={<VerifyEmail />} />
+          {/* Guest-only routes */}
+          <Route
+            path="/login"
+            element={
+              <GuestRoute>
+                <Login />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <GuestRoute>
+                <Register />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <GuestRoute>
+                <ForgotPassword />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <GuestRoute>
+                <ResetPassword />
+              </GuestRoute>
+            }
+          />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
-        {/* Protected routes */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/account"
-          element={
-            <ProtectedRoute>
-              <AccountSettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/my-books"
-          element={
-            <ProtectedRoute>
-              <MyBooks />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/wishlist"
-          element={
-            <ProtectedRoute>
-              <Wishlist />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/matches"
-          element={
-            <ProtectedRoute>
-              <Matches />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/proposals"
-          element={
-            <ProtectedRoute>
-              <Proposals />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/trades"
-          element={
-            <ProtectedRoute>
-              <Trades />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/trades/:id"
-          element={
-            <ProtectedRoute>
-              <TradeDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/donations"
-          element={
-            <ProtectedRoute>
-              <Donations />
-            </ProtectedRoute>
-          }
-        />
+          {/* Protected routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <AccountSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-books"
+            element={
+              <ProtectedRoute>
+                <MyBooks />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/wishlist"
+            element={
+              <ProtectedRoute>
+                <Wishlist />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/matches"
+            element={
+              <ProtectedRoute>
+                <Matches />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/proposals"
+            element={
+              <ProtectedRoute>
+                <Proposals />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trades"
+            element={
+              <ProtectedRoute>
+                <Trades />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trades/:id"
+            element={
+              <ProtectedRoute>
+                <TradeDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/donations"
+            element={
+              <ProtectedRoute>
+                <Donations />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* 404 fallback */}
-        <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+          {/* 404 fallback */}
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+    </AppErrorBoundary>
   );
 }

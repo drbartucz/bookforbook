@@ -63,7 +63,7 @@ describe('Donations page', () => {
     });
 
     it('shows loading spinner while fetching', () => {
-        donations.list.mockReturnValue(new Promise(() => {}));
+        donations.list.mockReturnValue(new Promise(() => { }));
         renderWithProviders(<Donations />);
         expect(document.querySelector('[class*="spinner"]') || document.querySelector('[class*="loading"]')).toBeTruthy();
     });
@@ -186,19 +186,22 @@ describe('Donations page', () => {
         await waitFor(() => expect(screen.getByText('Failed to accept.')).toBeInTheDocument());
     });
 
-    it('renders when API returns array format directly', async () => {
+    it('renders when API returns paginated format', async () => {
         donations.list.mockResolvedValue({
-            data: [
-                {
-                    id: 'donation-arr',
-                    status: 'offered',
-                    created_at: '2026-04-20T12:00:00Z',
-                    is_recipient: false,
-                    donor: { id: 'user-1', username: 'sender' },
-                    institution: { id: 'inst-1', username: 'lib' },
-                    user_book: { condition: 'good', book: { id: 'book-a', title: 'Array Book', authors: ['Writer'] } },
-                },
-            ],
+            data: {
+                count: 1,
+                results: [
+                    {
+                        id: 'donation-arr',
+                        status: 'offered',
+                        created_at: '2026-04-20T12:00:00Z',
+                        is_recipient: false,
+                        donor: { id: 'user-1', username: 'sender' },
+                        institution: { id: 'inst-1', username: 'lib' },
+                        user_book: { condition: 'good', book: { id: 'book-a', title: 'Array Book', authors: ['Writer'] } },
+                    },
+                ],
+            },
         });
         renderWithProviders(<Donations />);
         expect(await screen.findByText('Array Book')).toBeInTheDocument();

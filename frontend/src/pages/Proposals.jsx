@@ -8,6 +8,7 @@ import Pagination from '../components/common/Pagination.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import useAuth from '../hooks/useAuth.js';
 import { mapProposalForCard } from '../adapters/proposals.js';
+import { parsePaginatedResponse } from '../utils/pagination.js';
 import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './Proposals.module.css';
 
@@ -69,9 +70,9 @@ export default function Proposals() {
     onError: (err) => setActionError(err?.response?.data?.detail || 'Failed to decline.'),
   });
 
-  const rawItems = Array.isArray(data) ? data : (data?.results ?? []);
+  const { results: rawItems, count } = parsePaginatedResponse(data);
   const items = rawItems.map((proposal) => mapProposalForCard(proposal, user?.id));
-  const totalPages = Math.ceil((Array.isArray(data) ? data.length : (data?.count ?? 0)) / PAGE_SIZE);
+  const totalPages = Math.ceil(count / PAGE_SIZE);
 
   return (
     <div>

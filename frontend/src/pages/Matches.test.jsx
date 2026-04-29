@@ -127,7 +127,7 @@ describe('Matches page', () => {
     });
 
     it('shows loading spinner while fetching', () => {
-        matches.list.mockReturnValue(new Promise(() => {}));
+        matches.list.mockReturnValue(new Promise(() => { }));
         renderWithProviders(<Matches />);
         expect(document.querySelector('[class*="spinner"]') || document.querySelector('[class*="loading"]')).toBeTruthy();
     });
@@ -315,19 +315,22 @@ describe('Matches page', () => {
         );
     });
 
-    it('renders matches from array-format API response (covers Array.isArray(data) true branch)', async () => {
+    it('renders matches from paginated API response', async () => {
         matches.list.mockResolvedValue({
-            data: [
-                {
-                    id: 'match-arr-1',
-                    status: 'accepted',
-                    match_type: 'direct',
-                    legs: [
-                        { sender: { id: 'user-1', username: 'bart0605' }, receiver: { id: 'user-2', username: 'alice' }, user_book: { condition: 'good', book: { id: 'b7', title: 'Array Book A', authors: ['Array Author'] } } },
-                        { sender: { id: 'user-2', username: 'alice' }, receiver: { id: 'user-1', username: 'bart0605' }, user_book: { condition: 'good', book: { id: 'b8', title: 'Array Book B', authors: ['Array Author 2'] } } },
-                    ],
-                },
-            ],
+            data: {
+                count: 1,
+                results: [
+                    {
+                        id: 'match-arr-1',
+                        status: 'accepted',
+                        match_type: 'direct',
+                        legs: [
+                            { sender: { id: 'user-1', username: 'bart0605' }, receiver: { id: 'user-2', username: 'alice' }, user_book: { condition: 'good', book: { id: 'b7', title: 'Array Book A', authors: ['Array Author'] } } },
+                            { sender: { id: 'user-2', username: 'alice' }, receiver: { id: 'user-1', username: 'bart0605' }, user_book: { condition: 'good', book: { id: 'b8', title: 'Array Book B', authors: ['Array Author 2'] } } },
+                        ],
+                    },
+                ],
+            },
         });
         renderWithProviders(<Matches />);
         expect(await screen.findByText('Array Book A')).toBeInTheDocument();

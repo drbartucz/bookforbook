@@ -85,7 +85,7 @@ describe('Trades page', () => {
     });
 
     it('shows loading spinner while fetching', () => {
-        trades.list.mockReturnValue(new Promise(() => {}));
+        trades.list.mockReturnValue(new Promise(() => { }));
         renderWithProviders(<Trades />);
         expect(document.querySelector('[class*="spinner"]') || document.querySelector('[class*="loading"]') || screen.queryByText(/loading/i)).toBeTruthy();
     });
@@ -103,45 +103,48 @@ describe('Trades page', () => {
         expect(screen.getByRole('link', { name: /view matches/i })).toBeInTheDocument();
     });
 
-    it('renders trades from array-format API response and handles no cover/author', async () => {
+    it('renders trades from paginated API response and handles no cover/author', async () => {
         trades.list.mockResolvedValue({
-            data: [  // Array directly (not {results: []})
-                {
-                    id: 'trade-arr-1',
-                    status: 'unknown_custom_status',  // not in TRADE_STATUS_CONFIG
-                    created_at: '2026-04-20T12:00:00Z',
-                    shipments: [
-                        {
-                            sender: { id: 'user-1', username: 'bart0605' },
-                            receiver: { id: 'user-2', username: 'bob' },
-                            status: 'pending',
-                            user_book: {
-                                condition: 'good',
-                                book: {
-                                    id: 'book-nc1',
-                                    title: 'No Cover Book',
-                                    authors: [],
-                                    cover_image_url: null,
+            data: {
+                count: 1,
+                results: [
+                    {
+                        id: 'trade-arr-1',
+                        status: 'unknown_custom_status',  // not in TRADE_STATUS_CONFIG
+                        created_at: '2026-04-20T12:00:00Z',
+                        shipments: [
+                            {
+                                sender: { id: 'user-1', username: 'bart0605' },
+                                receiver: { id: 'user-2', username: 'bob' },
+                                status: 'pending',
+                                user_book: {
+                                    condition: 'good',
+                                    book: {
+                                        id: 'book-nc1',
+                                        title: 'No Cover Book',
+                                        authors: [],
+                                        cover_image_url: null,
+                                    },
                                 },
                             },
-                        },
-                        {
-                            sender: { id: 'user-2', username: 'bob' },
-                            receiver: { id: 'user-1', username: 'bart0605' },
-                            status: 'pending',
-                            user_book: {
-                                condition: 'good',
-                                book: {
-                                    id: 'book-nc2',
-                                    title: 'Also No Cover',
-                                    authors: [],
-                                    cover_image_url: null,
+                            {
+                                sender: { id: 'user-2', username: 'bob' },
+                                receiver: { id: 'user-1', username: 'bart0605' },
+                                status: 'pending',
+                                user_book: {
+                                    condition: 'good',
+                                    book: {
+                                        id: 'book-nc2',
+                                        title: 'Also No Cover',
+                                        authors: [],
+                                        cover_image_url: null,
+                                    },
                                 },
                             },
-                        },
-                    ],
-                },
-            ],
+                        ],
+                    },
+                ],
+            },
         });
         renderWithProviders(<Trades />);
         expect(await screen.findByText('No Cover Book')).toBeInTheDocument();

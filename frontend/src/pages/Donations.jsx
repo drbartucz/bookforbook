@@ -7,6 +7,7 @@ import ConditionBadge from '../components/common/ConditionBadge.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
+import { parsePaginatedResponse } from '../utils/pagination.js';
 import styles from './Donations.module.css';
 
 const PAGE_SIZE = 15;
@@ -58,8 +59,8 @@ export default function Donations() {
     onError: (err) => setActionError(err?.response?.data?.detail || 'Failed to decline.'),
   });
 
-  const items = Array.isArray(data) ? data : (data?.results ?? []);
-  const totalPages = Math.ceil((Array.isArray(data) ? data.length : (data?.count ?? 0)) / PAGE_SIZE);
+  const { results: items, count } = parsePaginatedResponse(data);
+  const totalPages = Math.ceil(count / PAGE_SIZE);
 
   return (
     <div>

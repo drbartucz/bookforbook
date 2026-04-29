@@ -9,6 +9,7 @@ import Pagination from '../components/common/Pagination.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import useAuth from '../hooks/useAuth.js';
 import { mapMatchForCard } from '../adapters/matches.js';
+import { parsePaginatedResponse } from '../utils/pagination.js';
 import Tooltip from '../components/common/Tooltip.jsx';
 import styles from './Matches.module.css';
 
@@ -80,9 +81,9 @@ export default function Matches() {
     },
   });
 
-  const rawItems = Array.isArray(data) ? data : (data?.results ?? []);
+  const { results: rawItems, count } = parsePaginatedResponse(data);
   const items = rawItems.map((match) => mapMatchForCard(match, user?.id));
-  const totalPages = Math.ceil((Array.isArray(data) ? data.length : (data?.count ?? 0)) / PAGE_SIZE);
+  const totalPages = Math.ceil(count / PAGE_SIZE);
 
   function handleTabChange(val) {
     setStatusFilter(val);
