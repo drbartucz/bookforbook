@@ -10,51 +10,45 @@ jobs:
   backend:
     name: Backend (pytest)
     runs-on: ubuntu-latest
-
+    env:
+      FIELD_ENCRYPTION_KEY: ZmFrZS1mZXJuZXQta2V5LXRlc3QtZm9yLWRldg==
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
       - name: Set up Python
         uses: actions/setup-python@v6
-        backend:
-          name: Backend (pytest)
-          runs-on: ubuntu-latest
-          env:
-            FIELD_ENCRYPTION_KEY: ZmFrZS1mZXJuZXQta2V5LXRlc3QtZm9yLWRldg==
-          steps:
-            - name: Checkout
-              uses: actions/checkout@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run backend tests with coverage
+        run: pytest --cov=apps --cov-report=term-missing --cov-report=xml
 
-            - name: Set up Python
-              uses: actions/setup-python@v6
-              with:
-                python-version: '3.12'
-
-            - name: Install backend dependencies
-              run: |
-                python -m pip install --upgrade pip
-                pip install -r requirements.txt
-
-            - name: Run backend tests with coverage
-              run: pytest --cov=apps --cov-report=term-missing --cov-report=xml
+  frontend:
+    name: Frontend (vitest)
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
         uses: actions/checkout@v5
-
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install frontend dependencies
         run: npm ci --include=dev
-
       - name: Verify Vitest binary exists
         run: |
           node -p "require('./node_modules/vitest/package.json').version"
           test -f ./node_modules/vitest/dist/cli.js
-
       - name: Run frontend tests with coverage
         run: npm run test:coverage
 
