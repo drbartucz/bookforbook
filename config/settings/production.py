@@ -18,9 +18,9 @@ if SECRET_KEY == _INSECURE_DEFAULT_SECRET_KEY:  # noqa: F405
 # Fail if FIELD_ENCRYPTION_KEY is unset or set to any known insecure value
 _INSECURE_FIELD_ENCRYPTION_KEYS = [
     "NmzoBw3C4Rvblhs8AsAsnF-GYGVQatPZnEuvj_aZZUE=",  # old default
-    "6UT73Rb3OllRdfuVxXhLjzjqn1Nn8yIMiLXiUGX4hJA=",    # previous base.py default
-    "your-fernet-key-here",                            # .env.example placeholder
-    "",                                                # empty string
+    "6UT73Rb3OllRdfuVxXhLjzjqn1Nn8yIMiLXiUGX4hJA=",  # previous base.py default
+    "your-fernet-key-here",  # .env.example placeholder
+    "",  # empty string
     None,
 ]
 if FIELD_ENCRYPTION_KEY in _INSECURE_FIELD_ENCRYPTION_KEYS:  # noqa: F405
