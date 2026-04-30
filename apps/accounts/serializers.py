@@ -66,14 +66,8 @@ class LoginSerializer(serializers.Serializer):
         user = authenticate(
             request=self.context.get("request"), username=email, password=password
         )
-        if not user:
+        if not user or not user.email_verified or not user.is_active:
             raise serializers.ValidationError("Invalid email or password.")
-        if not user.email_verified:
-            raise serializers.ValidationError(
-                "Email address not verified. Please check your inbox."
-            )
-        if not user.is_active:
-            raise serializers.ValidationError("This account has been deactivated.")
         attrs["user"] = user
         return attrs
 
