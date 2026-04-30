@@ -164,12 +164,12 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
-        from django.conf import settings
+        import os
         from django.core.management.base import CommandError
 
-        if not settings.DEBUG:
+        if "production" in os.environ.get("DJANGO_SETTINGS_MODULE", ""):
             raise CommandError(
-                "seed_data may only be run with DEBUG=True. "
+                "seed_data may only be run outside of production. "
                 "Do not run seed commands against production."
             )
 
