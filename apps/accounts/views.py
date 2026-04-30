@@ -33,6 +33,7 @@ from .throttles import (
     PasswordResetConfirmRateThrottle,
     PasswordResetRateThrottle,
     RegisterRateThrottle,
+    ResendVerificationRateThrottle,
 )
 from .tokens import email_verification_token
 
@@ -146,6 +147,30 @@ class LogoutView(APIView):
         except Exception:
             pass  # Already expired or invalid — treat as logged out
         return Response({"detail": "Logged out."}, status=status.HTTP_200_OK)
+
+
+class ResendVerificationView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ResendVerificationRateThrottle]
+
+    def post(self, request):
+        email = request.data.get("email", "")
+        try:
+            user = User.objects.get(email=email, is_active=True, email_verified=False)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = email_verification_token.make_token(user)
+            from django_q.tasks import async_task
+            async_task(
+                "apps.notifications.tasks.send_verification_email",
+                str(user.pk),
+                uid,
+                token,
+            )
+        except User.DoesNotExist:
+            pass  # Don't reveal whether the email exists or is already verified
+        return Response(
+            {"detail": "If an unverified account with that email exists, a new verification link has been sent."}
+        )
 
 
 class PasswordResetRequestView(APIView):
