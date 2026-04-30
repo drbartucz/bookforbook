@@ -175,6 +175,15 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        import os
+        from django.core.management.base import CommandError
+
+        if "production" in os.environ.get("DJANGO_SETTINGS_MODULE", ""):
+            raise CommandError(
+                "seed_e2e may only be run outside of production. "
+                "Do not run seed commands against production."
+            )
+
         if options["reset"]:
             self._reset()
 

@@ -56,6 +56,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
+# apps/accounts/serializers.py
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
@@ -66,14 +67,8 @@ class LoginSerializer(serializers.Serializer):
         user = authenticate(
             request=self.context.get("request"), username=email, password=password
         )
-        if not user:
+        if not user or not user.email_verified or not user.is_active:
             raise serializers.ValidationError("Invalid email or password.")
-        if not user.email_verified:
-            raise serializers.ValidationError(
-                "Email address not verified. Please check your inbox."
-            )
-        if not user.is_active:
-            raise serializers.ValidationError("This account has been deactivated.")
         attrs["user"] = user
         return attrs
 
@@ -216,7 +211,14 @@ class UserMeSerializer(serializers.ModelSerializer):
 class UserMeUpdateSerializer(serializers.ModelSerializer):
     """PATCH — only updatable fields."""
 
-    _ADDRESS_FIELDS = {"full_name", "address_line_1", "address_line_2", "city", "state", "zip_code"}
+    _ADDRESS_FIELDS = {
+        "full_name",
+        "address_line_1",
+        "address_line_2",
+        "city",
+        "state",
+        "zip_code",
+    }
 
     class Meta:
         model = User
@@ -250,7 +252,9 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         if self._ADDRESS_FIELDS & set(validated_data):
-            validated_data["address_verification_status"] = User.AddressVerificationStatus.UNVERIFIED
+            validated_data["address_verification_status"] = (
+                User.AddressVerificationStatus.UNVERIFIED
+            )
             validated_data["address_verified_at"] = None
         return super().update(instance, validated_data)
 

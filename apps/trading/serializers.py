@@ -45,6 +45,12 @@ class TradeProposalCreateSerializer(serializers.Serializer):
         request = self.context['request']
         proposer = request.user
 
+        # Proposer must have a verified shipping address before creating a trade
+        if proposer.address_verification_status != User.AddressVerificationStatus.VERIFIED:
+            raise serializers.ValidationError(
+                'You must have a verified shipping address before proposing a trade.'
+            )
+
         # Validate recipient
         try:
             recipient = User.objects.get(pk=attrs['recipient_id'], is_active=True)

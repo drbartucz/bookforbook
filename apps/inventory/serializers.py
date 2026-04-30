@@ -119,6 +119,13 @@ class UserBookUpdateSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate(self, attrs):
+        if self.instance and self.instance.status == UserBook.Status.RESERVED:
+            raise serializers.ValidationError(
+                "Cannot modify a book that is currently reserved for a trade."
+            )
+        return attrs
+
 
 class WishlistItemSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)
