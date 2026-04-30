@@ -136,6 +136,7 @@ REST_FRAMEWORK = {
         "auth_password_reset": "5/hour",
         "auth_email_verify": "10/hour",
         "auth_reset_confirm": "10/hour",
+        "auth_resend_verification": "5/hour",
         "data_export": "5/day",
     },
     "DEFAULT_FILTER_BACKENDS": [
