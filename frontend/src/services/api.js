@@ -119,6 +119,7 @@ export const auth = {
   login: (data) => apiClient.post('/auth/token/', data),
   logout: (data) => apiClient.post('/auth/logout/', data),
   verifyEmail: (data) => apiClient.post('/auth/verify-email/', data),
+  resendVerification: (data) => apiClient.post('/auth/resend-verification/', data),
   requestPasswordReset: (data) => apiClient.post('/auth/password-reset/', data),
   confirmPasswordReset: (data) => apiClient.post('/auth/password-reset/confirm/', data),
   refreshToken: (data) => apiClient.post('/auth/token/refresh/', data),

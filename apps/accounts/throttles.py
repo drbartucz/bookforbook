@@ -21,9 +21,9 @@ class PasswordResetConfirmRateThrottle(AnonRateThrottle):
     scope = "auth_reset_confirm"
 
 
+class ResendVerificationRateThrottle(AnonRateThrottle):
+    scope = "auth_resend_verification"
+
+
 class DataExportRateThrottle(UserRateThrottle):
     scope = "data_export"
-
-
-class AccountDeletionRateThrottle(UserRateThrottle):
-    scope = "account_deletion"
