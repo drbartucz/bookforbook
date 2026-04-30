@@ -137,6 +137,8 @@ REST_FRAMEWORK = {
         "auth_email_verify": "10/hour",
         "auth_reset_confirm": "10/hour",
         "data_export": "5/day",
+        "trade_message": "60/minute",
+        "account_deletion": "5/day",
     },
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -256,6 +258,6 @@ USPS_ADDRESSES_BASE_URL = config(
 # detection. New accounts can still browse, list books, and configure their
 # profile — they simply will not be matched until this threshold has passed.
 MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS = config(
-    "MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS", default=0, cast=int
+    "MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS", default=48, cast=int
 )
 USPS_API_TIMEOUT = config("USPS_API_TIMEOUT", default=8, cast=int)

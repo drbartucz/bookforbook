@@ -8,6 +8,7 @@ from apps.trading.models import Trade
 
 from .models import TradeMessage
 from .serializers import TradeMessageCreateSerializer, TradeMessageSerializer
+from .throttles import TradeMessageRateThrottle
 
 
 class TradeMessageListView(APIView):
@@ -16,6 +17,7 @@ class TradeMessageListView(APIView):
     POST /api/v1/trades/:pk/messages/ — send a message
     """
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [TradeMessageRateThrottle]
 
     def _get_trade_and_verify_party(self, request, pk):
         trade = get_object_or_404(Trade, pk=pk)

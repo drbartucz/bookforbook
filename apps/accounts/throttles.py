@@ -23,3 +23,7 @@ class PasswordResetConfirmRateThrottle(AnonRateThrottle):
 
 class DataExportRateThrottle(UserRateThrottle):
     scope = "data_export"
+
+
+class AccountDeletionRateThrottle(UserRateThrottle):
+    scope = "account_deletion"

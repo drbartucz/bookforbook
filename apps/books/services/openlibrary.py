@@ -19,6 +19,7 @@ OPEN_LIBRARY_WORK_EDITIONS_URL = "https://openlibrary.org{key}/editions.json"
 
 _EDITION_KEY_RE = re.compile(r"^/books/[A-Za-z0-9]+$")
 _WORK_KEY_RE = re.compile(r"^/works/[A-Za-z0-9]+$")
+_AUTHOR_KEY_RE = re.compile(r"^/authors/OL\d+A$")
 
 
 def _is_valid_edition_key(key: str) -> bool:
@@ -846,6 +847,8 @@ def _fetch_edition_data(edition_key: str) -> dict:
 
 def _fetch_author_name(author_key: str) -> str | None:
     """Fetch an author's name from the Open Library Authors endpoint."""
+    if not _AUTHOR_KEY_RE.match(author_key):
+        return None
     try:
         resp = requests.get(
             f"https://openlibrary.org{author_key}.json",

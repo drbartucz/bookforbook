@@ -164,6 +164,15 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        from django.conf import settings
+        from django.core.management.base import CommandError
+
+        if not settings.DEBUG:
+            raise CommandError(
+                "seed_data may only be run with DEBUG=True. "
+                "Do not run seed commands against production."
+            )
+
         size = SIZE_MAP[options["size"]]
         rng = random.Random(options["seed"])
         password = options["password"]

@@ -27,6 +27,7 @@ from .serializers import (
     UserPublicProfileSerializer,
 )
 from .throttles import (
+    AccountDeletionRateThrottle,
     DataExportRateThrottle,
     EmailVerifyRateThrottle,
     LoginRateThrottle,
@@ -211,6 +212,11 @@ class PasswordResetConfirmView(APIView):
 
 class UserMeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_throttles(self):
+        if self.request.method == "DELETE":
+            return [AccountDeletionRateThrottle()]
+        return super().get_throttles()
 
     def get(self, request):
         serializer = UserMeSerializer(request.user)

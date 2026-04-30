@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
@@ -108,6 +109,8 @@ class BackupRecordAdmin(admin.ModelAdmin):
 
     def trigger_backup_view(self, request):
         """POST-only: queue a manual backup and redirect back to the list."""
+        if not request.user.is_superuser:
+            return HttpResponseForbidden("Superuser access required.")
         if request.method != "POST":
             return redirect(reverse("admin:backups_backuprecord_changelist"))
 
@@ -124,6 +127,8 @@ class BackupRecordAdmin(admin.ModelAdmin):
 
     def restore_view(self, request, pk):
         """GET: confirmation page. POST with CONFIRM text: execute restore."""
+        if not request.user.is_superuser:
+            return HttpResponseForbidden("Superuser access required.")
         record = get_object_or_404(BackupRecord, pk=pk)
 
         if request.method == "POST":
