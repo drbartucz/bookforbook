@@ -19,6 +19,7 @@ class UserFactory(factory.django.DjangoModelFactory):
     username = factory.Sequence(lambda n: f"user{n}")
     password = factory.PostGenerationMethodCall("set_password", "testpass123")
     email_verified = True
+    address_verification_status = User.AddressVerificationStatus.VERIFIED
 
     @factory.post_generation
     def persist_password(self, create, extracted, **kwargs):
