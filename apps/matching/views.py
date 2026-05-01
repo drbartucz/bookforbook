@@ -312,27 +312,35 @@ class ReverseDiscoveryView(APIView):
                 my_books_by_book_id.get(want.book_id, [])
             )
 
-        # 6. Populate "they_offer" for these potential partners
+        # 6. Batch-fetch all partner offers in one query to avoid N+1.
+        # Get their available books, excluding what I already have in my wishlist
+        # (If it's in my wishlist, it's a potential direct match or ring leg,
+        # which the automatic matcher should handle).
+        all_partner_ids = list(partner_map.keys())
+        all_partner_books = (
+            UserBook.objects.filter(
+                user_id__in=all_partner_ids,
+                status=UserBook.Status.AVAILABLE,
+            )
+            .exclude(book_id__in=my_wishlist_book_ids)
+            .select_related("book")
+            .order_by("-created_at")
+        )
+
+        # Group by partner, keeping up to 10 books each (preserving recency order).
+        partner_books_map: dict = {}
+        for ub in all_partner_books:
+            books = partner_books_map.setdefault(ub.user_id, [])
+            if len(books) < 10:
+                books.append(ub)
+
         final_results = []
         for partner_id, data in partner_map.items():
-            partner = data["user"]
-            # Get their available books, excluding what I already have in my wishlist
-            # (If it's in my wishlist, it's a potential direct match or ring leg,
-            # which the automatic matcher should handle).
-            partner_offers = list(
-                UserBook.objects.filter(
-                    user=partner,
-                    status=UserBook.Status.AVAILABLE,
-                )
-                .exclude(book_id__in=my_wishlist_book_ids)
-                .select_related("book")
-                .order_by("-created_at")[:10]  # Limit to 10 for discovery preview
-            )
-
+            partner_offers = partner_books_map.get(partner_id, [])
             if partner_offers:
                 final_results.append(
                     {
-                        "user": partner,
+                        "user": data["user"],
                         "they_want": data["they_want_books"],
                         "they_offer": partner_offers,
                     }
