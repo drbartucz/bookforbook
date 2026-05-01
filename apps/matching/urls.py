@@ -7,4 +7,5 @@ urlpatterns = [
     path('<uuid:pk>/', views.MatchDetailView.as_view(), name='match-detail'),
     path('<uuid:pk>/accept/', views.MatchAcceptView.as_view(), name='match-accept'),
     path('<uuid:pk>/decline/', views.MatchDeclineView.as_view(), name='match-decline'),
+    path('discovery/reverse/', views.ReverseDiscoveryView.as_view(), name='reverse-discovery'),
 ]
