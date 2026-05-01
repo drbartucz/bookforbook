@@ -177,6 +177,10 @@ class TestProposalAccept:
         create_resp = _make_proposal(client, pbook, recipient, rbook)
         proposal_id = create_resp.data["id"]
 
+        # Remove recipient's verified address so the accept is rejected with 409
+        recipient.address_verification_status = User.AddressVerificationStatus.UNVERIFIED
+        recipient.save()
+
         client = _auth(api_client, recipient)
         url = reverse("proposal-accept", kwargs={"pk": proposal_id})
         resp = client.post(url, format="json")
@@ -1273,6 +1277,8 @@ class TestInstitutionProposals:
         individual = UserFactory()
         institution = _make_institution()
         # Institution deliberately has NO verified address
+        institution.address_verification_status = User.AddressVerificationStatus.UNVERIFIED
+        institution.save()
 
         ind_book = UserBookFactory(user=individual, book=BookFactory())
         inst_book = UserBookFactory(user=institution, book=BookFactory())

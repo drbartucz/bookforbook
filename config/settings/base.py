@@ -144,7 +144,6 @@ REST_FRAMEWORK = {
         "data_export": "5/day",
         "proposal_create": "30/hour",
         "donation_create": "30/hour",
-        "message_create": "120/hour",
         "trade_message": "60/hour",
     },
     "DEFAULT_FILTER_BACKENDS": [
