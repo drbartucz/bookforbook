@@ -241,7 +241,7 @@ def _notify_match_cancelled(match: Match):
 
 class ReverseDiscoveryView(APIView):
     """
-    GET /api/v1/matching/discovery/reverse/
+    GET /api/v1/matches/discovery/reverse/
     Find users who want books you have available, but where no direct match exists.
     Returns a list of partners with the books they want from you and the books they offer.
     """
