@@ -290,6 +290,11 @@ class ReverseDiscoveryView(APIView):
         )
 
         # 5. Group by user and build response
+        # Index my available books by book_id for O(1) lookup
+        my_books_by_id: dict = {}
+        for ub in my_available_books:
+            my_books_by_id.setdefault(ub.book_id, []).append(ub)
+
         partner_map = {}
         for want in other_wants:
             partner = want.user
@@ -300,13 +305,12 @@ class ReverseDiscoveryView(APIView):
                 partner_map[partner.id] = {
                     "user": partner,
                     "they_want_books": [],
-                    "they_offer_books": [],
                 }
 
-            # Find which of my UserBook instances match this wanted book
-            for ub in my_available_books:
-                if ub.book_id == want.book_id:
-                    partner_map[partner.id]["they_want_books"].append(ub)
+            # O(1) lookup instead of scanning all my available books
+            partner_map[partner.id]["they_want_books"].extend(
+                my_books_by_id.get(want.book_id, [])
+            )
 
         # 6. Populate "they_offer" for these potential partners
         final_results = []
@@ -315,7 +319,7 @@ class ReverseDiscoveryView(APIView):
             # Get their available books, excluding what I already have in my wishlist
             # (If it's in my wishlist, it's a potential direct match or ring leg,
             # which the automatic matcher should handle).
-            partner_offers = (
+            partner_offers = list(
                 UserBook.objects.filter(
                     user=partner,
                     status=UserBook.Status.AVAILABLE,
@@ -325,7 +329,7 @@ class ReverseDiscoveryView(APIView):
                 .order_by("-created_at")[:10]  # Limit to 10 for discovery preview
             )
 
-            if partner_offers.exists():
+            if partner_offers:
                 final_results.append(
                     {
                         "user": partner,
