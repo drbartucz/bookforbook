@@ -138,8 +138,12 @@
   top: 8px;
   right: 8px;
   padding: 4px;
+  background: none;
+  border: none;
   border-radius: 4px;
   color: var(--color-gray-400);
+  font: inherit;
+  line-height: 1;
   cursor: pointer;
 }
 
