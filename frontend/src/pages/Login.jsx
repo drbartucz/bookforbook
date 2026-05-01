@@ -11,6 +11,8 @@ export default function Login() {
   const location = useLocation();
   const [serverError, setServerError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resendEmail, setResendEmail] = useState(null);
+  const [resendStatus, setResendStatus] = useState(null);
 
   const from = location.state?.from?.pathname || '/dashboard';
 
@@ -20,8 +22,22 @@ export default function Login() {
     formState: { errors },
   } = useForm();
 
+  async function handleResend() {
+    if (!resendEmail) return;
+    setResendStatus('sending');
+    try {
+      await authApi.resendVerification({ email: resendEmail });
+    } catch {
+      // Swallow errors — the server always returns 200
+    } finally {
+      setResendStatus('sent');
+    }
+  }
+
   async function onSubmit(data) {
     setServerError(null);
+    setResendEmail(null);
+    setResendStatus(null);
     setIsSubmitting(true);
     try {
       const tokenRes = await authApi.login({
@@ -46,14 +62,15 @@ export default function Login() {
       }
       navigate(from, { replace: true });
     } catch (err) {
-      const data = err?.response?.data;
-      if (data?.detail) {
-        setServerError(data.detail);
-      } else if (data?.non_field_errors) {
-        setServerError(data.non_field_errors.join(' '));
+      const errData = err?.response?.data;
+      if (errData?.detail) {
+        setServerError(errData.detail);
+      } else if (errData?.non_field_errors) {
+        setServerError(errData.non_field_errors.join(' '));
       } else {
         setServerError('Invalid email or password. Please try again.');
       }
+      setResendEmail(data.email);
     } finally {
       setIsSubmitting(false);
     }
@@ -70,6 +87,23 @@ export default function Login() {
         {serverError && (
           <div className="alert alert-error" style={{ margin: '0 1.5rem' }}>
             {serverError}
+            {resendStatus === 'sent' ? (
+              <p style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                Verification email sent — check your inbox.
+              </p>
+            ) : (
+              <p style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                Can&apos;t log in?{' '}
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendStatus === 'sending'}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', font: 'inherit', color: 'inherit' }}
+                >
+                  {resendStatus === 'sending' ? 'Sending…' : 'Resend verification email'}
+                </button>
+              </p>
+            )}
           </div>
         )}
 

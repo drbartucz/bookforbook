@@ -6,7 +6,14 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
+
+
+class _DonationCreateThrottle(UserRateThrottle):
+    scope = "donation_create"
+
+from apps.accounts.permissions import EmailVerifiedPermission
 
 from .models import Donation
 from .serializers import DonationCreateSerializer, DonationSerializer
@@ -21,6 +28,11 @@ class DonationListCreateView(APIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_throttles(self):
+        if self.request.method == "POST":
+            return [_DonationCreateThrottle()]
+        return super().get_throttles()
 
     def get(self, request):
         from django.db.models import Q
@@ -67,7 +79,7 @@ class DonationListCreateView(APIView):
 class DonationAcceptView(APIView):
     """POST /api/v1/donations/:id/accept/ — institution accepts a donation."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, EmailVerifiedPermission]
 
     def post(self, request, pk):
         with transaction.atomic():
@@ -142,11 +154,17 @@ class DonationDeclineView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        donation = get_object_or_404(
-            Donation, pk=pk, institution=request.user, status=Donation.Status.OFFERED
-        )
-        donation.status = Donation.Status.CANCELLED
-        donation.save(update_fields=["status"])
+        with transaction.atomic():
+            donation = (
+                Donation.objects.select_for_update()
+                .filter(pk=pk, institution=request.user, status=Donation.Status.OFFERED)
+                .first()
+            )
+            if not donation:
+                raise Http404
+
+            donation.status = Donation.Status.CANCELLED
+            donation.save(update_fields=["status"])
 
         # Notify donor
         try:

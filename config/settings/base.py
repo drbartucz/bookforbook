@@ -11,6 +11,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-me-in-production")
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
 
+# Dedicated JWT signing key — defaults to SECRET_KEY if not explicitly set.
+# In production this must be a separate value (enforced in production.py).
+JWT_SIGNING_KEY = config("JWT_SIGNING_KEY", default=SECRET_KEY)
+
 # Application definition
 DJANGO_APPS = [
     "django.contrib.admin",
@@ -138,6 +142,9 @@ REST_FRAMEWORK = {
         "auth_reset_confirm": "10/hour",
         "auth_resend_verification": "5/hour",
         "data_export": "5/day",
+        "proposal_create": "30/hour",
+        "donation_create": "30/hour",
+        "message_create": "120/hour",
     },
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -157,7 +164,7 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
+    "SIGNING_KEY": JWT_SIGNING_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",

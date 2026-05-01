@@ -14,6 +14,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
 
 from .models import User
+from .permissions import EmailVerifiedPermission
 from .serializers import (
     AccountDeletionSerializer,
     AddressVerificationSerializer,
@@ -160,7 +161,6 @@ class ResendVerificationView(APIView):
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = email_verification_token.make_token(user)
             from django_q.tasks import async_task
-
             async_task(
                 "apps.notifications.tasks.send_verification_email",
                 str(user.pk),
@@ -170,9 +170,7 @@ class ResendVerificationView(APIView):
         except User.DoesNotExist:
             pass  # Don't reveal whether the email exists or is already verified
         return Response(
-            {
-                "detail": "If an unverified account with that email exists, a new verification link has been sent."
-            }
+            {"detail": "If an unverified account with that email exists, a new verification link has been sent."}
         )
 
 
@@ -304,7 +302,7 @@ class UserMeView(APIView):
 
 
 class UserAddressVerifyView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, EmailVerifiedPermission]
 
     def post(self, request):
         serializer = AddressVerificationSerializer(data=request.data)
