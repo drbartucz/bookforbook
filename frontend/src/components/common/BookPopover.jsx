@@ -71,7 +71,7 @@ export default function BookPopover({ book }) {
           {subjects.length > 0 && (
             <div className={styles.subjects}>
               {subjects.map((subject, index) => (
-                <span key={index} className={styles.subjectTag}>
+                <span key={`${subject}-${index}`} className={styles.subjectTag}>
                   {subject}
                 </span>
               ))}
