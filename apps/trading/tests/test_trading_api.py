@@ -1066,7 +1066,7 @@ class TestTradeRateViewEdgeCases:
     """Lines 417-418, 428, 460-461, 479-481 of TradeRateView."""
 
     def _setup_ratable_trade(self):
-        """Create a SHIPPING trade with two parties."""
+        """Create a ONE_RECEIVED trade with two parties."""
         a = UserFactory()
         b = UserFactory()
         book_a = UserBookFactory(
@@ -1184,7 +1184,7 @@ class TestTradeRateViewEdgeCases:
 
         trade.refresh_from_db()
         # Only one rating so far — not yet completed
-        assert trade.status == Trade.Status.SHIPPING
+        assert trade.status == Trade.Status.ONE_RECEIVED
 
         # User b rates user a
         client_b = _auth(api_client, b)
