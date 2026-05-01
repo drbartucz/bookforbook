@@ -176,7 +176,7 @@ browse/         available/, available/?q=, partner/:id/books/, shipping-estimate
 
 10. **Ring size limit**: Exchange rings are limited to 5 participants for logistics manageability.
 
-11. **Institutional accounts**: Libraries and bookstores only receive donations — they do NOT trade. They require admin approval via Django admin before they can participate.
+11. **Institutional accounts**: Libraries and bookstores require admin approval via Django admin before they can participate. They are excluded from automated match detection but can list books on their have-list and participate in manual trade proposals. They also receive donations from individuals.
 
 ---
 
