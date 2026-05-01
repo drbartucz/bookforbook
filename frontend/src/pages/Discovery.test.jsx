@@ -53,11 +53,7 @@ describe('Discovery page', () => {
     it('shows a loading spinner while fetching', () => {
         matches.reverseDiscovery.mockReturnValue(new Promise(() => {}));
         renderWithProviders(<Discovery />);
-        expect(
-            document.querySelector('[class*="spinner"]') ||
-            document.querySelector('[class*="loading"]') ||
-            screen.queryByText(/finding potential trade partners/i)
-        ).toBeTruthy();
+        expect(screen.getByText(/finding potential trade partners/i)).toBeInTheDocument();
     });
 
     it('shows an error message when the fetch fails', async () => {
@@ -103,8 +99,6 @@ describe('Discovery page', () => {
     it('calls wishlist.add with the correct isbn when "I want this" is clicked', async () => {
         matches.reverseDiscovery.mockResolvedValue({ data: [partnerWithBooks] });
         wishlist.add.mockResolvedValue({ data: {} });
-        // After adding, invalidation will re-fetch discovery — return [] to stop re-render issues
-        matches.reverseDiscovery.mockResolvedValueOnce({ data: [partnerWithBooks] });
         renderWithProviders(<Discovery />);
 
         const buttons = await screen.findAllByRole('button', { name: /i want this/i });
