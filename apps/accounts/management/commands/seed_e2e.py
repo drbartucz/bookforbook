@@ -16,6 +16,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
+from decouple import config
 
 from apps.books.models import Book
 from apps.donations.models import Donation
@@ -26,7 +27,7 @@ from apps.trading.models import Trade, TradeProposal, TradeProposalItem, TradeSh
 User = get_user_model()
 
 # ── Deterministic credentials ─────────────────────────────────────────────────
-E2E_PASSWORD = "E2eTestPass1!"
+E2E_PASSWORD = config("E2E_PASSWORD", default="E2eTestPass1!")
 
 USERS = {
     "alice": dict(

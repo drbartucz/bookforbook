@@ -7,7 +7,7 @@ import { existsSync } from 'fs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ADMIN_EMAIL = 'admin-e2e@example.com';
 const ADMIN_USERNAME = 'admin_e2e';
-const ADMIN_PASSWORD = 'AdminE2ePass1!';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'AdminE2ePass1!';
 
 function getBackendBaseURL() {
   return process.env.DJANGO_BASE_URL || 'http://localhost:8000';

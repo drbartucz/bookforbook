@@ -6,7 +6,7 @@
  *
  * Password is the same for all e2e test users.
  */
-export const E2E_PASSWORD = 'E2eTestPass1!';
+export const E2E_PASSWORD = process.env.E2E_PASSWORD || 'E2eTestPass1!';
 
 export const ALICE = {
   email: 'alice@e2e.test',

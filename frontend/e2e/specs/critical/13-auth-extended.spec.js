@@ -10,6 +10,7 @@
  *   - 404 page renders for unknown routes
  */
 import { test, expect } from '../../fixtures/index.js';
+import { E2E_PASSWORD } from '../../constants.js';
 
 test.describe('Auth — Extended', () => {
   // ── Forgot Password ──────────────────────────────────────────────────────
@@ -92,8 +93,8 @@ test.describe('Auth — Extended', () => {
     await page.getByRole('radio', { name: /^library/i }).click();
     await page.getByLabel(/email address/i).fill('lib@example.com');
     await page.getByLabel(/^username/i).fill('testlibrary');
-    await page.getByLabel(/^password$/i).fill('TestPass123!');
-    await page.getByLabel(/confirm password/i).fill('TestPass123!');
+    await page.getByLabel(/^password$/i).fill(E2E_PASSWORD);
+    await page.getByLabel(/confirm password/i).fill(E2E_PASSWORD);
     // Leave institution name blank
     await page.getByRole('button', { name: /create account/i }).click();
 
@@ -105,7 +106,7 @@ test.describe('Auth — Extended', () => {
 
     await page.getByLabel(/email address/i).fill('test@example.com');
     await page.getByLabel(/^username/i).fill('testuser99');
-    await page.getByLabel(/^password$/i).fill('TestPass123!');
+    await page.getByLabel(/^password$/i).fill(E2E_PASSWORD);
     await page.getByLabel(/confirm password/i).fill('DifferentPass456!');
     await page.getByRole('button', { name: /create account/i }).click();
 

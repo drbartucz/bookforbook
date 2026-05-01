@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from decouple import config
 
 from apps.accounts.models import User
 from apps.books.models import Book
@@ -153,7 +154,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--password",
-            default="testpassword123",
+            default=config("SEED_DATA_PASSWORD", default="testpassword123"),
             help="Password to set for newly created seeded users",
         )
         parser.add_argument(
