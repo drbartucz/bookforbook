@@ -174,6 +174,7 @@ export const matches = {
   getDetail: (id) => apiClient.get(`/matches/${id}/`),
   accept: (id) => apiClient.post(`/matches/${id}/accept/`),
   decline: (id) => apiClient.post(`/matches/${id}/decline/`),
+  reverseDiscovery: () => apiClient.get('/matches/discovery/reverse/'),
 };
 
 // ── Proposals ─────────────────────────────────────────────────────────────────

@@ -1,0 +1,133 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.partnerList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.partnerCard {
+  padding: 1.5rem;
+}
+
+.partnerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.partnerInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.partnerName {
+  font-weight: 600;
+  font-size: 1.125rem;
+  color: var(--primary-color, #2563eb);
+  text-decoration: none;
+}
+
+.partnerName:hover {
+  text-decoration: underline;
+}
+
+.partnerRating {
+  color: var(--text-muted, #6b7280);
+  font-size: 0.875rem;
+}
+
+.wantsSection {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .wantsSection {
+    align-items: flex-start;
+  }
+}
+
+.wantsLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+}
+
+.wantsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .wantsList {
+    justify-content: flex-start;
+  }
+}
+
+.wantBadge {
+  font-size: 0.75rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offersSection {
+  width: 100%;
+}
+
+.offersTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-color, #374151);
+}
+
+.offersGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.25rem;
+}
+
+.bookWrapper {
+  width: 100%;
+}
+
+.empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  background-color: var(--bg-card, #ffffff);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color, #e5e7eb);
+  margin-top: 2rem;
+}
+
+.emptyTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-color, #374151);
+  margin-bottom: 0.5rem;
+}
+
+.emptySubtitle {
+  color: var(--text-muted, #6b7280);
+  max-width: 400px;
+  margin: 0 auto;
+}

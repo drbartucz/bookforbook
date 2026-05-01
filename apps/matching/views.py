@@ -8,9 +8,11 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import EmailVerifiedPermission
 from apps.accounts.views import user_has_verified_shipping_address
+from apps.inventory.models import UserBook, WishlistItem
+from apps.inventory.serializers import UserBookSerializer
 
 from .models import Match, MatchLeg
-from .serializers import MatchSerializer
+from .serializers import DiscoveryPartnerSerializer, MatchSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -236,3 +238,105 @@ def _notify_match_cancelled(match: Match):
             logger.exception(
                 "Failed to notify participant %s of match cancellation", uid
             )
+
+
+class ReverseDiscoveryView(APIView):
+    """
+    GET /api/v1/matching/discovery/reverse/
+    Find users who want books you have available, but where no direct match exists.
+    Returns a list of partners with the books they want from you and the books they offer.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # 1. Get current user's available books
+        my_available_books = UserBook.objects.filter(
+            user=user, status=UserBook.Status.AVAILABLE
+        ).select_related("book")
+        if not my_available_books.exists():
+            return Response([])
+
+        my_book_ids = list(my_available_books.values_list("book_id", flat=True))
+
+        # 2. Find other users who want these books
+        other_wants = (
+            WishlistItem.objects.filter(
+                book_id__in=my_book_ids, is_active=True, user__is_active=True
+            )
+            .exclude(user=user)
+            .select_related("user")
+        )
+
+        # 3. Identify partners with existing active matches to exclude
+        active_match_partner_ids = set(
+            MatchLeg.objects.filter(
+                match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+                sender=user,
+            ).values_list("receiver_id", flat=True)
+        ) | set(
+            MatchLeg.objects.filter(
+                match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+                receiver=user,
+            ).values_list("sender_id", flat=True)
+        )
+
+        # 4. Filter my wishlist to exclude books I already want from "they_offer"
+        my_wishlist_book_ids = set(
+            WishlistItem.objects.filter(user=user, is_active=True).values_list(
+                "book_id", flat=True
+            )
+        )
+
+        # 5. Group by user and build response
+        partner_map = {}
+        for want in other_wants:
+            partner = want.user
+            if partner.id in active_match_partner_ids:
+                continue
+
+            if partner.id not in partner_map:
+                partner_map[partner.id] = {
+                    "user": partner,
+                    "they_want_books": [],
+                    "they_offer_books": [],
+                }
+
+            # Find which of my UserBook instances match this wanted book
+            for ub in my_available_books:
+                if ub.book_id == want.book_id:
+                    partner_map[partner.id]["they_want_books"].append(ub)
+
+        # 6. Populate "they_offer" for these potential partners
+        final_results = []
+        for partner_id, data in partner_map.items():
+            partner = data["user"]
+            # Get their available books, excluding what I already have in my wishlist
+            # (If it's in my wishlist, it's a potential direct match or ring leg,
+            # which the automatic matcher should handle).
+            partner_offers = (
+                UserBook.objects.filter(
+                    user=partner,
+                    status=UserBook.Status.AVAILABLE,
+                )
+                .exclude(book_id__in=my_wishlist_book_ids)
+                .select_related("book")
+                .order_by("-created_at")[:10]  # Limit to 10 for discovery preview
+            )
+
+            if partner_offers.exists():
+                final_results.append(
+                    {
+                        "user": partner,
+                        "they_want": data["they_want_books"],
+                        "they_offer": partner_offers,
+                    }
+                )
+
+        # Sort by partners who want the most of my books
+        final_results.sort(key=lambda x: len(x["they_want"]), reverse=True)
+
+        serializer = DiscoveryPartnerSerializer(final_results, many=True)
+        return Response(serializer.data)

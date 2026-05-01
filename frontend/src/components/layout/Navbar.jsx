@@ -95,6 +95,9 @@ export default function Navbar() {
               <NavLink to="/wishlist" className={navLinkClass}>
                 Wishlist
               </NavLink>
+              <NavLink to="/discovery" className={navLinkClass}>
+                Discover
+              </NavLink>
               <NavLink to="/matches" className={navLinkClass}>
                 Matches
                 {totalPending > 0 && (
@@ -202,6 +205,13 @@ export default function Navbar() {
                       My Profile
                     </Link>
                     <Link
+                      to="/discovery"
+                      className={styles.dropdownItem}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Discover Matches
+                    </Link>
+                    <Link
                       to="/proposals"
                       className={styles.dropdownItem}
                       onClick={() => setMenuOpen(false)}
@@ -273,6 +283,9 @@ export default function Navbar() {
               </NavLink>
               <NavLink to="/wishlist" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 Wishlist
+              </NavLink>
+              <NavLink to="/discovery" className={navLinkClass} onClick={() => setMobileOpen(false)}>
+                Discover
               </NavLink>
               <NavLink to="/matches" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 Matches {totalPending > 0 && `(${totalPending})`}

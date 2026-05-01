@@ -43,8 +43,14 @@ export default function Dashboard() {
     queryFn: () => wishlistApi.list({ page_size: 1 }).then((r) => r.data),
   });
 
+  const { data: discoveryData, isLoading: discoveryLoading } = useQuery({
+    queryKey: ['discovery-partners', 'count'],
+    queryFn: () => matchesApi.reverseDiscovery().then((r) => r.data),
+  });
+
   const displayUser = meData ?? user;
   const activeMatchesCount = matchesData?.count ?? 0;
+  const discoveryCount = discoveryData?.length ?? 0;
   const pendingProposalsCount = proposalsData?.count ?? 0;
   const activeTradesCount = tradesData?.count ?? 0;
   const booksOfferedCount = myBooksData?.count ?? 0;
@@ -54,7 +60,7 @@ export default function Dashboard() {
   const recentProposals = proposalsData?.results ?? [];
   const recentTrades = tradesData?.results ?? [];
 
-  const isLoading = matchesLoading || proposalsLoading || tradesLoading || myBooksLoading || wishlistLoading;
+  const isLoading = matchesLoading || proposalsLoading || tradesLoading || myBooksLoading || wishlistLoading || discoveryLoading;
 
   return (
     <div>
@@ -93,6 +99,20 @@ export default function Dashboard() {
               <div>
                 <p className={styles.summaryValue}>{activeMatchesCount}</p>
                 <p className={styles.summaryLabel}>Pending Matches</p>
+              </div>
+            </Link>
+
+            <Link to="/discovery" className={styles.summaryCard}>
+              <div className={styles.summaryIcon} style={{ background: 'var(--color-info-light, #eff6ff)', color: 'var(--color-info, #3b82f6)' }}>
+                <Tooltip content="Discover people who want your books. Browse their collections to find a mutual trade!" position="bottom">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="24" height="24">
+                    <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+                  </svg>
+                </Tooltip>
+              </div>
+              <div>
+                <p className={styles.summaryValue}>{discoveryCount}</p>
+                <p className={styles.summaryLabel}>Potential Partners</p>
               </div>
             </Link>
 

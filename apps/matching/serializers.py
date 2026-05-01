@@ -31,3 +31,9 @@ class MatchSerializer(serializers.ModelSerializer):
             'expires_at', 'updated_at', 'legs',
         ]
         read_only_fields = fields
+
+
+class DiscoveryPartnerSerializer(serializers.Serializer):
+    user = UserPublicProfileSerializer(read_only=True)
+    they_want = UserBookSerializer(many=True, read_only=True)
+    they_offer = UserBookSerializer(many=True, read_only=True)

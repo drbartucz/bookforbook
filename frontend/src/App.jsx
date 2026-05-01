@@ -13,6 +13,7 @@ import AccountSettings from './pages/AccountSettings.jsx';
 import MyBooks from './pages/MyBooks.jsx';
 import Wishlist from './pages/Wishlist.jsx';
 import Matches from './pages/Matches.jsx';
+import Discovery from './pages/Discovery.jsx';
 import Proposals from './pages/Proposals.jsx';
 import Trades from './pages/Trades.jsx';
 import TradeDetail from './pages/TradeDetail.jsx';
@@ -122,6 +123,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Matches />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/discovery"
+            element={
+              <ProtectedRoute>
+                <Discovery />
               </ProtectedRoute>
             }
           />
