@@ -82,14 +82,14 @@ export default function BookPopover({ book }) {
             {book.description ? (
               <p>{book.description}</p>
             ) : (
-              <p className={styles.noDescription}>No synopsis available for this title.</p>
+              <p>No synopsis available for this title.</p>
             )}
           </div>
 
           <div className={styles.footer}>
             {isbn && <span>ISBN: {isbn}</span>}
             {book.publisher && (
-              <div className={styles.publisher}>Publisher: {book.publisher}</div>
+              <div>Publisher: {book.publisher}</div>
             )}
           </div>
 
