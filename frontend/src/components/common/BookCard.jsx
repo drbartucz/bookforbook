@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import ConditionBadge from './ConditionBadge.jsx';
 import Tooltip from './Tooltip.jsx';
+import BookPopover from './BookPopover.jsx';
 import { getBookCoverUrl, getBookIsbn, getBookPrimaryAuthor } from '../../utils/book.js';
 import styles from './BookCard.module.css';
 
@@ -59,9 +60,12 @@ export default function BookCard({
       </div>
       <div className={styles.body}>
         <div className={styles.info}>
-          <h3 className={styles.title} title={book.title}>
-            {book.title || 'Unknown title'}
-          </h3>
+          <div className={styles.header}>
+            <h3 className={styles.title} title={book.title}>
+              {book.title || 'Unknown title'}
+            </h3>
+            <BookPopover book={book} />
+          </div>
           {author && (
             <p className={styles.author}>{author}</p>
           )}

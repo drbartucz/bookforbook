@@ -96,7 +96,9 @@ describe('BookCard', () => {
 
     it('does not render action button when onAction is omitted', () => {
         wrap(<BookCard book={book} />);
-        expect(screen.queryByRole('button')).not.toBeInTheDocument();
+        // We only check for the presence of buttons that ARE NOT the "View book details" button
+        const actionButton = screen.queryByRole('button', { name: /Action|Request/ });
+        expect(actionButton).not.toBeInTheDocument();
     });
 
     it('applies compact class when compact prop is true', () => {
