@@ -211,9 +211,6 @@ __marimo__/
 
 frontend/node_modules/
 
-# ignore the claude config file
-CLAUDE.md
-
 # Frontend test results
 frontend/coverage/
 frontend/playwright-report/
