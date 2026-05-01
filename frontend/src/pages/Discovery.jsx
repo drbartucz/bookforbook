@@ -5,7 +5,6 @@ import { matches as matchesApi, wishlist as wishlistApi } from '../services/api.
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import BookCard from '../components/common/BookCard.jsx';
-import Tooltip from '../components/common/Tooltip.jsx';
 import { getBookIsbn } from '../utils/book.js';
 import styles from './Discovery.module.css';
 
