@@ -395,7 +395,7 @@ Your data export is emailed to you. Active matches and proposals are cancelled. 
 
 ## For Libraries and Bookstores
 
-Libraries and bookstores participate differently from individual traders — they **receive donations only**. They do not trade or ship books out.
+Libraries and bookstores participate differently from individual traders — they are excluded from automated match detection. However, they can list books on their have-list and participate in manual trade proposals. They can also receive donations from individuals.
 
 ### Getting Approved
 
@@ -478,7 +478,7 @@ Once accepted, the donor ships the book to your institution. No address reveal i
 | Auto-close | Trades auto-close 3 weeks after confirmation if no ratings are submitted |
 | Inactivity | Books hidden after 3 months inactive; restored on next login |
 | No disputes | The rating system is the sole accountability mechanism. There is no dispute resolution. |
-| Institutional accounts | Libraries and bookstores require admin approval and can only receive donations |
+| Institutional accounts | Libraries and bookstores require admin approval; excluded from auto-matching but can list books and send/receive manual proposals |
 
 ---
 

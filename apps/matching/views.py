@@ -9,7 +9,6 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import EmailVerifiedPermission
 from apps.accounts.views import user_has_verified_shipping_address
 from apps.inventory.models import UserBook, WishlistItem
-from apps.inventory.serializers import UserBookSerializer
 
 from .models import Match, MatchLeg
 from .serializers import DiscoveryPartnerSerializer, MatchSerializer
@@ -242,7 +241,7 @@ def _notify_match_cancelled(match: Match):
 
 class ReverseDiscoveryView(APIView):
     """
-    GET /api/v1/matching/discovery/reverse/
+    GET /api/v1/matches/discovery/reverse/
     Find users who want books you have available, but where no direct match exists.
     Returns a list of partners with the books they want from you and the books they offer.
     """
@@ -291,6 +290,11 @@ class ReverseDiscoveryView(APIView):
         )
 
         # 5. Group by user and build response
+        # Index my available books by book_id for O(1) lookup
+        my_books_by_book_id: dict = {}
+        for ub in my_available_books:
+            my_books_by_book_id.setdefault(ub.book_id, []).append(ub)
+
         partner_map = {}
         for want in other_wants:
             partner = want.user
@@ -301,35 +305,42 @@ class ReverseDiscoveryView(APIView):
                 partner_map[partner.id] = {
                     "user": partner,
                     "they_want_books": [],
-                    "they_offer_books": [],
                 }
 
-            # Find which of my UserBook instances match this wanted book
-            for ub in my_available_books:
-                if ub.book_id == want.book_id:
-                    partner_map[partner.id]["they_want_books"].append(ub)
-
-        # 6. Populate "they_offer" for these potential partners
-        final_results = []
-        for partner_id, data in partner_map.items():
-            partner = data["user"]
-            # Get their available books, excluding what I already have in my wishlist
-            # (If it's in my wishlist, it's a potential direct match or ring leg,
-            # which the automatic matcher should handle).
-            partner_offers = (
-                UserBook.objects.filter(
-                    user=partner,
-                    status=UserBook.Status.AVAILABLE,
-                )
-                .exclude(book_id__in=my_wishlist_book_ids)
-                .select_related("book")
-                .order_by("-created_at")[:10]  # Limit to 10 for discovery preview
+            # O(1) lookup instead of scanning all my available books
+            partner_map[partner.id]["they_want_books"].extend(
+                my_books_by_book_id.get(want.book_id, [])
             )
 
-            if partner_offers.exists():
+        # 6. Batch-fetch all partner offers in one query to avoid N+1.
+        # Get their available books, excluding what I already have in my wishlist
+        # (If it's in my wishlist, it's a potential direct match or ring leg,
+        # which the automatic matcher should handle).
+        all_partner_ids = list(partner_map.keys())
+        all_partner_books = (
+            UserBook.objects.filter(
+                user_id__in=all_partner_ids,
+                status=UserBook.Status.AVAILABLE,
+            )
+            .exclude(book_id__in=my_wishlist_book_ids)
+            .select_related("book")
+            .order_by("user_id", "-created_at")
+        )
+
+        # Group by partner, keeping up to 10 books each (preserving recency order).
+        partner_books_map: dict[int, list[UserBook]] = {}
+        for ub in all_partner_books:
+            books = partner_books_map.setdefault(ub.user_id, [])
+            if len(books) < 10:
+                books.append(ub)
+
+        final_results = []
+        for partner_id, data in partner_map.items():
+            partner_offers = partner_books_map.get(partner_id, [])
+            if partner_offers:
                 final_results.append(
                     {
-                        "user": partner,
+                        "user": data["user"],
                         "they_want": data["they_want_books"],
                         "they_offer": partner_offers,
                     }

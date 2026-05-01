@@ -5,7 +5,6 @@ import { matches as matchesApi, wishlist as wishlistApi } from '../services/api.
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import BookCard from '../components/common/BookCard.jsx';
-import Tooltip from '../components/common/Tooltip.jsx';
 import { getBookIsbn } from '../utils/book.js';
 import styles from './Discovery.module.css';
 
@@ -84,19 +83,30 @@ export default function Discovery() {
                 <div className={styles.offersGrid}>
                   {partner.they_offer.map((ub) => {
                     const isbn = getBookIsbn(ub.book);
-                    const alreadyAdded = isbn && addedToWishlist.has(isbn);
+                    const alreadyAdded = Boolean(isbn) && addedToWishlist.has(isbn);
+                    const canAddToWishlist = Boolean(isbn) && !alreadyAdded;
 
                     return (
                       <div key={ub.id} className={styles.bookWrapper}>
                         <BookCard
                           book={ub.book}
                           onAction={
-                            !alreadyAdded
+                            canAddToWishlist
                               ? () => addToWishlistMutation.mutate({ isbn })
                               : undefined
                           }
-                          actionLabel={alreadyAdded ? 'Added!' : 'I want this'}
-                          actionTooltip="Adds this book to your wishlist. If you both want each other's books, a match will be created automatically."
+                          actionLabel={
+                            !isbn
+                              ? 'Unavailable'
+                              : alreadyAdded
+                                ? 'Added!'
+                                : 'I want this'
+                          }
+                          actionTooltip={
+                            !isbn
+                              ? 'This book cannot be added to your wishlist because it does not have an ISBN.'
+                              : "Adds this book to your wishlist. If you both want each other's books, a match will be created automatically."
+                          }
                           actionLoading={
                             addToWishlistMutation.isPending &&
                             addToWishlistMutation.variables?.isbn === isbn

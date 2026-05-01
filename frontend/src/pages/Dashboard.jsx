@@ -43,14 +43,15 @@ export default function Dashboard() {
     queryFn: () => wishlistApi.list({ page_size: 1 }).then((r) => r.data),
   });
 
-  const { data: discoveryData, isLoading: discoveryLoading } = useQuery({
-    queryKey: ['discovery-partners', 'count'],
+  const { data: discoveryCountData, isLoading: discoveryLoading } = useQuery({
+    queryKey: ['discovery-partners'],
     queryFn: () => matchesApi.reverseDiscovery().then((r) => r.data),
+    select: (data) => data.length,
   });
 
   const displayUser = meData ?? user;
   const activeMatchesCount = matchesData?.count ?? 0;
-  const discoveryCount = discoveryData?.length ?? 0;
+  const discoveryCount = discoveryCountData ?? 0;
   const pendingProposalsCount = proposalsData?.count ?? 0;
   const activeTradesCount = tradesData?.count ?? 0;
   const booksOfferedCount = myBooksData?.count ?? 0;
