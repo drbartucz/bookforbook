@@ -13,6 +13,7 @@ from apps.trading.models import Trade
 
 from .models import TradeMessage
 from .serializers import TradeMessageCreateSerializer, TradeMessageSerializer
+from .throttles import TradeMessageRateThrottle
 
 
 class TradeMessageListView(APIView):
@@ -21,6 +22,7 @@ class TradeMessageListView(APIView):
     POST /api/v1/trades/:pk/messages/ — send a message
     """
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [TradeMessageRateThrottle]
 
     def get_throttles(self):
         if self.request.method == "POST":

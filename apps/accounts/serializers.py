@@ -68,6 +68,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
+# apps/accounts/serializers.py
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
@@ -222,7 +223,14 @@ class UserMeSerializer(serializers.ModelSerializer):
 class UserMeUpdateSerializer(serializers.ModelSerializer):
     """PATCH — only updatable fields."""
 
-    _ADDRESS_FIELDS = {"full_name", "address_line_1", "address_line_2", "city", "state", "zip_code"}
+    _ADDRESS_FIELDS = {
+        "full_name",
+        "address_line_1",
+        "address_line_2",
+        "city",
+        "state",
+        "zip_code",
+    }
 
     class Meta:
         model = User
@@ -265,7 +273,9 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         if self._ADDRESS_FIELDS & set(validated_data):
-            validated_data["address_verification_status"] = User.AddressVerificationStatus.UNVERIFIED
+            validated_data["address_verification_status"] = (
+                User.AddressVerificationStatus.UNVERIFIED
+            )
             validated_data["address_verified_at"] = None
         return super().update(instance, validated_data)
 
