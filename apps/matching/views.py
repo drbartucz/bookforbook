@@ -9,7 +9,6 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import EmailVerifiedPermission
 from apps.accounts.views import user_has_verified_shipping_address
 from apps.inventory.models import UserBook, WishlistItem
-from apps.inventory.serializers import UserBookSerializer
 
 from .models import Match, MatchLeg
 from .serializers import DiscoveryPartnerSerializer, MatchSerializer
