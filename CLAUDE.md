@@ -130,3 +130,5 @@ The Vite dev server proxies `/api` to `http://localhost:8000` automatically — 
 - `TextChoices` statuses follow a consistent pattern: check `apps/trading/models.py` or `apps/matching/models.py` for examples
 - Shipping cost estimates use hardcoded USPS Media Mail rate tiers — do **not** integrate a live shipping API
 - Exchange ring size is capped at 5 participants
+- Frontend styling uses vanilla CSS with CSS Modules (`.module.css`) — no CSS-in-JS or utility frameworks
+- New endpoints requiring auth should apply `EmailVerifiedPermission` and check `user_has_verified_shipping_address` where address is needed
