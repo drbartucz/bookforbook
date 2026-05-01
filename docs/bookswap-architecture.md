@@ -419,6 +419,20 @@ If any leg in a ring is declined:
 - Don't create a match if an equivalent active match already exists.
 - A UserBook can only be in one active (pending/proposed) match at a time.
 
+**Match Discovery (Reverse Match):**
+This is a user-initiated discovery path that finds potential partners when no mutual match exists.
+```
+For a given user A:
+    1. Get A's available books (UserBook status=available)
+    2. Find other users (B, C, D) who have any of these books in their Wishlist
+    3. For each such potential partner (e.g., B):
+        a. Exclude B if an active match already exists between A and B
+        b. Fetch B's available books (UserBook status=available)
+        c. Filter out books that A already has in their Wishlist (to avoid duplicating auto-matcher)
+    4. Return list of partners with "they want" (A's books) and "they offer" (their books)
+```
+This allows users to jumpstart the trading process by proposing direct trades to partners who are already seeking their books.
+
 ### 3. Trade Confirmation Flow
 
 ```
@@ -608,6 +622,7 @@ User requests deletion → POST /api/v1/users/me/ (DELETE)
 │
 ├── matches/
 │   ├── GET    /                       # My pending/active matches
+│   ├── GET    discovery/reverse/      # Find partners who want my books
 │   ├── GET    :id/                    # Match detail (legs, books, users)
 │   ├── POST   :id/accept/            # Accept my leg
 │   └── POST   :id/decline/           # Decline my leg
@@ -840,9 +855,10 @@ This architecture is designed to be built incrementally with Claude Code. Recomm
 ### Phase 8 — Polish & PWA
 32. PWA setup (manifest, service worker, offline support, install prompt)
 33. Frontend build-out (responsive design for mobile/desktop)
-34. Email notification templates (verification, matches, reminders, inactivity, deletion)
-35. Rate limiting, abuse prevention
-36. Production deployment config
+34. Book metadata popover (rich synopsis, genres, and technical specs via Radix UI)
+35. Email notification templates (verification, matches, reminders, inactivity, deletion)
+36. Rate limiting, abuse prevention
+37. Production deployment config
 
 ---
 

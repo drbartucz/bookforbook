@@ -6,7 +6,7 @@ This file contains foundational mandates for the Gemini CLI agent. These instruc
 BookForBook is a peer-to-peer book swapping platform where users trade physical books via shipping.
 
 - **Backend:** Django (Python 3.12+) with Django Rest Framework.
-- **Frontend:** React 18+ (Vite, JavaScript), CSS Modules, TanStack React Query.
+- **Frontend:** React 18+ (Vite, JavaScript), CSS Modules, TanStack React Query, Radix UI.
 - **Database:** PostgreSQL (Production), SQLite (Local/Test).
 
 ## Essential Commands
