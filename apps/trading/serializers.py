@@ -84,6 +84,17 @@ class TradeProposalCreateSerializer(serializers.Serializer):
                 'The recipient has reached their active match limit.'
             )
 
+        origin_match_id = attrs.get('origin_match_id')
+        if origin_match_id:
+            from apps.matching.models import Match
+            if not Match.objects.filter(
+                pk=origin_match_id,
+                legs__sender=proposer,
+            ).exists():
+                raise serializers.ValidationError(
+                    {'origin_match_id': 'Invalid or inaccessible match.'}
+                )
+
         attrs['proposer'] = proposer
         attrs['recipient'] = recipient
         attrs['proposer_book'] = proposer_book

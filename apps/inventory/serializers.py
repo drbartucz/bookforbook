@@ -106,6 +106,10 @@ class UserBookCreateSerializer(serializers.Serializer):
 
 
 class UserBookUpdateSerializer(serializers.ModelSerializer):
+    condition_notes = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, max_length=500
+    )
+
     class Meta:
         model = UserBook
         fields = ["condition", "condition_notes", "status"]

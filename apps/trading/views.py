@@ -5,8 +5,14 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
+
+class _ProposalCreateThrottle(UserRateThrottle):
+    scope = "proposal_create"
+
+from apps.accounts.permissions import EmailVerifiedPermission
 from apps.accounts.views import user_has_verified_shipping_address
 
 from .models import Trade, TradeProposal, TradeShipment
@@ -28,6 +34,11 @@ class ProposalListCreateView(APIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_throttles(self):
+        if self.request.method == "POST":
+            return [_ProposalCreateThrottle()]
+        return super().get_throttles()
 
     def get(self, request):
         from django.db.models import Q
@@ -90,7 +101,7 @@ class ProposalDetailView(APIView):
 class ProposalAcceptView(APIView):
     """POST /api/v1/proposals/:id/accept/"""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, EmailVerifiedPermission]
 
     def post(self, request, pk):
         proposal = get_object_or_404(
@@ -275,24 +286,28 @@ class TradeMarkShippedView(APIView):
         if not is_party:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Find the sender's shipment
-        try:
-            shipment = trade.shipments.get(
-                sender=request.user, status=TradeShipment.Status.PENDING
-            )
-        except TradeShipment.DoesNotExist:
-            return Response(
-                {"detail": "No pending shipment found for you in this trade."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         from apps.trading.services.trade_workflow import mark_shipped
 
-        mark_shipped(
-            shipment,
-            tracking=serializer.validated_data.get("tracking_number", ""),
-            method=serializer.validated_data.get("shipping_method", ""),
-        )
+        with transaction.atomic():
+            try:
+                shipment = TradeShipment.objects.select_for_update().get(
+                    trade=trade,
+                    sender=request.user,
+                    status=TradeShipment.Status.PENDING,
+                )
+            except TradeShipment.DoesNotExist:
+                return Response(
+                    {"detail": "No pending shipment found for you in this trade."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            mark_shipped(
+                shipment,
+                tracking=serializer.validated_data.get("tracking_number", ""),
+                method=serializer.validated_data.get("shipping_method", ""),
+            )
+
+        trade.refresh_from_db()
         return Response(TradeSerializer(trade, context={"request": request}).data)
 
 
@@ -347,9 +362,9 @@ class TradeRateView(APIView):
         if not is_party:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Trade must be at a ratable status
+        # Trade must be at a ratable status — SHIPPING is excluded so neither
+        # party can rate before at least one book has been confirmed received.
         if trade.status not in [
-            Trade.Status.SHIPPING,
             Trade.Status.ONE_RECEIVED,
             Trade.Status.COMPLETED,
             Trade.Status.AUTO_CLOSED,

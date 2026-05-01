@@ -6,6 +6,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.permissions import EmailVerifiedPermission
 from apps.accounts.views import user_has_verified_shipping_address
 
 from .models import Match, MatchLeg
@@ -71,7 +72,7 @@ class MatchDetailView(APIView):
 class MatchAcceptView(APIView):
     """POST /api/v1/matches/:id/accept/"""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, EmailVerifiedPermission]
 
     def post(self, request, pk):
         user = request.user

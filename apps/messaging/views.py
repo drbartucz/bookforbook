@@ -2,7 +2,12 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
+
+
+class _MessageCreateThrottle(UserRateThrottle):
+    scope = "message_create"
 
 from apps.trading.models import Trade
 
@@ -16,6 +21,11 @@ class TradeMessageListView(APIView):
     POST /api/v1/trades/:pk/messages/ — send a message
     """
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_throttles(self):
+        if self.request.method == "POST":
+            return [_MessageCreateThrottle()]
+        return super().get_throttles()
 
     def _get_trade_and_verify_party(self, request, pk):
         trade = get_object_or_404(Trade, pk=pk)

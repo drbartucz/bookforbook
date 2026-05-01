@@ -14,6 +14,11 @@ _INSECURE_DEFAULT_FIELD_ENCRYPTION_KEY = "NmzoBw3C4Rvblhs8AsAsnF-GYGVQatPZnEuvj_
 if SECRET_KEY == _INSECURE_DEFAULT_SECRET_KEY:  # noqa: F405
     raise ImproperlyConfigured("SECRET_KEY must be set via environment in production.")
 
+if JWT_SIGNING_KEY == SECRET_KEY:  # noqa: F405
+    raise ImproperlyConfigured(
+        "JWT_SIGNING_KEY must be set to a value distinct from SECRET_KEY in production."
+    )
+
 
 # Fail if FIELD_ENCRYPTION_KEY is unset or set to any known insecure value
 _INSECURE_FIELD_ENCRYPTION_KEYS = [

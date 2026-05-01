@@ -14,6 +14,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
 
 from .models import User
+from .permissions import EmailVerifiedPermission
 from .serializers import (
     AccountDeletionSerializer,
     AddressVerificationSerializer,
@@ -301,7 +302,7 @@ class UserMeView(APIView):
 
 
 class UserAddressVerifyView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, EmailVerifiedPermission]
 
     def post(self, request):
         serializer = AddressVerificationSerializer(data=request.data)

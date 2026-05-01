@@ -5,6 +5,7 @@ from django.contrib.auth.models import (
     BaseUserManager,
     PermissionsMixin,
 )
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
 from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedCharField
@@ -104,7 +105,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True, db_index=True)
     email_verified = models.BooleanField(default=False)
     email_verified_at = models.DateTimeField(null=True, blank=True)
-    username = models.CharField(max_length=150, unique=True, db_index=True)
+    username = models.CharField(
+        max_length=150,
+        unique=True,
+        db_index=True,
+        validators=[UnicodeUsernameValidator()],
+    )
     account_type = models.CharField(
         max_length=20,
         choices=AccountType.choices,

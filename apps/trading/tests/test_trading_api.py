@@ -630,7 +630,7 @@ class TestTradeRate:
             source_id=TradeProposal.objects.create(
                 proposer=a, recipient=b, status=TradeProposal.Status.COMPLETED
             ).pk,
-            status=Trade.Status.SHIPPING,
+            status=Trade.Status.ONE_RECEIVED,
         )
         TradeShipment.objects.create(
             trade=trade, sender=a, receiver=b, user_book=book_a
@@ -688,7 +688,7 @@ class TestTradeRate:
         assert resp.status_code == 404
 
     def test_rate_confirmed_trade_rejected(self, api_client):
-        """Trade must be in shipping/received/completed/auto_closed to rate."""
+        """Trade must be in one_received/completed/auto_closed to rate."""
         trade, a, b = self._setup_shipping_trade()
         trade.status = Trade.Status.CONFIRMED
         trade.save()
@@ -1066,7 +1066,7 @@ class TestTradeRateViewEdgeCases:
     """Lines 417-418, 428, 460-461, 479-481 of TradeRateView."""
 
     def _setup_ratable_trade(self):
-        """Create a SHIPPING trade with two parties."""
+        """Create a ONE_RECEIVED trade with two parties."""
         a = UserFactory()
         b = UserFactory()
         book_a = UserBookFactory(
@@ -1080,7 +1080,7 @@ class TestTradeRateViewEdgeCases:
             source_id=TradeProposal.objects.create(
                 proposer=a, recipient=b, status=TradeProposal.Status.COMPLETED
             ).pk,
-            status=Trade.Status.SHIPPING,
+            status=Trade.Status.ONE_RECEIVED,
         )
         TradeShipment.objects.create(
             trade=trade, sender=a, receiver=b, user_book=book_a
@@ -1184,7 +1184,7 @@ class TestTradeRateViewEdgeCases:
 
         trade.refresh_from_db()
         # Only one rating so far — not yet completed
-        assert trade.status == Trade.Status.SHIPPING
+        assert trade.status == Trade.Status.ONE_RECEIVED
 
         # User b rates user a
         client_b = _auth(api_client, b)

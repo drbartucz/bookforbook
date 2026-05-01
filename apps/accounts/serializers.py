@@ -1,8 +1,11 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
+
+_username_validator = UnicodeUsernameValidator()
 
 from .disposable_email_domains import DISPOSABLE_EMAIL_DOMAINS
 from .models import CONTINENTAL_US_STATES, User
@@ -31,6 +34,15 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Registration with disposable email addresses is not allowed. "
                 "Please use a permanent email address."
+            )
+        return value
+
+    def validate_username(self, value: str) -> str:
+        try:
+            _username_validator(value)
+        except Exception:
+            raise serializers.ValidationError(
+                "Username may only contain letters, digits, and @/./+/-/_ characters."
             )
         return value
 
@@ -225,6 +237,15 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
             "state",
             "zip_code",
         ]
+
+    def validate_username(self, value: str) -> str:
+        try:
+            _username_validator(value)
+        except Exception:
+            raise serializers.ValidationError(
+                "Username may only contain letters, digits, and @/./+/-/_ characters."
+            )
+        return value
 
     def validate_state(self, value):
         if value and value.upper() not in CONTINENTAL_US_STATES:
