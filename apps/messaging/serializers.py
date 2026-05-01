@@ -1,3 +1,5 @@
+import json
+
 from rest_framework import serializers
 
 from apps.accounts.serializers import UserPublicProfileSerializer
@@ -25,4 +27,9 @@ class TradeMessageCreateSerializer(serializers.ModelSerializer):
     def validate_content(self, value):
         if len(value.strip()) == 0:
             raise serializers.ValidationError('Message content cannot be empty.')
+        return value
+
+    def validate_metadata(self, value):
+        if value is not None and len(json.dumps(value)) > 1024:
+            raise serializers.ValidationError('metadata exceeds maximum allowed size of 1 KB.')
         return value
