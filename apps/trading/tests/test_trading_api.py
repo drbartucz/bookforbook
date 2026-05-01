@@ -630,7 +630,7 @@ class TestTradeRate:
             source_id=TradeProposal.objects.create(
                 proposer=a, recipient=b, status=TradeProposal.Status.COMPLETED
             ).pk,
-            status=Trade.Status.SHIPPING,
+            status=Trade.Status.ONE_RECEIVED,
         )
         TradeShipment.objects.create(
             trade=trade, sender=a, receiver=b, user_book=book_a
@@ -688,7 +688,7 @@ class TestTradeRate:
         assert resp.status_code == 404
 
     def test_rate_confirmed_trade_rejected(self, api_client):
-        """Trade must be in shipping/received/completed/auto_closed to rate."""
+        """Trade must be in one_received/completed/auto_closed to rate."""
         trade, a, b = self._setup_shipping_trade()
         trade.status = Trade.Status.CONFIRMED
         trade.save()
@@ -1080,7 +1080,7 @@ class TestTradeRateViewEdgeCases:
             source_id=TradeProposal.objects.create(
                 proposer=a, recipient=b, status=TradeProposal.Status.COMPLETED
             ).pk,
-            status=Trade.Status.SHIPPING,
+            status=Trade.Status.ONE_RECEIVED,
         )
         TradeShipment.objects.create(
             trade=trade, sender=a, receiver=b, user_book=book_a
