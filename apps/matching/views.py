@@ -291,9 +291,9 @@ class ReverseDiscoveryView(APIView):
 
         # 5. Group by user and build response
         # Index my available books by book_id for O(1) lookup
-        my_books_by_id: dict = {}
+        my_books_by_book_id: dict = {}
         for ub in my_available_books:
-            my_books_by_id.setdefault(ub.book_id, []).append(ub)
+            my_books_by_book_id.setdefault(ub.book_id, []).append(ub)
 
         partner_map = {}
         for want in other_wants:
@@ -309,7 +309,7 @@ class ReverseDiscoveryView(APIView):
 
             # O(1) lookup instead of scanning all my available books
             partner_map[partner.id]["they_want_books"].extend(
-                my_books_by_id.get(want.book_id, [])
+                my_books_by_book_id.get(want.book_id, [])
             )
 
         # 6. Populate "they_offer" for these potential partners
