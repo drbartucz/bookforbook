@@ -109,7 +109,7 @@ export default function Home() {
       <div className={styles.hero}>
         <h1 className={styles.heroTitle}>Trade books, not money</h1>
         <p className={styles.heroSubtitle}>
-          Give your books a second story. Trade what you’ve read for the books you want, or donate to a library or bookshop!
+          Trade books you've read for the books you want, or donate to a library or bookshop!
         </p>
         {!isAuthenticated && (
           <div className={styles.heroActions}>
