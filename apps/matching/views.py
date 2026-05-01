@@ -324,11 +324,11 @@ class ReverseDiscoveryView(APIView):
             )
             .exclude(book_id__in=my_wishlist_book_ids)
             .select_related("book")
-            .order_by("-created_at")
+            .order_by("user_id", "-created_at")
         )
 
         # Group by partner, keeping up to 10 books each (preserving recency order).
-        partner_books_map: dict = {}
+        partner_books_map: dict[int, list[UserBook]] = {}
         for ub in all_partner_books:
             books = partner_books_map.setdefault(ub.user_id, [])
             if len(books) < 10:
