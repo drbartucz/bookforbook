@@ -10,6 +10,7 @@ Usage:
     python manage.py refresh_books --batch-size 50       # progress checkpoint interval
 """
 
+import json
 import time
 
 from django.core.management.base import BaseCommand
@@ -144,8 +145,19 @@ class Command(BaseCommand):
         Returns True if any fields changed, False otherwise.
         """
         data = fetch_from_open_library(book.isbn_13)
+        
+        # Print current book data
+        current_data = {field: getattr(book, field) for field in REFRESHABLE_FIELDS}
+        self.stdout.write(f"\n[ISBN {book.isbn_13}] CURRENT LOCAL DATA:")
+        self.stdout.write(json.dumps(current_data, indent=2, default=str))
+        
         if not data:
+            self.stdout.write(self.style.WARNING(f"  NO DATA RETURNED from Open Library for {book.isbn_13}"))
             return False
+
+        # Print fetched API data
+        self.stdout.write(f"[ISBN {book.isbn_13}] FETCHED API DATA:")
+        self.stdout.write(json.dumps(data, indent=2, default=str))
 
         updates = {}
         for field in REFRESHABLE_FIELDS:
@@ -162,7 +174,7 @@ class Command(BaseCommand):
             updates[field] = new_value
 
         if not updates:
-            if verbosity >= 2:
+            if verbosity >= 1: # Increased verbosity default for this explicit request
                 reasons = []
                 for field in REFRESHABLE_FIELDS:
                     new_value = data.get(field)
@@ -189,7 +201,9 @@ class Command(BaseCommand):
 
         book.save(update_fields=list(updates.keys()) + ["updated_at"])
         self.stdout.write(
-            f"  Updated {book.isbn_13} ({book.title[:40]}): "
-            f"{', '.join(updates.keys())}"
+            self.style.SUCCESS(
+                f"  Updated {book.isbn_13} ({book.title[:40]}): "
+                f"{', '.join(updates.keys())}"
+            )
         )
         return True
