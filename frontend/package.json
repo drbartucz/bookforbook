@@ -30,6 +30,9 @@
     "tesseract.js": "^7.0.0",
     "zustand": "^5.0.1"
   },
+  "overrides": {
+    "serialize-javascript": "^7.0.5"
+  },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
     "@testing-library/jest-dom": "^6.6.3",
