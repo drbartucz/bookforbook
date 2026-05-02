@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import BookCard from './BookCard.jsx';
@@ -134,5 +134,123 @@ describe('BookCard', () => {
         img.dispatchEvent(new Event('error'));
         // The onError handler sets src to the placeholder
         expect(img.src).toBeDefined();
+    });
+});
+
+const richBook = {
+    title: 'Dune',
+    authors: ['Frank Herbert'],
+    isbn_13: '9780441013593',
+    condition: 'good',
+    description: 'A science fiction masterpiece set in the distant future.',
+    physical_format: 'Hardcover',
+    page_count: 896,
+    publish_year: 1965,
+    subjects: ['Science Fiction', 'Space Opera'],
+};
+
+const openPopover = async (user) => {
+    await user.click(screen.getByRole('button', { name: 'View book details' }));
+    await waitFor(() =>
+        expect(
+            screen.getByText('A science fiction masterpiece set in the distant future.')
+        ).toBeInTheDocument()
+    );
+};
+
+describe('BookCard — BookPopover integration', () => {
+    it('renders the popover trigger with correct accessibility label', () => {
+        wrap(<BookCard book={richBook} />);
+        expect(
+            screen.getByRole('button', { name: 'View book details' })
+        ).toBeInTheDocument();
+    });
+
+    it('does not show popover content before trigger is clicked', () => {
+        wrap(<BookCard book={richBook} />);
+        expect(
+            screen.queryByText('A science fiction masterpiece set in the distant future.')
+        ).not.toBeInTheDocument();
+    });
+
+    it('opens the popover and shows book title when trigger is clicked', async () => {
+        const user = userEvent.setup();
+        wrap(<BookCard book={richBook} />);
+        await openPopover(user);
+        // After opening, the popover renders a second heading with the same title
+        expect(screen.getAllByRole('heading', { name: 'Dune' })).toHaveLength(2);
+    });
+
+    it('shows description in the popover', async () => {
+        const user = userEvent.setup();
+        wrap(<BookCard book={richBook} />);
+        await openPopover(user);
+        expect(
+            screen.getByText('A science fiction masterpiece set in the distant future.')
+        ).toBeInTheDocument();
+    });
+
+    it('shows metadata fields (format, page count, year) in the popover', async () => {
+        const user = userEvent.setup();
+        wrap(<BookCard book={richBook} />);
+        await openPopover(user);
+        expect(screen.getByText('Hardcover')).toBeInTheDocument();
+        expect(screen.getByText('896 pages')).toBeInTheDocument();
+        expect(screen.getByText('Published 1965')).toBeInTheDocument();
+    });
+
+    it('shows genre tags (subjects) in the popover', async () => {
+        const user = userEvent.setup();
+        wrap(<BookCard book={richBook} />);
+        await openPopover(user);
+        expect(screen.getByText('Science Fiction')).toBeInTheDocument();
+        expect(screen.getByText('Space Opera')).toBeInTheDocument();
+    });
+
+    it('shows fallback message when description is absent', async () => {
+        const user = userEvent.setup();
+        wrap(<BookCard book={{ ...richBook, description: undefined }} />);
+        await user.click(screen.getByRole('button', { name: 'View book details' }));
+        await waitFor(() =>
+            expect(
+                screen.getByText('No synopsis available for this title.')
+            ).toBeInTheDocument()
+        );
+    });
+
+    it('closes the popover when the close button is clicked', async () => {
+        const user = userEvent.setup();
+        wrap(<BookCard book={richBook} />);
+        await openPopover(user);
+        await user.click(screen.getByRole('button', { name: 'Close' }));
+        await waitFor(() =>
+            expect(
+                screen.queryByText('A science fiction masterpiece set in the distant future.')
+            ).not.toBeInTheDocument()
+        );
+    });
+
+    it('opens the popover with keyboard Enter on the trigger', async () => {
+        const user = userEvent.setup();
+        wrap(<BookCard book={richBook} />);
+        screen.getByRole('button', { name: 'View book details' }).focus();
+        await user.keyboard('{Enter}');
+        await waitFor(() =>
+            expect(
+                screen.getByText('A science fiction masterpiece set in the distant future.')
+            ).toBeInTheDocument()
+        );
+    });
+
+    it('closes the popover when Escape is pressed', async () => {
+        const user = userEvent.setup();
+        wrap(<BookCard book={richBook} />);
+        await openPopover(user);
+        await user.keyboard('{Escape}');
+        await waitFor(() =>
+            expect(
+                screen.queryByText('A science fiction masterpiece set in the distant future.')
+            ).not.toBeInTheDocument()
+        );
     });
 });
