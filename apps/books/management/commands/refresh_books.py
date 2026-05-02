@@ -147,6 +147,17 @@ class Command(BaseCommand):
         if not data:
             return False
 
+        if verbosity >= 2:
+            self.stdout.write(f"\n  {book.isbn_13} — {book.title[:50]}")
+            self.stdout.write("  STORED:")
+            for field in REFRESHABLE_FIELDS:
+                old_value = getattr(book, field)
+                self.stdout.write(f"    {field}: {repr(old_value)}")
+            self.stdout.write("  FROM API:")
+            for field in REFRESHABLE_FIELDS:
+                new_value = data.get(field)
+                self.stdout.write(f"    {field}: {repr(new_value)}")
+
         updates = {}
         for field in REFRESHABLE_FIELDS:
             new_value = data.get(field)
@@ -163,18 +174,8 @@ class Command(BaseCommand):
 
         if not updates:
             if verbosity >= 2:
-                reasons = []
-                for field in REFRESHABLE_FIELDS:
-                    new_value = data.get(field)
-                    old_value = getattr(book, field)
-                    if new_value in (None, "", []):
-                        reasons.append(f"{field}=<empty from API>")
-                    elif new_value == old_value:
-                        reasons.append(f"{field}=<unchanged>")
-                self.stdout.write(
-                    f"  SKIPPED {book.isbn_13} ({book.title[:40]}): "
-                    + (", ".join(reasons) if reasons else "no changes")
-                )
+                self.stdout.write(f"  → SKIPPED (nothing to fill)")
+
             return False
 
         if dry_run:
@@ -189,7 +190,7 @@ class Command(BaseCommand):
 
         book.save(update_fields=list(updates.keys()) + ["updated_at"])
         self.stdout.write(
-            f"  Updated {book.isbn_13} ({book.title[:40]}): "
+            f"  → UPDATED {book.isbn_13} ({book.title[:40]}): "
             f"{', '.join(updates.keys())}"
         )
         return True
