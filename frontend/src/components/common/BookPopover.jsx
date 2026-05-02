@@ -52,21 +52,25 @@ export default function BookPopover({ book }) {
             {author && <p className={styles.author}>by {author}</p>}
           </div>
 
-          <div className={styles.metaRow}>
-            {book.physical_format && (
-              <>
-                <span>{book.physical_format}</span>
-                <span className={styles.separator} />
-              </>
-            )}
-            {book.page_count && (
-              <>
-                <span>{book.page_count} pages</span>
-                <span className={styles.separator} />
-              </>
-            )}
-            {book.publish_year && <span>Published {book.publish_year}</span>}
-          </div>
+          {(() => {
+            const metaItems = [
+              book.physical_format,
+              book.page_count && `${book.page_count} pages`,
+              book.publish_year && `Published ${book.publish_year}`,
+            ].filter(Boolean);
+            return metaItems.length > 0 ? (
+              <div className={styles.metaRow}>
+                {metaItems.map((item, index) => (
+                  <React.Fragment key={index}>
+                    <span>{item}</span>
+                    {index < metaItems.length - 1 && (
+                      <span className={styles.separator} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            ) : null;
+          })()}
 
           {subjects.length > 0 && (
             <div className={styles.subjects}>
