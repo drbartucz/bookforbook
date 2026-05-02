@@ -12,6 +12,7 @@ from apps.books.services.openlibrary import (
     isbn10_to_isbn13,
     isbn13_to_isbn10,
     normalize_isbn,
+    _fetch_work_data,
     _normalize_physical_format,
     _parse_isbn_response_collect_keys,
     _parse_search_result,
@@ -682,6 +683,164 @@ def test_fetch_from_open_library_handles_edition_404():
 
     assert data.get("physical_format") is None
     assert "cover_image_url" in data
+
+
+# ---------------------------------------------------------------------------
+# _fetch_work_data
+# ---------------------------------------------------------------------------
+
+
+class TestFetchWorkData:
+    def _make_resp(self, status_code, payload):
+        from unittest.mock import MagicMock
+        r = MagicMock()
+        r.status_code = status_code
+        r.json.return_value = payload
+        return r
+
+    def test_extracts_description_string(self):
+        resp = self._make_resp(200, {"description": "A great book about things."})
+        with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+            data = _fetch_work_data("/works/OL123W")
+        assert data["description"] == "A great book about things."
+
+    def test_extracts_description_dict_value(self):
+        resp = self._make_resp(200, {
+            "description": {"type": "/type/text", "value": "A dict-wrapped synopsis."}
+        })
+        with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+            data = _fetch_work_data("/works/OL123W")
+        assert data["description"] == "A dict-wrapped synopsis."
+
+    def test_extracts_subjects(self):
+        subjects = ["Fiction", "Mystery", "Thriller"]
+        resp = self._make_resp(200, {"subjects": subjects})
+        with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+            data = _fetch_work_data("/works/OL123W")
+        assert data["subjects"] == subjects
+
+    def test_returns_empty_on_404(self):
+        resp = self._make_resp(404, {})
+        with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+            data = _fetch_work_data("/works/OL123W")
+        assert data == {}
+
+    def test_returns_empty_on_invalid_work_key(self):
+        data = _fetch_work_data("/books/OL123M")
+        assert data == {}
+
+    def test_returns_empty_on_request_exception(self):
+        import requests
+        with patch(
+            "apps.books.services.openlibrary.requests.get",
+            side_effect=requests.ConnectionError("no network"),
+        ):
+            data = _fetch_work_data("/works/OL123W")
+        assert data == {}
+
+
+def test_fetch_from_open_library_populates_description_from_work_endpoint():
+    """Description must be fetched from the work record when absent from edition/search."""
+
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def mock_get(url, **kwargs):
+        if "isbn/9780201616224.json" in url:
+            return FakeResponse(200, {
+                "title": "The Pragmatic Programmer",
+                "authors": [{"name": "David Thomas"}],
+                "works": [{"key": "/works/OL123W"}],
+            })
+        if "search.json" in url:
+            return FakeResponse(200, {"docs": []})
+        if "/works/OL123W.json" in url:
+            return FakeResponse(200, {
+                "description": "A seminal guide to software craftsmanship.",
+            })
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780201616224")
+
+    assert data["description"] == "A seminal guide to software craftsmanship."
+
+
+def test_fetch_from_open_library_uses_search_work_key_for_description():
+    """work_key from search result is used as fallback when ISBN endpoint has no works."""
+
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def mock_get(url, **kwargs):
+        if "isbn/9780201616224.json" in url:
+            return FakeResponse(200, {
+                "title": "The Pragmatic Programmer",
+                "authors": [{"name": "David Thomas"}],
+            })
+        if "search.json" in url:
+            return FakeResponse(200, {
+                "docs": [{
+                    "title": "The Pragmatic Programmer",
+                    "author_name": ["David Thomas"],
+                    "key": "/works/OL456W",
+                }]
+            })
+        if "/works/OL456W.json" in url:
+            return FakeResponse(200, {
+                "description": {"type": "/type/text", "value": "From search work key."},
+            })
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780201616224")
+
+    assert data["description"] == "From search work key."
+
+
+def test_fetch_from_open_library_skips_work_fetch_when_description_already_present():
+    """_fetch_work_data must not be called when description is already populated."""
+
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    work_fetched = []
+
+    def mock_get(url, **kwargs):
+        if "isbn/9780201616224.json" in url:
+            return FakeResponse(200, {
+                "title": "The Pragmatic Programmer",
+                "authors": [{"name": "David Thomas"}],
+                "description": "Already here.",
+                "works": [{"key": "/works/OL123W"}],
+            })
+        if "search.json" in url:
+            return FakeResponse(200, {"docs": []})
+        if "/works/OL123W.json" in url:
+            work_fetched.append(url)
+            return FakeResponse(200, {"description": "Should not overwrite."})
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780201616224")
+
+    assert data["description"] == "Already here."
+    assert work_fetched == []
 
 
 def test_fetch_author_name_returns_none_on_non_200():

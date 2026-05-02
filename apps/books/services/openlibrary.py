@@ -354,6 +354,12 @@ def fetch_from_open_library(isbn_13: str) -> dict:
         if preferred_print_format:
             data["physical_format"] = preferred_print_format
 
+    # Descriptions live at the work level, not the edition level — fetch if still missing.
+    if not data.get("description"):
+        work_key = data.get("work_key") or search_data.get("work_key")
+        if work_key:
+            data = _merge_book_data(data, _fetch_work_data(work_key))
+
     # Always ensure cover URL
     if not data.get("cover_image_url"):
         data["cover_image_url"] = OPEN_LIBRARY_COVER_URL.format(isbn=isbn_13)
@@ -483,6 +489,12 @@ def _parse_isbn_response_collect_keys(
     elif isinstance(desc, str):
         data["description"] = desc
 
+    works = raw.get("works", [])
+    if works and isinstance(works[0], dict):
+        work_key = works[0].get("key")
+        if work_key and _is_valid_work_key(work_key):
+            data["work_key"] = work_key
+
     return data
 
 
@@ -514,6 +526,9 @@ def _parse_search_result(doc: dict, isbn_13: str) -> dict:
     data["edition_key"] = doc.get("cover_edition_key") or (
         doc.get("edition_key", [None])[0] if doc.get("edition_key") else None
     )
+    work_key = doc.get("key")
+    if work_key and _is_valid_work_key(work_key):
+        data["work_key"] = work_key
     subjects = doc.get("subject", [])
     data["subjects"] = subjects[:20] if subjects else []
     cover_id = doc.get("cover_i")
@@ -843,6 +858,38 @@ def _fetch_edition_data(edition_key: str) -> dict:
     except requests.RequestException as e:
         logger.debug("Edition data fetch failed for %s: %s", normalized_key, e)
     return data
+
+
+def _fetch_work_data(work_key: str) -> dict:
+    """Fetch description and subjects from an Open Library work record."""
+    if not _is_valid_work_key(work_key):
+        return {}
+    try:
+        resp = requests.get(
+            OPEN_LIBRARY_WORKS_URL.format(key=work_key),
+            timeout=REQUEST_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return {}
+        raw = _response_json_object(resp, f"work lookup for {work_key}")
+        if not raw:
+            return {}
+
+        data: dict = {}
+        desc = raw.get("description")
+        if isinstance(desc, dict):
+            data["description"] = desc.get("value", "")
+        elif isinstance(desc, str):
+            data["description"] = desc
+
+        subjects = raw.get("subjects", [])
+        if subjects:
+            data["subjects"] = subjects[:20]
+
+        return data
+    except requests.RequestException as e:
+        logger.debug("Work data fetch failed for %s: %s", work_key, e)
+        return {}
 
 
 def _fetch_author_name(author_key: str) -> str | None:
