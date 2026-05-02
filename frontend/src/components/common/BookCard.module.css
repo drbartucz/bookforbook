@@ -53,6 +53,13 @@
   gap: 0.25rem;
 }
 
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .title {
   font-size: 0.9375rem;
   font-weight: 600;

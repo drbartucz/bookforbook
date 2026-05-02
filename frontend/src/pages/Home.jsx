@@ -125,8 +125,8 @@ export default function Home() {
       </div >
 
       {/* Tabs */}
-      < div className={styles.tabs} role="tablist" aria - label="Browse books" >
-      <button
+      <div className={styles.tabs} role="tablist" aria-label="Browse books">
+        <button
         role="tab"
         aria-selected={activeTab === 'offer'}
         className={`${styles.tab} ${activeTab === 'offer' ? styles.tabActive : ''}`}
