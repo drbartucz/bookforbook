@@ -18,7 +18,7 @@ OPEN_LIBRARY_WORKS_URL = "https://openlibrary.org{key}.json"
 OPEN_LIBRARY_WORK_EDITIONS_URL = "https://openlibrary.org{key}/editions.json"
 
 _EDITION_KEY_RE = re.compile(r"^/books/[A-Za-z0-9]+$")
-_WORK_KEY_RE = re.compile(r"^/works/[A-Za-z0-9]+$")
+_WORK_KEY_RE = re.compile(r"^/works/OL\d+W$")
 _AUTHOR_KEY_RE = re.compile(r"^/authors/OL\d+A$")
 
 
@@ -489,10 +489,17 @@ def _parse_isbn_response_collect_keys(
     elif isinstance(desc, str):
         data["description"] = desc
 
-    works = raw.get("works", [])
-    if works and isinstance(works[0], dict):
-        work_key = works[0].get("key")
-        if work_key and _is_valid_work_key(work_key):
+    works = raw.get("works")
+    if isinstance(works, list):
+        work_key = next(
+            (
+                entry.get("key")
+                for entry in works
+                if isinstance(entry, dict) and _is_valid_work_key(entry.get("key", ""))
+            ),
+            None,
+        )
+        if work_key:
             data["work_key"] = work_key
 
     return data
