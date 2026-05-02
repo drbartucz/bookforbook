@@ -4,8 +4,13 @@ import factory
 
 from apps.accounts.models import User
 from apps.books.models import Book
+from apps.backups.models import BackupRecord
+from apps.donations.models import Donation
 from apps.inventory.models import ConditionChoices, UserBook, WishlistItem
+from apps.ratings.models import Rating
+from apps.matching.models import Match, MatchLeg
 from apps.messaging.models import TradeMessage
+from apps.trading.models import Trade, TradeShipment, TradeProposal, TradeProposalItem
 from apps.notifications.models import Notification
 from apps.trading.models import Trade, TradeShipment
 
@@ -44,6 +49,16 @@ class UserBookFactory(factory.django.DjangoModelFactory):
     book = factory.SubFactory(BookFactory)
     condition = ConditionChoices.GOOD
     status = UserBook.Status.AVAILABLE
+
+
+class BackupRecordFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = BackupRecord
+
+    backup_type = BackupRecord.BackupType.DATABASE
+    status = BackupRecord.Status.PENDING
+    is_automatic = True
+
 
 
 class WishlistItemFactory(factory.django.DjangoModelFactory):
@@ -95,3 +110,65 @@ class TradeMessageFactory(factory.django.DjangoModelFactory):
     sender = factory.SubFactory(UserFactory)
     message_type = TradeMessage.MessageType.GENERAL_NOTE
     content = "Hello, looking forward to this trade!"
+
+
+class MatchFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Match
+
+    match_type = Match.MatchType.DIRECT
+    status = Match.Status.PENDING
+
+
+class MatchLegFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = MatchLeg
+
+    match = factory.SubFactory(MatchFactory)
+    sender = factory.SubFactory(UserFactory)
+    receiver = factory.SubFactory(UserFactory)
+    user_book = factory.SubFactory(UserBookFactory)
+    position = 0
+    status = MatchLeg.Status.PENDING
+
+
+class TradeProposalFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = TradeProposal
+
+    proposer = factory.SubFactory(UserFactory)
+    recipient = factory.SubFactory(UserFactory)
+    status = TradeProposal.Status.PENDING
+
+
+class TradeProposalItemFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = TradeProposalItem
+
+    proposal = factory.SubFactory(TradeProposalFactory)
+    user_book = factory.SubFactory(UserBookFactory)
+
+
+class DonationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Donation
+
+    donor = factory.SubFactory(UserFactory)
+    institution = factory.SubFactory(UserFactory, account_type=User.AccountType.LIBRARY)
+    user_book = factory.SubFactory(UserBookFactory)
+    status = Donation.Status.OFFERED
+
+
+class RatingFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Rating
+
+    trade = factory.SubFactory(TradeFactory)
+    rater = factory.SubFactory(UserFactory)
+    rated = factory.SubFactory(UserFactory)
+    score = 5
+    book_condition_accurate = True
+
+
+
+

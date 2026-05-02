@@ -19,9 +19,14 @@ export default function Discovery() {
   });
 
   const addToWishlistMutation = useMutation({
-    mutationFn: ({ isbn }) => wishlistApi.add({ isbn }),
-    onSuccess: (_, variables) => {
-      setAddedToWishlist((prev) => new Set([...prev, variables.isbn]));
+    mutationFn: ({ identifier }) => wishlistApi.add({ isbn: identifier }),
+    onSuccess: (data, variables) => {
+      const isbn = variables.identifier;
+      setAddedToWishlist((prev) => {
+        const next = new Set(prev);
+        next.add(isbn);
+        return next;
+      });
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       // Optionally refetch discovery to remove books already in wishlist
       queryClient.invalidateQueries({ queryKey: ['discovery-partners'] });
@@ -82,9 +87,9 @@ export default function Discovery() {
                 <h3 className={styles.offersTitle}>Books they offer:</h3>
                 <div className={styles.offersGrid}>
                   {partner.they_offer.map((ub) => {
-                    const isbn = getBookIsbn(ub.book);
-                    const alreadyAdded = Boolean(isbn) && addedToWishlist.has(isbn);
-                    const canAddToWishlist = Boolean(isbn) && !alreadyAdded;
+                    const identifier = getBookIsbn(ub.book) || ub.book.id;
+                    const alreadyAdded = addedToWishlist.has(identifier);
+                    const canAddToWishlist = !alreadyAdded;
 
                     return (
                       <div key={ub.id} className={styles.bookWrapper}>
@@ -92,24 +97,22 @@ export default function Discovery() {
                           book={ub.book}
                           onAction={
                             canAddToWishlist
-                              ? () => addToWishlistMutation.mutate({ isbn })
-                              : undefined
+                              ? () => addToWishlistMutation.mutate({ identifier })
+                              : () => {} // No-op if already added, keeping button in DOM
                           }
                           actionLabel={
-                            !isbn
-                              ? 'Unavailable'
-                              : alreadyAdded
+                            alreadyAdded
                                 ? 'Added!'
                                 : 'I want this'
                           }
                           actionTooltip={
-                            !isbn
+                            !getBookIsbn(ub.book)
                               ? 'This book cannot be added to your wishlist because it does not have an ISBN.'
                               : "Adds this book to your wishlist. If you both want each other's books, a match will be created automatically."
                           }
                           actionLoading={
                             addToWishlistMutation.isPending &&
-                            addToWishlistMutation.variables?.isbn === isbn
+                            addToWishlistMutation.variables?.identifier === identifier
                           }
                         />
                       </div>

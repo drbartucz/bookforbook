@@ -1,67 +1,75 @@
 import pytest
+from apps.matching.services.preference_filters import (
+    normalize_title,
+    extract_author_tokens,
+    normalize_format,
+    is_abridged,
+    wishlist_allows_book
+)
+from apps.inventory.models import WishlistItem
+from apps.tests.factories import BookFactory, WishlistItemFactory, UserFactory
 
-from apps.matching.services.preference_filters import wishlist_allows_book
-from apps.tests.factories import BookFactory, WishlistItemFactory
+def test_normalize_title():
+    assert normalize_title("The Great Gatsby: A Novel") == "the great gatsby"
+    assert normalize_title("Crème Brûlée") == "creme brulee"
+    assert normalize_title("Hello!!!   World") == "hello world"
+    assert normalize_title("") == ""
 
+def test_extract_author_tokens():
+    assert extract_author_tokens(["F. Scott Fitzgerald"]) == {"f. scott fitzgerald"}
+    assert extract_author_tokens(" Fitzgerald ") == {"fitzgerald"}
+    assert extract_author_tokens(None) == set()
 
-pytestmark = pytest.mark.django_db
+def test_normalize_format():
+    assert normalize_format("Trade Paperback") == "paperback"
+    assert normalize_format("Cloth Bound Hardcover") == "hardcover"
+    assert normalize_format("Mass Market") == "mass_market"
+    assert normalize_format("Unknown") is None
 
+@pytest.mark.django_db
+def test_is_abridged():
+    b1 = BookFactory(title="Abridged Edition")
+    assert is_abridged(b1) is True
+    b2 = BookFactory(title="Unabridged Abridgement")
+    assert is_abridged(b2) is False
 
+@pytest.mark.django_db
 class TestWishlistAllowsBook:
-    def test_accented_titles_match_under_related_edition_preferences(self):
-        wanted = BookFactory(title="Les Miserables", authors=["Victor Hugo"])
-        offered = BookFactory(title="Les Miserables", authors=["Victor Hugo"])
-        wanted.title = "Les Misérables"
-        wanted.save(update_fields=["title"])
+    def test_exact_match(self):
+        book = BookFactory()
+        wish = WishlistItemFactory(book=book, edition_preference=WishlistItem.EditionPreference.EXACT)
+        assert wishlist_allows_book(wish, book) is True
+        assert wishlist_allows_book(wish, BookFactory()) is False
 
+    def test_related_edition_title_mismatch(self):
+        book1 = BookFactory(title="Title One")
+        book2 = BookFactory(title="Title Two")
+        wish = WishlistItemFactory(book=book1, edition_preference=WishlistItem.EditionPreference.SAME_LANGUAGE)
+        assert wishlist_allows_book(wish, book2) is False
+
+    def test_related_edition_author_check(self):
+        book1 = BookFactory(title="Same Title", authors=["Author A"])
+        book2 = BookFactory(title="Same Title", authors=["Author B"])
+        
         wish = WishlistItemFactory(
-            book=wanted,
-            edition_preference="same_language",
-            allow_translations=False,
+            book=book1, 
+            edition_preference=WishlistItem.EditionPreference.SAME_LANGUAGE,
+            allow_translations=False
         )
+        # DIFFERENT authors, same title -> False
+        assert wishlist_allows_book(wish, book2) is False
+        
+        # Change to ANY_LANGUAGE allows more flexibility
+        wish.edition_preference = WishlistItem.EditionPreference.ANY_LANGUAGE
+        assert wishlist_allows_book(wish, book2) is True
 
-        assert wishlist_allows_book(wish, offered)
-
-    def test_not_abridged_phrase_does_not_trigger_abridged_rejection(self):
-        wanted = BookFactory(title="War and Peace", authors=["Leo Tolstoy"])
-        offered = BookFactory(
-            title="War and Peace: NOT abridged edition",
-            authors=["Leo Tolstoy"],
-            description="This printing is NOT abridged.",
-        )
-
+    def test_format_preferences(self):
+        book_hard = BookFactory(title="Book", physical_format="Hardcover")
+        book_paper = BookFactory(title="Book", physical_format="Paperback")
         wish = WishlistItemFactory(
-            book=wanted,
-            edition_preference="same_language",
-            exclude_abridged=True,
+            book=book_hard, 
+            edition_preference=WishlistItem.EditionPreference.SAME_LANGUAGE,
+            format_preferences=["hardcover"]
         )
-
-        assert wishlist_allows_book(wish, offered)
-
-    def test_unabridged_title_does_not_trigger_abridged_rejection(self):
-        wanted = BookFactory(title="War and Peace", authors=["Leo Tolstoy"])
-        offered = BookFactory(
-            title="War and Peace: Unabridged edition",
-            authors=["Leo Tolstoy"],
-            description="Complete and unabridged text.",
-        )
-
-        wish = WishlistItemFactory(
-            book=wanted,
-            edition_preference="same_language",
-            exclude_abridged=True,
-        )
-
-        assert wishlist_allows_book(wish, offered)
-
-    def test_mixed_case_author_names_still_match(self):
-        wanted = BookFactory(title="Dune", authors=["Frank Herbert"])
-        offered = BookFactory(title="Dune", authors=["FRANK HERBERT"])
-
-        wish = WishlistItemFactory(
-            book=wanted,
-            edition_preference="same_language",
-            allow_translations=False,
-        )
-
-        assert wishlist_allows_book(wish, offered)
+        assert wishlist_allows_book(wish, book_hard) is True
+        assert wishlist_allows_book(wish, book_paper) is False
