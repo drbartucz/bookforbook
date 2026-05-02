@@ -145,19 +145,10 @@ class Command(BaseCommand):
         Returns True if any fields changed, False otherwise.
         """
         data = fetch_from_open_library(book.isbn_13)
-        
-        # Print current book data
-        current_data = {field: getattr(book, field) for field in REFRESHABLE_FIELDS}
-        self.stdout.write(f"\n[ISBN {book.isbn_13}] CURRENT LOCAL DATA:")
-        self.stdout.write(json.dumps(current_data, indent=2, default=str))
-        
         if not data:
-            self.stdout.write(self.style.WARNING(f"  NO DATA RETURNED from Open Library for {book.isbn_13}"))
+            if verbosity >= 2:
+                self.stdout.write(self.style.WARNING(f"  NO DATA RETURNED from Open Library for {book.isbn_13}"))
             return False
-
-        # Print fetched API data
-        self.stdout.write(f"[ISBN {book.isbn_13}] FETCHED API DATA:")
-        self.stdout.write(json.dumps(data, indent=2, default=str))
 
         updates = {}
         for field in REFRESHABLE_FIELDS:
@@ -174,7 +165,7 @@ class Command(BaseCommand):
             updates[field] = new_value
 
         if not updates:
-            if verbosity >= 1: # Increased verbosity default for this explicit request
+            if verbosity >= 2:
                 reasons = []
                 for field in REFRESHABLE_FIELDS:
                     new_value = data.get(field)
@@ -188,6 +179,14 @@ class Command(BaseCommand):
                     + (", ".join(reasons) if reasons else "no changes")
                 )
             return False
+
+        # Something IS different and qualifies for an update
+        current_data = {field: getattr(book, field) for field in REFRESHABLE_FIELDS}
+        self.stdout.write(f"\n[ISBN {book.isbn_13}] CURRENT LOCAL DATA:")
+        self.stdout.write(json.dumps(current_data, indent=2, default=str))
+        
+        self.stdout.write(f"[ISBN {book.isbn_13}] FETCHED API DATA:")
+        self.stdout.write(json.dumps(data, indent=2, default=str))
 
         if dry_run:
             self.stdout.write(
