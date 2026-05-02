@@ -255,6 +255,19 @@ Match account-age gating is configurable via `MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_
 
 ---
 
+### Match Discovery (Reverse Matching)
+
+If the automatic matching engine hasn't found a mutual trade yet, you can use the **Discover** feature to find people who want books you own.
+
+1. Navigate to **Discover** (or `/discovery`)
+2. View a list of potential partners who have your books on their wishlist
+3. Browse their available books to see if there is anything you want
+4. If you find a book you like, you can initiate a [Direct Proposal](#proposing-a-trade-directly)
+
+This "reverse discovery" helps jumpstart trades by focusing on users who are already looking for what you have.
+
+---
+
 ### Exchange Rings (Multi-Party Trades)
 
 Sometimes a direct swap isn't possible, but a chain works: Alice has what Bob wants, Bob has what Carol wants, Carol has what Alice wants. The system detects these cycles automatically (up to 5 people).

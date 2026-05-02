@@ -7,8 +7,9 @@ A book bartering platform where users in the continental USA trade books 1-for-1
 1. List books you want to give away (by ISBN) with a condition rating
 2. Add books to your want list
 3. The system automatically detects mutual matches and exchange rings (up to 5 people)
-4. All parties confirm the trade; shipping addresses are revealed only then
-5. Ship your book, mark it received, and leave a rating
+4. Use **Match Discovery** to find potential partners who want your books when no mutual match exists
+5. All parties confirm the trade; shipping addresses are revealed only then
+6. Ship your book, mark it received, and leave a rating
 
 Verified libraries and bookstores can receive book donations.
 
@@ -20,6 +21,7 @@ Verified libraries and bookstores can receive book donations.
 | Database | PostgreSQL 16 (Railway managed) |
 | Task queue | Django-Q2 (PostgreSQL broker) |
 | Frontend | React 18 (Vite) as PWA on Cloudflare Pages |
+| UI | Radix UI primitives |
 | ISBN data | Open Library API |
 | Auth | JWT (djangorestframework-simplejwt) |
 | Email (inbound) | Proton Mail (custom domain, MX records) |
@@ -429,7 +431,7 @@ All endpoints live under `/api/v1/`. JWT auth is required except for browse/sear
 | `books/` | ISBN lookup, search |
 | `my-books/` | Have-list management |
 | `wishlist/` | Want-list management |
-| `matches/` | Auto-detected matches; accept/decline |
+| `matches/` | Auto-detected matches + Discovery; accept/decline |
 | `proposals/` | User-initiated trade proposals |
 | `trades/` | Shipment tracking, messaging, ratings |
 | `donations/` | Institutional donation workflow |

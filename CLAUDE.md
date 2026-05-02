@@ -95,6 +95,8 @@ Two detection paths, both skip institutional users:
 
 **Ring detection** (`ring_detector.py`): Builds a directed graph of who has what others want, then finds cycles of 3–5 users using DFS. Filters to only `individual` account types. If one leg of a ring is declined, the system attempts to reform a new ring before cancelling.
 
+**Reverse Discovery** (`ReverseDiscoveryView`): A manual discovery path that finds users who want the current user's available books, even if a mutual match hasn't been auto-detected. Filtered results include partners' available books and what they want from the current user.
+
 Match capacity is checked before creating any match or accepting any proposal. Address verification is required before accepting a match or proposal.
 
 ### Trade lifecycle
@@ -118,7 +120,7 @@ Institutions require admin approval (`is_verified=True`) before participating. T
 
 ### Frontend (`frontend/`)
 
-React 18 PWA built with Vite. State: Zustand. Server state: TanStack Query. Forms: react-hook-form. HTTP: axios. Routes: react-router-dom v6.
+React 18 PWA built with Vite. State: Zustand. Server state: TanStack Query. Forms: react-hook-form. HTTP: axios. Routes: react-router-dom v6. UI: Radix UI primitives.
 
 The Vite dev server proxies `/api` to `http://localhost:8000` automatically — no CORS issues in local dev.
 

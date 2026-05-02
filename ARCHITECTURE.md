@@ -144,7 +144,7 @@ users/          me (CRUD + export + delete), :id/ (public profile), :id/ratings/
 books/          lookup/ (ISBN), :id/, search/
 my-books/       GET/POST/PATCH/DELETE (have-list)
 wishlist/       GET/POST/PATCH/DELETE (want-list)
-matches/        list, :id/, :id/accept/, :id/decline/
+matches/        list, discovery/reverse/, :id/, :id/accept/, :id/decline/
 proposals/      list, create, :id/, accept, decline
 trades/         list, :id/, mark-shipped, mark-received, rate, messages/
 donations/      list, offer, :id/accept/, :id/decline/
@@ -215,6 +215,13 @@ If a leg is declined:
   → If new ring found: create new Match, notify all
   → If no ring possible: cancel, release all UserBooks to 'available'
 ```
+
+**Match Discovery (Reverse Match):**
+A user-initiated discovery path that finds partners who want the user's books even when no mutual match exists.
+1. Get current user's available books.
+2. Find other users who have any of these in their Wishlist.
+3. Fetch partner's available books (excluding what the user already wants).
+4. Return partners with "they want" and "they offer" for manual trade proposals.
 
 ### Trade Confirmation Flow
 ```
