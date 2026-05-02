@@ -138,7 +138,7 @@ def _book_needs_enrichment(book) -> bool:
     """Return True when cached book metadata is incomplete enough to re-fetch."""
     if _is_placeholder_title(book.title):
         return True
-    return not book.authors or not book.physical_format
+    return not book.authors or not book.physical_format or not book.description
 
 
 def _update_book_from_data(book, data: dict) -> None:

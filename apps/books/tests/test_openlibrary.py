@@ -424,6 +424,7 @@ def test_get_or_create_book_does_not_refetch_cached_audio_edition():
         title="Billion Dollar Whale",
         authors=["Bradley Hope", "Tom Wright"],
         physical_format="Audio CD",
+        description="The story of a massive financial fraud.",
     )
 
     with patch(
@@ -568,6 +569,7 @@ def test_get_or_create_book_skips_enrichment_when_complete():
         isbn_13="9780201616224",
         authors=["Author One"],
         physical_format="Paperback",
+        description="A complete book with all metadata.",
     )
 
     with patch("apps.books.services.openlibrary.fetch_from_open_library") as mock_fetch:
