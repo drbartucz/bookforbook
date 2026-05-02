@@ -96,6 +96,16 @@ class TestOpenLibraryFormatParsing:
         assert parsed["physical_format"] == "Mass Market Paperback"
         assert author_keys == []
 
+    def test_parse_isbn_response_extracts_cover_from_covers_field(self):
+        raw = {
+            "title": "Example",
+            "authors": [],
+            "covers": [12345678],
+        }
+        author_keys: list = []
+        parsed = _parse_isbn_response_collect_keys(raw, "9780201616224", author_keys)
+        assert parsed["cover_image_url"] == "https://covers.openlibrary.org/b/id/12345678-M.jpg"
+
     def test_parse_search_result_extracts_physical_format(self):
         doc = {
             "title": "Example",
@@ -424,6 +434,7 @@ def test_get_or_create_book_does_not_refetch_cached_audio_edition():
         title="Billion Dollar Whale",
         authors=["Bradley Hope", "Tom Wright"],
         physical_format="Audio CD",
+        description="The story of a massive financial fraud.",
     )
 
     with patch(
@@ -568,6 +579,7 @@ def test_get_or_create_book_skips_enrichment_when_complete():
         isbn_13="9780201616224",
         authors=["Author One"],
         physical_format="Paperback",
+        description="A complete book with all metadata.",
     )
 
     with patch("apps.books.services.openlibrary.fetch_from_open_library") as mock_fetch:
@@ -841,6 +853,79 @@ def test_fetch_from_open_library_skips_work_fetch_when_description_already_prese
 
     assert data["description"] == "Already here."
     assert work_fetched == []
+
+
+def test_fetch_from_open_library_gets_cover_and_description_via_edition_work_key():
+    """When ISBN endpoint has covers[] and its edition record has a works[] key,
+    both cover and description should be populated even without a search work key."""
+
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def mock_get(url, **kwargs):
+        if "isbn/9780143136439.json" in url:
+            return FakeResponse(200, {
+                "title": "The Book",
+                "authors": [{"name": "Some Author"}],
+                "covers": [99887766],
+                "works": [{"key": "/works/OL99887W"}],
+            })
+        if "search.json" in url:
+            return FakeResponse(200, {"docs": []})
+        if "/works/OL99887W.json" in url:
+            return FakeResponse(200, {"description": "A synopsis from the work record."})
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780143136439")
+
+    assert data["cover_image_url"] == "https://covers.openlibrary.org/b/id/99887766-M.jpg"
+    assert data["description"] == "A synopsis from the work record."
+
+
+def test_fetch_from_open_library_gets_description_via_edition_data_work_key():
+    """work_key extracted from edition-data fetch (covers/format fallback path)
+    must be used to populate description when ISBN and search don't provide one."""
+
+    class FakeResponse:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def mock_get(url, **kwargs):
+        if "isbn/9780143136439.json" in url:
+            # No covers, no works — cover and work_key must come from edition fetch
+            return FakeResponse(200, {
+                "title": "The Book",
+                "authors": [{"name": "Some Author"}],
+            })
+        if "search.json" in url:
+            return FakeResponse(200, {
+                "docs": [{"title": "The Book", "cover_edition_key": "OL55443M"}]
+            })
+        if "/books/OL55443M.json" in url:
+            return FakeResponse(200, {
+                "physical_format": "Paperback",
+                "covers": [55443322],
+                "works": [{"key": "/works/OL55443W"}],
+            })
+        if "/works/OL55443W.json" in url:
+            return FakeResponse(200, {"description": "Description via edition work key."})
+        return FakeResponse(404, {})
+
+    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+        data = fetch_from_open_library("9780143136439")
+
+    assert data["cover_image_url"] == "https://covers.openlibrary.org/b/id/55443322-M.jpg"
+    assert data["description"] == "Description via edition work key."
 
 
 def test_fetch_author_name_returns_none_on_non_200():

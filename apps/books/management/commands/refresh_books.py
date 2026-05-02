@@ -45,7 +45,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--missing-only",
             action="store_true",
-            help="Only refresh books that are missing authors or physical_format",
+            help="Only refresh books that are missing authors, physical_format, or description",
         )
         parser.add_argument(
             "--dry-run",
@@ -130,7 +130,11 @@ class Command(BaseCommand):
         qs = Book.objects.all().order_by("created_at")
         if missing_only:
             qs = qs.filter(
-                Q(authors=[]) | Q(authors__isnull=True) | Q(physical_format__isnull=True)
+                Q(authors=[])
+                | Q(authors__isnull=True)
+                | Q(physical_format__isnull=True)
+                | Q(description__isnull=True)
+                | Q(description="")
             )
         return qs
 

@@ -138,7 +138,7 @@ def _book_needs_enrichment(book) -> bool:
     """Return True when cached book metadata is incomplete enough to re-fetch."""
     if _is_placeholder_title(book.title):
         return True
-    return not book.authors or not book.physical_format
+    return not book.authors or not book.physical_format or not book.description
 
 
 def _update_book_from_data(book, data: dict) -> None:
@@ -479,6 +479,12 @@ def _parse_isbn_response_collect_keys(
     if publish_date:
         year_match = re.search(r"\d{4}", publish_date)
         data["publish_year"] = int(year_match.group()) if year_match else None
+
+    covers = raw.get("covers")
+    if isinstance(covers, list) and covers:
+        data["cover_image_url"] = (
+            f"https://covers.openlibrary.org/b/id/{covers[0]}-M.jpg"
+        )
 
     subjects = raw.get("subjects", [])
     data["subjects"] = subjects[:20] if subjects else []
@@ -850,6 +856,19 @@ def _fetch_edition_data(edition_key: str) -> dict:
                     data["cover_image_url"] = (
                         f"https://covers.openlibrary.org/b/id/{covers[0]}-M.jpg"
                     )
+                works = raw.get("works")
+                if isinstance(works, list):
+                    edition_work_key = next(
+                        (
+                            entry.get("key")
+                            for entry in works
+                            if isinstance(entry, dict)
+                            and _is_valid_work_key(entry.get("key", ""))
+                        ),
+                        None,
+                    )
+                    if edition_work_key:
+                        data["work_key"] = edition_work_key
                 author_keys = []
                 inline_authors = []
                 for author_ref in raw.get("authors", []):
