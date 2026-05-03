@@ -22,6 +22,8 @@ export default function Contact() {
     mutationFn: (data) => notificationsApi.contactSubmit({ ...data, turnstile_token: turnstileToken }),
     onSuccess: () => {
       reset();
+    },
+    onSettled: () => {
       setTurnstileToken(null);
       turnstileRef.current?.reset();
     },
