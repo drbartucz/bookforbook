@@ -21,7 +21,6 @@ import TradeDetail from './pages/TradeDetail.jsx';
 import Donations from './pages/Donations.jsx';
 import PublicProfile from './pages/PublicProfile.jsx';
 import Institutions from './pages/Institutions.jsx';
-import About from './pages/About.jsx';
 import Contact from './pages/Contact.jsx';
 import useAuth from './hooks/useAuth.js';
 import AppErrorBoundary from './components/AppErrorBoundary.jsx';
