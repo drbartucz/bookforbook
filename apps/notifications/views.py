@@ -143,6 +143,12 @@ class ContactSupportView(APIView):
     throttle_classes = [ContactSupportThrottle]
 
     def post(self, request):
+        if not settings.TURNSTILE_SECRET_KEY:
+            return Response(
+                {"detail": "Contact form is not configured. Please try again later."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
         name = request.data.get("name", "").strip()
         email = request.data.get("email", "").strip()
         message = request.data.get("message", "").strip()

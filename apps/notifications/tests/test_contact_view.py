@@ -6,6 +6,10 @@ import requests
 
 @pytest.mark.django_db
 class TestContactSupportView:
+    @pytest.fixture(autouse=True)
+    def set_turnstile_key(self, settings):
+        settings.TURNSTILE_SECRET_KEY = "test-turnstile-secret-key"
+
     @property
     def url(self):
         return reverse("contact-support")
@@ -159,3 +163,24 @@ class TestContactSupportView:
             # First request should succeed (throttle not yet exceeded)
             response = auth_api_client.post(self.url, payload, format="json")
             assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestContactSupportViewUnconfigured:
+    """Tests for when TURNSTILE_SECRET_KEY is not configured."""
+
+    @pytest.fixture(autouse=True)
+    def clear_turnstile_key(self, settings):
+        settings.TURNSTILE_SECRET_KEY = ""
+
+    def test_contact_returns_503_when_turnstile_unconfigured(self, api_client):
+        """Contact endpoint returns 503 when TURNSTILE_SECRET_KEY is not set."""
+        payload = {
+            "name": "Test User",
+            "email": "test@example.com",
+            "message": "Hello",
+            "turnstile_token": "any-token"
+        }
+        response = api_client.post(reverse("contact-support"), payload, format="json")
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "not configured" in response.data["detail"]
