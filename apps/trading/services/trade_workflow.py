@@ -82,7 +82,7 @@ def create_trade_from_proposal(proposal) -> "Trade":
     book_ids = sorted({item.user_book_id for item in items})
     locked_books = {
         book.pk: book
-        for book in UserBook.objects.select_for_update().filter(pk__in=book_ids)
+        for book in UserBook.objects.select_for_update().filter(pk__in=book_ids).order_by("pk")
     }
     if len(locked_books) != len(book_ids):
         raise ValueError("One or more books in this proposal no longer exist.")

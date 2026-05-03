@@ -109,3 +109,53 @@ class TestTradeWorkflow:
         assert UserBook.objects.get(pk=s1.user_book.pk).status == UserBook.Status.TRADED
         user_a.refresh_from_db()
         assert user_a.total_trades == 1
+
+    def test_check_trade_completion_idempotent(self):
+        # Calling check_trade_completion a second time after the trade is already
+        # COMPLETED must not double-increment total_trades or create extra notifications.
+        from apps.notifications.models import Notification
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+        trade = TradeFactory(status=Trade.Status.SHIPPING)
+        s1 = TradeShipmentFactory(trade=trade, sender=user_a, receiver=user_b, status=TradeShipment.Status.RECEIVED)
+        s2 = TradeShipmentFactory(trade=trade, sender=user_b, receiver=user_a, status=TradeShipment.Status.RECEIVED)
+
+        check_trade_completion(trade)
+        user_a.refresh_from_db()
+        assert user_a.total_trades == 1
+        notification_count = Notification.objects.filter(
+            notification_type="trade_completed", metadata__trade_id=str(trade.pk)
+        ).count()
+
+        # Second call — simulates a concurrent request that raced past the status check.
+        check_trade_completion(trade)
+        user_a.refresh_from_db()
+        assert user_a.total_trades == 1, "total_trades must not be incremented a second time"
+        assert Notification.objects.filter(
+            notification_type="trade_completed", metadata__trade_id=str(trade.pk)
+        ).count() == notification_count, "no extra notifications should be created"
+
+    @patch("django_q.tasks.async_task")
+    def test_create_trade_from_proposal_idempotent(self, mock_async):
+        # Calling create_trade_from_proposal twice for the same proposal must
+        # return the same trade and must not create duplicate shipments or
+        # double-reserve the books.
+        user_a = UserFactory()
+        user_b = UserFactory()
+        proposal = TradeProposalFactory(proposer=user_a, recipient=user_b)
+
+        ub_a = UserBookFactory(user=user_a, status=UserBook.Status.AVAILABLE)
+        ub_b = UserBookFactory(user=user_b, status=UserBook.Status.AVAILABLE)
+
+        TradeProposalItemFactory(proposal=proposal, user_book=ub_a, direction=TradeProposalItem.Direction.PROPOSER_SENDS)
+        TradeProposalItemFactory(proposal=proposal, user_book=ub_b, direction=TradeProposalItem.Direction.RECIPIENT_SENDS)
+
+        trade1 = create_trade_from_proposal(proposal)
+        trade2 = create_trade_from_proposal(proposal)
+
+        assert trade1.pk == trade2.pk, "both calls must return the same trade"
+        assert Trade.objects.filter(source_type=Trade.SourceType.PROPOSAL, source_id=proposal.pk).count() == 1
+        assert trade1.shipments.count() == 2, "exactly two shipments must exist"
+        assert UserBook.objects.get(pk=ub_a.pk).status == UserBook.Status.RESERVED
+        assert UserBook.objects.get(pk=ub_b.pk).status == UserBook.Status.RESERVED
