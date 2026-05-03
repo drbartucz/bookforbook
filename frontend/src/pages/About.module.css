@@ -126,6 +126,11 @@
   background-color: var(--color-bg-secondary);
 }
 
+.accordionTrigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .chevron {
   width: 20px;
   height: 20px;
