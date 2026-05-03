@@ -92,7 +92,7 @@ def wishlist_allows_book(wish: WishlistItem, offered_book) -> bool:
 
     if wish.format_preferences:
         offered_format = normalize_format(offered_book.physical_format)
-        if offered_format not in set(wish.format_preferences):
+        if offered_format is not None and offered_format not in set(wish.format_preferences):
             return False
 
     return True
