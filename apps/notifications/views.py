@@ -1,5 +1,7 @@
 import requests
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email
 from django.utils import timezone
 from django.db.models import Q
 from rest_framework import permissions, status, throttling
@@ -117,8 +119,17 @@ class NotificationMarkAllReadView(APIView):
         return Response({"detail": f"{updated} notification(s) marked as read."})
 
 
-class ContactSupportThrottle(throttling.AnonRateThrottle):
+class ContactSupportThrottle(throttling.SimpleRateThrottle):
+    """
+    IP-based throttle that applies to all requests regardless of authentication
+    status. AnonRateThrottle would skip authenticated users; this does not.
+    """
+
     scope = "contact_support"
+
+    def get_cache_key(self, request, view):
+        ident = self.get_ident(request)
+        return self.cache_format % {"scope": self.scope, "ident": ident}
 
 
 class ContactSupportView(APIView):
@@ -132,14 +143,28 @@ class ContactSupportView(APIView):
     throttle_classes = [ContactSupportThrottle]
 
     def post(self, request):
-        name = request.data.get("name")
-        email = request.data.get("email")
-        message = request.data.get("message")
-        turnstile_token = request.data.get("turnstile_token")
+        name = request.data.get("name", "").strip()
+        email = request.data.get("email", "").strip()
+        message = request.data.get("message", "").strip()
+        turnstile_token = request.data.get("turnstile_token", "").strip()
 
         if not all([name, email, message, turnstile_token]):
             return Response(
                 {"detail": "All fields are required, including the captcha."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if any(c in name for c in ("\n", "\r")) or any(c in email for c in ("\n", "\r")):
+            return Response(
+                {"detail": "Invalid characters in name or email."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            validate_email(email)
+        except DjangoValidationError:
+            return Response(
+                {"detail": "Invalid email address."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

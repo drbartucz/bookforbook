@@ -25,6 +25,10 @@ export default function Contact() {
       setTurnstileToken(null);
       turnstileRef.current?.reset();
     },
+    onError: () => {
+      setTurnstileToken(null);
+      turnstileRef.current?.reset();
+    },
   });
 
   const onSubmit = (data) => {

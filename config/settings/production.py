@@ -139,6 +139,9 @@ def _parse_db_url(url: str) -> dict:
 DATABASE_URL = config("DATABASE_URL")
 DATABASES = {"default": _parse_db_url(DATABASE_URL)}
 
+if not TURNSTILE_SECRET_KEY:  # noqa: F405
+    raise ImproperlyConfigured("TURNSTILE_SECRET_KEY must be set in production.")
+
 # Email — Resend via django-anymail (HTTP API, no SMTP port restrictions)
 EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
 RESEND_API_KEY = config("RESEND_API_KEY", default="")
