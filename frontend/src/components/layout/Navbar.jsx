@@ -87,6 +87,9 @@ export default function Navbar() {
           <NavLink to="/institutions" className={navLinkClass}>
             Institutions
           </NavLink>
+          <NavLink to="/contact" className={navLinkClass}>
+            Contact
+          </NavLink>
           {isAuthenticated && (
             <>
               <NavLink to="/my-books" className={navLinkClass}>
@@ -272,6 +275,9 @@ export default function Navbar() {
           </NavLink>
           <NavLink to="/institutions" className={navLinkClass} onClick={() => setMobileOpen(false)}>
             Institutions
+          </NavLink>
+          <NavLink to="/contact" className={navLinkClass} onClick={() => setMobileOpen(false)}>
+            Contact
           </NavLink>
           {isAuthenticated ? (
             <>

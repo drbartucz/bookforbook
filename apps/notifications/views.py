@@ -1,11 +1,14 @@
+import requests
+from django.conf import settings
 from django.utils import timezone
 from django.db.models import Q
-from rest_framework import permissions, status
+from rest_framework import permissions, status, throttling
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Notification
 from .serializers import NotificationSerializer
+from .email import send_support_contact_email
 
 
 class NotificationListView(APIView):
@@ -112,3 +115,65 @@ class NotificationMarkAllReadView(APIView):
             is_read=True, read_at=now
         )
         return Response({"detail": f"{updated} notification(s) marked as read."})
+
+
+class ContactSupportThrottle(throttling.AnonRateThrottle):
+    scope = "contact_support"
+
+
+class ContactSupportView(APIView):
+    """
+    POST /api/v1/notifications/contact/
+    Public endpoint to send support messages.
+    Protected by Cloudflare Turnstile and DRF throttling.
+    """
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ContactSupportThrottle]
+
+    def post(self, request):
+        name = request.data.get("name")
+        email = request.data.get("email")
+        message = request.data.get("message")
+        turnstile_token = request.data.get("turnstile_token")
+
+        if not all([name, email, message, turnstile_token]):
+            return Response(
+                {"detail": "All fields are required, including the captcha."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Verify Turnstile token
+        try:
+            verify_res = requests.post(
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                data={
+                    "secret": settings.TURNSTILE_SECRET_KEY,
+                    "response": turnstile_token,
+                    "remoteip": request.META.get("REMOTE_ADDR"),
+                },
+                timeout=5,
+            )
+            verify_res.raise_for_status()
+            verify_data = verify_res.json()
+        except requests.RequestException:
+            return Response(
+                {"detail": "Verification service unavailable. Please try again later."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        if not verify_data.get("success"):
+            return Response(
+                {"detail": "Captcha verification failed. Please try again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Send email
+        success = send_support_contact_email(name, email, message)
+        if success:
+            return Response({"detail": "Message sent successfully!"})
+        else:
+            return Response(
+                {"detail": "Failed to send message. Please try again later."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
