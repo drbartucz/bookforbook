@@ -216,7 +216,7 @@ FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173")
 
 # Support contact settings
 SUPPORT_EMAIL = config("SUPPORT_EMAIL", default="support@bookforbook.com")
-TURNSTILE_SECRET_KEY = config("TURNSTILE_SECRET_KEY", default="")
+TURNSTILE_SECRET_KEY = config("TURNSTILE_SECRET_KEY")
 
 # Admin account activity alerts
 ADMIN_ACCOUNT_ALERT_EMAIL = config(
