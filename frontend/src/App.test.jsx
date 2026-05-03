@@ -28,6 +28,7 @@ vi.mock('./pages/TradeDetail.jsx', () => ({ default: () => <div data-testid="tra
 vi.mock('./pages/Donations.jsx', () => ({ default: () => <div data-testid="donations-page" /> }));
 vi.mock('./pages/PublicProfile.jsx', () => ({ default: () => <div data-testid="public-profile-page" /> }));
 vi.mock('./pages/Institutions.jsx', () => ({ default: () => <div data-testid="institutions-page" /> }));
+vi.mock('./pages/About.jsx', () => ({ default: () => <div data-testid="about-page" /> }));
 vi.mock('./components/layout/Layout.jsx', () => ({
     default: () => {
         const { Outlet } = require('react-router-dom');
