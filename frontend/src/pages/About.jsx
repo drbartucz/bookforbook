@@ -44,17 +44,17 @@ export default function About() {
       <section className={styles.section}>
         <div className={styles.grid}>
           <div className={styles.card}>
-            <span className={styles.icon}>🌱</span>
+            <span className={styles.icon} aria-hidden="true">🌱</span>
             <h3>Sustainable</h3>
             <p>Give your read books a second life and reduce paper waste.</p>
           </div>
           <div className={styles.card}>
-            <span className={styles.icon}>🤝</span>
+            <span className={styles.icon} aria-hidden="true">🤝</span>
             <h3>Community</h3>
             <p>Join thousands of readers in a trusted, peer-to-peer network.</p>
           </div>
           <div className={styles.card}>
-            <span className={styles.icon}>💰</span>
+            <span className={styles.icon} aria-hidden="true">💰</span>
             <h3>Cost-Effective</h3>
             <p>Get new-to-you books for just the price of shipping.</p>
           </div>
