@@ -14,6 +14,7 @@ import MyBooks from './pages/MyBooks.jsx';
 import Wishlist from './pages/Wishlist.jsx';
 import Matches from './pages/Matches.jsx';
 import Discovery from './pages/Discovery.jsx';
+import About from './pages/About.jsx';
 import Proposals from './pages/Proposals.jsx';
 import Trades from './pages/Trades.jsx';
 import TradeDetail from './pages/TradeDetail.jsx';
@@ -47,6 +48,7 @@ export default function App() {
         <Route element={<Layout />}>
           {/* Public routes */}
           <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
           <Route path="/institutions" element={<Institutions />} />
           <Route path="/profile/:id" element={<PublicProfile />} />
 
