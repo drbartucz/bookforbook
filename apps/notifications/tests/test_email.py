@@ -1,4 +1,5 @@
 import pytest
+from django.conf import settings
 from django.core import mail
 from apps.tests.factories import UserFactory, MatchFactory, TradeFactory
 from apps.notifications.email import (
@@ -10,7 +11,8 @@ from apps.notifications.email import (
     send_inactivity_warning_1m_email,
     send_books_delisted_email,
     send_account_deletion_email,
-    send_account_deletion_export_email
+    send_account_deletion_export_email,
+    send_support_contact_email,
 )
 
 @pytest.mark.django_db
@@ -74,3 +76,14 @@ class TestEmailHelpers:
         assert len(mail.outbox) == 1
         assert len(mail.outbox[0].attachments) == 1
         assert mail.outbox[0].attachments[0][0] == "bookforbook-data-export.json"
+
+    def test_send_support_contact_email(self):
+        result = send_support_contact_email("John Doe", "john@example.com", "Hello support!")
+        assert result is True
+        assert len(mail.outbox) == 1
+        assert "Support Contact: John Doe" in mail.outbox[0].subject
+        assert mail.outbox[0].to == [settings.SUPPORT_EMAIL]
+        assert mail.outbox[0].reply_to == ["john@example.com"]
+        assert "John Doe" in mail.outbox[0].body
+        assert "john@example.com" in mail.outbox[0].body
+        assert "Hello support!" in mail.outbox[0].body

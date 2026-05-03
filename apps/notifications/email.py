@@ -205,3 +205,31 @@ def send_account_deletion_export_email(user, export_data: dict) -> bool:
     except Exception:
         logger.exception("Failed to send account export email to %s", user.email)
         return False
+
+
+def send_support_contact_email(name: str, from_email: str, message: str) -> bool:
+    """
+    Send a contact form message to the support email address.
+    Sets Reply-To to the user's email for easy follow-up.
+    """
+    subject = f"Support Contact: {name}"
+    text_body = (
+        f"Name: {name}\n"
+        f"Email: {from_email}\n\n"
+        f"Message:\n{message}"
+    )
+    
+    try:
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[settings.SUPPORT_EMAIL],
+            reply_to=[from_email],
+        )
+        msg.send()
+        logger.info("Support contact email sent from %s", from_email)
+        return True
+    except Exception:
+        logger.exception("Failed to send support contact email from %s", from_email)
+        return False

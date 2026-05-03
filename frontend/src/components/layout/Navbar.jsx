@@ -90,6 +90,9 @@ export default function Navbar() {
           <NavLink to="/about" className={navLinkClass}>
             About
           </NavLink>
+          <NavLink to="/contact" className={navLinkClass}>
+            Contact
+          </NavLink>
           {isAuthenticated && (
             <>
               <NavLink to="/my-books" className={navLinkClass}>
@@ -278,6 +281,9 @@ export default function Navbar() {
           </NavLink>
           <NavLink to="/about" className={navLinkClass} onClick={() => setMobileOpen(false)}>
             About
+          </NavLink>
+          <NavLink to="/contact" className={navLinkClass} onClick={() => setMobileOpen(false)}>
+            Contact
           </NavLink>
           {isAuthenticated ? (
             <>

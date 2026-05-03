@@ -1,0 +1,117 @@
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+.formWrapper {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 2.5rem;
+  box-shadow: var(--shadow-md);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.title {
+  font-size: 2rem;
+  color: var(--color-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.field input,
+.field textarea {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.error {
+  color: var(--color-error);
+  font-size: 0.8125rem;
+  margin-top: 0.25rem;
+}
+
+.captchaWrapper {
+  display: flex;
+  justify-content: center;
+  margin: 0.5rem 0;
+}
+
+.successMessage {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.successIcon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+.successMessage h2 {
+  font-size: 1.75rem;
+  margin-bottom: 1rem;
+  color: var(--color-text-primary);
+}
+
+.successMessage p {
+  color: var(--color-text-secondary);
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: 2rem 1rem;
+  }
+  .formWrapper {
+    padding: 1.5rem;
+  }
+  .title {
+    font-size: 1.75rem;
+  }
+}

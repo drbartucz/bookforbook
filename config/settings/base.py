@@ -145,6 +145,7 @@ REST_FRAMEWORK = {
         "proposal_create": "30/hour",
         "donation_create": "30/hour",
         "trade_message": "60/hour",
+        "contact_support": "5/hour",
     },
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -212,6 +213,10 @@ DEFAULT_FROM_EMAIL = config(
 
 # Frontend URL (for email links)
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173")
+
+# Support contact settings
+SUPPORT_EMAIL = config("SUPPORT_EMAIL", default="support@bookforbook.com")
+TURNSTILE_SECRET_KEY = config("TURNSTILE_SECRET_KEY", default="")
 
 # Admin account activity alerts
 ADMIN_ACCOUNT_ALERT_EMAIL = config(
