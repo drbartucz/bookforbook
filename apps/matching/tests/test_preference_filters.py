@@ -67,9 +67,22 @@ class TestWishlistAllowsBook:
         book_hard = BookFactory(title="Book", physical_format="Hardcover")
         book_paper = BookFactory(title="Book", physical_format="Paperback")
         wish = WishlistItemFactory(
-            book=book_hard, 
+            book=book_hard,
             edition_preference=WishlistItem.EditionPreference.SAME_LANGUAGE,
             format_preferences=["hardcover"]
         )
         assert wishlist_allows_book(wish, book_hard) is True
         assert wishlist_allows_book(wish, book_paper) is False
+
+    def test_unknown_format_not_rejected(self):
+        # A book whose physical_format maps to None (e.g. "spiral-bound") should
+        # not be rejected when the wishlist has format preferences — the format
+        # is simply unknown, not wrong.
+        book_known = BookFactory(title="Book", physical_format="Hardcover")
+        book_unknown = BookFactory(title="Book", physical_format="spiral-bound")
+        wish = WishlistItemFactory(
+            book=book_known,
+            edition_preference=WishlistItem.EditionPreference.SAME_LANGUAGE,
+            format_preferences=["hardcover"],
+        )
+        assert wishlist_allows_book(wish, book_unknown) is True

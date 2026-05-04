@@ -65,16 +65,6 @@ def create_trade_from_proposal(proposal) -> "Trade":
     from apps.inventory.models import UserBook
     from apps.trading.models import Trade, TradeProposalItem, TradeShipment
 
-    existing_trade = Trade.objects.filter(
-        source_type=Trade.SourceType.PROPOSAL,
-        source_id=proposal.pk,
-    ).first()
-    if existing_trade is not None:
-        logger.info(
-            "Trade %s already exists for proposal %s", existing_trade.pk, proposal.pk
-        )
-        return existing_trade
-
     items = list(
         proposal.items.select_related("user_book__user", "user_book__book").all()
     )
@@ -92,17 +82,14 @@ def create_trade_from_proposal(proposal) -> "Trade":
     book_ids = sorted({item.user_book_id for item in items})
     locked_books = {
         book.pk: book
-        for book in UserBook.objects.select_for_update().filter(pk__in=book_ids)
+        for book in UserBook.objects.select_for_update().filter(pk__in=book_ids).order_by("pk")
     }
     if len(locked_books) != len(book_ids):
         raise ValueError("One or more books in this proposal no longer exist.")
 
-    if any(
-        locked_books[book_id].status != UserBook.Status.AVAILABLE
-        for book_id in book_ids
-    ):
-        raise ValueError("One or more books are no longer available for this proposal.")
-
+    # get_or_create runs while holding the book row locks so a concurrent caller
+    # that arrives here will either return the already-created trade (created=False)
+    # or proceed to create it knowing the book availability check is still valid.
     trade, created = Trade.objects.get_or_create(
         source_type=Trade.SourceType.PROPOSAL,
         source_id=proposal.pk,
@@ -112,6 +99,12 @@ def create_trade_from_proposal(proposal) -> "Trade":
     if not created:
         logger.info("Trade %s already exists for proposal %s", trade.pk, proposal.pk)
         return trade
+
+    if any(
+        locked_books[book_id].status != UserBook.Status.AVAILABLE
+        for book_id in book_ids
+    ):
+        raise ValueError("One or more books are no longer available for this proposal.")
 
     for item in items:
         if item.direction == TradeProposalItem.Direction.PROPOSER_SENDS:
@@ -227,6 +220,7 @@ def mark_shipped(shipment, tracking: str, method: str):
         logger.exception("Failed to create shipment notification")
 
 
+@transaction.atomic
 def mark_received(shipment):
     """Mark a shipment as received. Check if trade is complete."""
     from apps.trading.models import TradeShipment
@@ -238,16 +232,20 @@ def mark_received(shipment):
     check_trade_completion(shipment.trade)
 
 
+@transaction.atomic
 def check_trade_completion(trade):
     """
     Check if all shipments are received. If so, complete the trade.
     Updates UserBook statuses and user trade counts.
+
+    Uses select_for_update on the trade row so concurrent mark_received calls
+    serialise here and only one of them performs the completion side-effects.
     """
     from apps.trading.models import Trade, TradeShipment
     from apps.inventory.models import UserBook
 
-    # Refresh trade object
-    trade.refresh_from_db()
+    # Lock the trade row so concurrent calls don't both enter the completion branch.
+    trade = Trade.objects.select_for_update().get(pk=trade.pk)
     all_shipments = list(trade.shipments.all())
 
     received_count = sum(
@@ -262,7 +260,7 @@ def check_trade_completion(trade):
         trade.status = Trade.Status.ONE_RECEIVED
         trade.save(update_fields=["status"])
 
-    elif received_count == total_count:
+    elif received_count == total_count and trade.status != Trade.Status.COMPLETED:
         trade.status = Trade.Status.COMPLETED
         trade.completed_at = timezone.now()
         trade.save(update_fields=["status", "completed_at"])
