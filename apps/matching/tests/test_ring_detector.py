@@ -35,6 +35,9 @@ class TestRingDetector:
         match = matches[0]
         assert match.match_type == Match.MatchType.RING
         assert match.legs.count() == 3
+        # Ring matches must also be created with PROPOSED status so the frontend
+        # renders Accept/Decline buttons.
+        assert match.status == Match.Status.PROPOSED
 
     @override_settings(MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS=48)
     def test_ring_skipped_due_to_age(self):

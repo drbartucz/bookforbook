@@ -422,4 +422,79 @@ describe('Matches page', () => {
         await userEvent.click(await screen.findByRole('button', { name: /^decline$/i }));
         await waitFor(() => expect(matches.decline).toHaveBeenCalledWith('match-3'));
     });
+
+    it('shows Accept/Decline buttons for proposed-status matches (real API shape)', async () => {
+        matches.list.mockResolvedValue({
+            data: {
+                count: 1,
+                results: [
+                    {
+                        id: 'match-proposed-1',
+                        status: 'proposed',
+                        match_type: 'direct',
+                        legs: [
+                            {
+                                sender: { id: 'user-1', username: 'bart0605' },
+                                receiver: { id: 'user-2', username: 'alice' },
+                                status: 'pending',
+                                user_book: { condition: 'good', book: { id: 'bp1', title: 'Proposed Book A', authors: ['Author'] } },
+                            },
+                            {
+                                sender: { id: 'user-2', username: 'alice' },
+                                receiver: { id: 'user-1', username: 'bart0605' },
+                                status: 'pending',
+                                user_book: { condition: 'good', book: { id: 'bp2', title: 'Proposed Book B', authors: ['Author2'] } },
+                            },
+                        ],
+                    },
+                ],
+            },
+        });
+        matches.accept.mockResolvedValue({ data: {} });
+
+        renderWithProviders(<Matches />);
+
+        expect(await screen.findByText('Proposed Book A')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /accept match/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^decline$/i })).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole('button', { name: /accept match/i }));
+        await waitFor(() => expect(matches.accept).toHaveBeenCalledWith('match-proposed-1'));
+    });
+
+    it('shows waiting message and hides buttons when user has already accepted their leg', async () => {
+        matches.list.mockResolvedValue({
+            data: {
+                count: 1,
+                results: [
+                    {
+                        id: 'match-waiting-1',
+                        status: 'proposed',
+                        match_type: 'direct',
+                        legs: [
+                            {
+                                sender: { id: 'user-1', username: 'bart0605' },
+                                receiver: { id: 'user-2', username: 'alice' },
+                                status: 'accepted',
+                                user_book: { condition: 'good', book: { id: 'bw1', title: 'Waiting Book A', authors: ['Author'] } },
+                            },
+                            {
+                                sender: { id: 'user-2', username: 'alice' },
+                                receiver: { id: 'user-1', username: 'bart0605' },
+                                status: 'pending',
+                                user_book: { condition: 'good', book: { id: 'bw2', title: 'Waiting Book B', authors: ['Author2'] } },
+                            },
+                        ],
+                    },
+                ],
+            },
+        });
+
+        renderWithProviders(<Matches />);
+
+        expect(await screen.findByText('Waiting Book A')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /accept match/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /^decline$/i })).not.toBeInTheDocument();
+        expect(screen.getByText(/waiting for the other party/i)).toBeInTheDocument();
+    });
 });
