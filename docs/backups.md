@@ -33,13 +33,14 @@ BookForBook uses automated nightly database backups to Backblaze B2, with admin-
 
 #### Production
 - **Provider**: Backblaze B2 (S3-compatible)
-- **Endpoint**: `https://f000.backblazeb2.com`
+- **Endpoint**: `https://s3.<region>.backblazeb2.com` (e.g., `us-east-005`)
 - **Location**: `db-backups/` prefix in configured bucket
 - **Configuration** (Railway env vars):
   ```
   B2_APPLICATION_KEY_ID=<your-key-id>
   B2_APPLICATION_KEY=<your-key>
   B2_BUCKET_NAME=<your-bucket>
+  B2_REGION=<your-region> (e.g., us-east-005)
   ```
 
 ### Tasks (Django-Q2)

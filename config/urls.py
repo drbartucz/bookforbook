@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
+from django.views.generic.base import RedirectView
 
 
 def api_root(request):
@@ -19,6 +20,10 @@ def health(request):
 
 
 urlpatterns = [
+    path(
+        "favicon.ico",
+        RedirectView.as_view(url="/static/favicon.svg", permanent=True),
+    ),
     path("", api_root),
     path("admin/", admin.site.urls),
     path("api/v1/health/", health),

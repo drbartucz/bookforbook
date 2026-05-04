@@ -206,9 +206,14 @@ LOGGING = {
 #   B2_APPLICATION_KEY_ID
 #   B2_APPLICATION_KEY
 #   B2_BUCKET_NAME
+#   B2_REGION (optional, e.g., us-west-004)
 _b2_key_id = config("B2_APPLICATION_KEY_ID", default="")
 _b2_key = config("B2_APPLICATION_KEY", default="")
 _b2_bucket = config("B2_BUCKET_NAME", default="")
+_b2_region = config("B2_REGION", default="us-east-005")
+_b2_endpoint = config(
+    "B2_ENDPOINT_URL", default=f"https://s3.{_b2_region}.backblazeb2.com"
+)
 
 if _b2_key_id and _b2_key and _b2_bucket:
     DBBACKUP_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
@@ -216,7 +221,8 @@ if _b2_key_id and _b2_key and _b2_bucket:
         "access_key": _b2_key_id,
         "secret_key": _b2_key,
         "bucket_name": _b2_bucket,
-        "endpoint_url": "https://f000.backblazeb2.com",  # B2's S3-compatible endpoint
+        "endpoint_url": _b2_endpoint,
+        "region_name": _b2_region,
         "location": "db-backups",
         "default_acl": "private",
         "file_overwrite": False,
