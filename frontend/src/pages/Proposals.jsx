@@ -221,7 +221,7 @@ export default function Proposals() {
                         </button>
                       </Tooltip>
                       <button
-                        className="btn btn-danger btn-sm"
+                        className="btn btn-outline-danger btn-sm"
                         onClick={() => declineMutation.mutate(proposal.id)}
                         disabled={acceptMutation.isPending || declineMutation.isPending}
                       >

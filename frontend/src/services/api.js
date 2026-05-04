@@ -226,7 +226,6 @@ export const notifications = {
   markRead: (id) => apiClient.post(`/notifications/${id}/read/`),
   markAllRead: () => apiClient.post('/notifications/read-all/'),
   counts: () => apiClient.get('/notifications/counts/'),
-  contactSubmit: (data) => apiClient.post('/notifications/contact/', data),
 };
 
 export default apiClient;

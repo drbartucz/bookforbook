@@ -72,7 +72,7 @@ export default function VerifyEmail() {
             <h1 className={styles.successTitle}>Verification failed</h1>
             <p className={styles.successMessage}>{errorMsg}</p>
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'center' }}>
-              <Link to="/login" className="btn btn-secondary">
+              <Link to="/login" className="btn btn-outline-primary">
                 Sign in
               </Link>
               <Link to="/register" className="btn btn-primary">

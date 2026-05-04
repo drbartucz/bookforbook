@@ -154,7 +154,7 @@ export default function MyBooks() {
           <p className="page-subtitle">Books you have and are willing to trade.</p>
         </div>
         <button
-          className="btn btn-primary"
+          className={`btn ${showAddForm ? 'btn-outline-danger' : 'btn-primary'}`}
           onClick={() => setShowAddForm((v) => !v)}
         >
           {showAddForm ? 'Cancel' : '+ Add Book'}
@@ -356,7 +356,7 @@ export default function MyBooks() {
                             Save
                           </button>
                           <button
-                            className="btn btn-secondary btn-sm"
+                            className="btn btn-outline-danger btn-sm"
                             onClick={() => setEditingId(null)}
                           >
                             Cancel

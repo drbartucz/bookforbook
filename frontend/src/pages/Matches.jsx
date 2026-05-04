@@ -24,7 +24,6 @@ const STATUS_TABS = [
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', cls: 'badge-amber' },
-  proposed: { label: 'Pending', cls: 'badge-amber' },
   accepted: { label: 'Accepted', cls: 'badge-green' },
   declined: { label: 'Declined', cls: 'badge-red' },
   expired: { label: 'Expired', cls: 'badge-gray' },
@@ -174,7 +173,7 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
     <div className={`card ${styles.matchCard}`}>
       <div className={styles.matchHeader}>
         <div className={styles.matchId}>Match #{match.id}</div>
-        {match.status === 'pending' || match.status === 'proposed' ? (
+        {match.status === 'pending' ? (
           <Tooltip content="This match was found automatically. It's waiting for both of you to accept.">
             <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
           </Tooltip>
@@ -259,7 +258,7 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
         </p>
       )}
 
-      {(match.status === 'pending' || match.status === 'proposed') && match.myLegStatus !== 'accepted' && (
+      {match.status === 'pending' && (
         <div className={styles.matchActions}>
           <Tooltip content="Once both parties accept, the trade is confirmed and shipping addresses are exchanged.">
             <button
@@ -271,16 +270,13 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
             </button>
           </Tooltip>
           <button
-            className="btn btn-secondary"
+            className="btn btn-outline-danger"
             onClick={onDecline}
             disabled={accepting || declining}
           >
             {declining ? 'Declining...' : 'Decline'}
           </button>
         </div>
-      )}
-      {(match.status === 'pending' || match.status === 'proposed') && match.myLegStatus === 'accepted' && (
-        <p className={styles.waitingMessage}>You&apos;ve accepted — waiting for the other party.</p>
       )}
     </div>
   );

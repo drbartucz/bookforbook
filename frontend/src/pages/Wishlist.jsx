@@ -241,7 +241,7 @@ export default function Wishlist() {
           <p className="page-subtitle">Books you want to receive in a trade.</p>
         </div>
         <button
-          className="btn btn-primary"
+          className={`btn ${showAddForm ? 'btn-outline-danger' : 'btn-primary'}`}
           onClick={() => setShowAddForm((v) => !v)}
         >
           {showAddForm ? 'Cancel' : '+ Add to Wishlist'}

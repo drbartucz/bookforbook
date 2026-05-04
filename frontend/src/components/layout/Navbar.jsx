@@ -87,12 +87,6 @@ export default function Navbar() {
           <NavLink to="/institutions" className={navLinkClass}>
             Institutions
           </NavLink>
-          <NavLink to="/about" className={navLinkClass}>
-            About
-          </NavLink>
-          <NavLink to="/contact" className={navLinkClass}>
-            Contact
-          </NavLink>
           {isAuthenticated && (
             <>
               <NavLink to="/my-books" className={navLinkClass}>
@@ -247,7 +241,7 @@ export default function Navbar() {
             </div>
           ) : (
             <div className={styles.guestButtons}>
-              <Link to="/login" className="btn btn-secondary btn-sm">
+              <Link to="/login" className="btn btn-outline-primary btn-sm">
                 Log in
               </Link>
               <Link to="/register" className="btn btn-primary btn-sm">
@@ -278,12 +272,6 @@ export default function Navbar() {
           </NavLink>
           <NavLink to="/institutions" className={navLinkClass} onClick={() => setMobileOpen(false)}>
             Institutions
-          </NavLink>
-          <NavLink to="/about" className={navLinkClass} onClick={() => setMobileOpen(false)}>
-            About
-          </NavLink>
-          <NavLink to="/contact" className={navLinkClass} onClick={() => setMobileOpen(false)}>
-            Contact
           </NavLink>
           {isAuthenticated ? (
             <>

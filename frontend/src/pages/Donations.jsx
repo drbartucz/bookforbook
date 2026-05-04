@@ -174,7 +174,7 @@ export default function Donations() {
                         Accept Donation
                       </button>
                       <button
-                        className="btn btn-danger btn-sm"
+                        className="btn btn-outline-danger btn-sm"
                         onClick={() => declineMutation.mutate(donation.id)}
                         disabled={declineMutation.isPending}
                       >

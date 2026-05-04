@@ -155,6 +155,18 @@ img {
   text-decoration: none;
 }
 
+.btn-outline-primary {
+  background-color: var(--color-white);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-outline-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary);
+  text-decoration: none;
+}
+
 .btn-success {
   background-color: var(--color-success);
   color: var(--color-white);
@@ -174,6 +186,18 @@ img {
 
 .btn-danger:hover:not(:disabled) {
   background-color: #b91c1c;
+  text-decoration: none;
+}
+
+.btn-outline-danger {
+  background-color: var(--color-white);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.btn-outline-danger:hover:not(:disabled) {
+  background-color: var(--color-danger-light);
+  border-color: var(--color-danger);
   text-decoration: none;
 }
 

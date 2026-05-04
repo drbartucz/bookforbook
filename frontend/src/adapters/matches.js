@@ -29,6 +29,5 @@ export function mapMatchForCard(match, currentUserId) {
     theirBook,
     theirCondition: incomingLeg?.user_book?.condition ?? match?.their_book?.condition ?? null,
     partner,
-    myLegStatus: outgoingLeg?.status ?? null,
   };
 }

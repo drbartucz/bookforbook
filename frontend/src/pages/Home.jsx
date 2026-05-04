@@ -116,7 +116,7 @@ export default function Home() {
             <Link to="/register" className="btn btn-primary btn-lg">
               Register
             </Link>
-            <Link to="/login" className="btn btn-secondary btn-lg">
+            <Link to="/login" className="btn btn-outline-primary btn-lg">
               Sign in
             </Link>
           </div>

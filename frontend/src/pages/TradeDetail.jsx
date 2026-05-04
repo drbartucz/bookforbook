@@ -264,7 +264,7 @@ export default function TradeDetail() {
                         {markShippedMutation.isPending ? 'Marking...' : 'Confirm Shipped'}
                       </button>
                       <button
-                        className="btn btn-secondary"
+                        className="btn btn-outline-danger"
                         onClick={() => setShowShipForm(false)}
                       >
                         Cancel
@@ -349,7 +349,7 @@ export default function TradeDetail() {
                       >
                         {rateMutation.isPending ? 'Submitting...' : 'Submit Rating'}
                       </button>
-                      <button className="btn btn-secondary" onClick={() => setShowRateForm(false)}>
+                      <button className="btn btn-outline-danger" onClick={() => setShowRateForm(false)}>
                         Cancel
                       </button>
                     </div>

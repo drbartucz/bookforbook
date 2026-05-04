@@ -142,12 +142,6 @@
   flex-wrap: wrap;
 }
 
-.waitingMessage {
-  font-size: 0.875rem;
-  color: var(--color-gray-500);
-  font-style: italic;
-}
-
 .empty {
   text-align: center;
   padding: 4rem 1rem;
