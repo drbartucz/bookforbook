@@ -148,6 +148,7 @@ export default function Matches() {
               <MatchCard
                 key={match.id}
                 match={match}
+                currentUserId={user?.id}
                 onAccept={() => acceptMutation.mutate(match.id)}
                 onDecline={() => declineMutation.mutate(match.id)}
                 accepting={acceptMutation.isPending && acceptMutation.variables === match.id}
@@ -162,18 +163,21 @@ export default function Matches() {
   );
 }
 
-function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
+function MatchCard({ match, currentUserId, onAccept, onDecline, accepting, declining }) {
   const statusConfig = STATUS_CONFIG[match.status] ?? { label: match.status, cls: 'badge-gray' };
 
   const yourBook = match.yourBook;
   const theirBook = match.theirBook;
   const partner = match.partner;
 
+  const isPending = match.status === 'pending';
+  const hasAccepted = match.legs?.find(leg => String(leg.sender?.id) === String(currentUserId))?.accepted;
+
   return (
     <div className={`card ${styles.matchCard}`}>
       <div className={styles.matchHeader}>
         <div className={styles.matchId}>Match #{match.id}</div>
-        {match.status === 'pending' ? (
+        {isPending ? (
           <Tooltip content="This match was found automatically. It's waiting for both of you to accept.">
             <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
           </Tooltip>
@@ -258,24 +262,30 @@ function MatchCard({ match, onAccept, onDecline, accepting, declining }) {
         </p>
       )}
 
-      {match.status === 'pending' && (
+      {isPending && (
         <div className={styles.matchActions}>
-          <Tooltip content="Once both parties accept, the trade is confirmed and shipping addresses are exchanged.">
-            <button
-              className="btn btn-success"
-              onClick={onAccept}
-              disabled={accepting || declining}
-            >
-              {accepting ? 'Accepting...' : 'Accept Match'}
-            </button>
-          </Tooltip>
-          <button
-            className="btn btn-outline-danger"
-            onClick={onDecline}
-            disabled={accepting || declining}
-          >
-            {declining ? 'Declining...' : 'Decline'}
-          </button>
+          {hasAccepted ? (
+            <span className="badge badge-gray">Waiting for partner...</span>
+          ) : (
+            <>
+              <Tooltip content="Once both parties accept, the trade is confirmed and shipping addresses are exchanged.">
+                <button
+                  className="btn btn-success"
+                  onClick={onAccept}
+                  disabled={accepting || declining}
+                >
+                  {accepting ? 'Accepting...' : 'Accept Match'}
+                </button>
+              </Tooltip>
+              <button
+                className="btn btn-outline-danger"
+                onClick={onDecline}
+                disabled={accepting || declining}
+              >
+                {declining ? 'Declining...' : 'Decline'}
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

@@ -134,3 +134,4 @@ The Vite dev server proxies `/api` to `http://localhost:8000` automatically — 
 - Exchange ring size is capped at 5 participants
 - Frontend styling uses vanilla CSS with CSS Modules (`.module.css`) — no CSS-in-JS or utility frameworks
 - New endpoints requiring auth should apply `EmailVerifiedPermission` and check `user_has_verified_shipping_address` where address is needed
+- Do not make any functional or UI changes beyond what the user explicitly requests without asking first.
