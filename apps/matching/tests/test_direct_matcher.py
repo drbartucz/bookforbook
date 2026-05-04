@@ -29,6 +29,9 @@ class TestDirectMatcher:
         assert match.legs.count() == 2
         assert match.legs.filter(sender=user_a, receiver=user_b, user_book=ub_a).exists()
         assert match.legs.filter(sender=user_b, receiver=user_a, user_book=ub_b).exists()
+        # Matches created by the service must use PROPOSED so the frontend can
+        # display Accept/Decline controls (MatchCard checks for 'proposed' status).
+        assert match.status == Match.Status.PROPOSED
 
     @override_settings(MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS=48)
     def test_user_too_young_skipped(self):
