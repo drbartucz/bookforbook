@@ -15,4 +15,9 @@ urlpatterns = [
         views.NotificationMarkReadView.as_view(),
         name="notification-read",
     ),
+    path(
+        "contact/",
+        views.ContactSupportView.as_view(),
+        name="contact-support",
+    ),
 ]
