@@ -115,6 +115,8 @@ class TestEmailTemplateFunctions:
         result = send_match_notification_email(user, match)
         assert result is True
         assert "match" in mail.outbox[0].body.lower()
+        assert "https://app.bookforbook.com/matches" in mail.outbox[0].body
+        assert f"https://app.bookforbook.com/matches/{match.pk}" not in mail.outbox[0].body
 
     def test_send_match_notification_email_ring(self, settings):
         settings.FRONTEND_URL = "https://app.bookforbook.com"

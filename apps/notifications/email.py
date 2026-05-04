@@ -78,7 +78,7 @@ def send_password_reset_email(user, uid: str, token: str) -> bool:
 
 
 def send_match_notification_email(user, match) -> bool:
-    match_url = f"{settings.FRONTEND_URL}/matches/{match.pk}"
+    match_url = f"{settings.FRONTEND_URL}/matches"
     subject = "You have a new book match!"
     if match.match_type == "direct":
         body_detail = "Someone wants to trade books with you!"
