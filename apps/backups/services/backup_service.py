@@ -40,6 +40,7 @@ def run_database_backup(record_id: str) -> None:
         from dbbackup.storage import get_storage
 
         storage = get_storage()
+        logger.info("Using backup storage: %s", storage.__class__.__name__)
         _ensure_filesystem_storage_path_exists(storage)
         before: set[str] = set(storage.list_backups())
 
