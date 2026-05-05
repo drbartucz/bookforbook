@@ -43,6 +43,7 @@ test.describe('Account deletion — Danger Zone UI', () => {
 
   test('Danger Zone section is visible on /account', async ({ carolPage: page }) => {
     await page.goto('/account');
+    await page.waitForLoadState('networkidle');
 
     // Section heading
     await expect(page.getByText('Danger Zone', { exact: true })).toBeVisible();
@@ -63,6 +64,7 @@ test.describe('Account deletion — Danger Zone UI', () => {
     carolPage: page,
   }) => {
     await page.goto('/account');
+    await page.waitForLoadState('networkidle');
 
     // Leave password field blank and click Delete account
     await page.getByRole('button', { name: /delete account/i }).click();
@@ -81,6 +83,7 @@ test.describe('Account deletion — Danger Zone UI', () => {
     carolPage: page,
   }) => {
     await page.goto('/account');
+    await page.waitForLoadState('networkidle');
 
     await page.getByLabel(/confirm password/i).fill('absolutely-wrong-password-123');
     await page.getByRole('button', { name: /delete account/i }).click();
@@ -100,6 +103,7 @@ test.describe('Account deletion — Danger Zone UI', () => {
     carolPage: page,
   }) => {
     await page.goto('/account');
+    await page.waitForLoadState('networkidle');
 
     // Intercept the DELETE request and stall it so we can assert the loading state
     await page.route('**/api/v1/users/me/', async (route) => {
@@ -153,6 +157,7 @@ test.describe.serial('Account deletion — happy path and downstream effects', (
     async ({ davePage: page }) => {
       // ── 1. Navigate to account settings ──────────────────────────────────
       await page.goto('/account');
+      await page.waitForLoadState('networkidle');
 
       await expect(page.getByText('Danger Zone', { exact: true })).toBeVisible();
 
