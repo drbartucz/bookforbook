@@ -55,29 +55,39 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await expect(matchCard.getByRole('button', { name: /accept match/i })).toBeVisible();
     await matchCard.getByRole('button', { name: /accept match/i }).click();
 
-    // Card transitions to "Waiting for partner…" — match is still pending for bob
-    await expect(matchCard.getByText(/waiting for partner/i)).toBeVisible({ timeout: 10_000 });
+    // Accepting moves Alice's sender leg to ACCEPTED, removing it from the Pending
+    // tab (which only shows legs with status=PENDING). Switch to Accepted tab to
+    // confirm the card is there and shows "Waiting for partner…" (match is still
+    // PROPOSED waiting for Bob).
+    await page.getByRole('button', { name: /^accepted$/i }).click();
+    await page.waitForLoadState('networkidle');
+
+    const acceptedCard = page.locator('[class*="matchCard"]').filter({ hasText: ALICE_SENDS });
+    await expect(acceptedCard).toBeVisible({ timeout: 10_000 });
+    await expect(acceptedCard.getByText(/waiting for partner/i)).toBeVisible({ timeout: 8_000 });
   });
 
   // ── Step 2: Bob accepts ───────────────────────────────────────────────────
 
-  test('bob sees the pending match and accepts it', async ({ bobPage: page }) => {
+  test('bob sees the proposed match and accepts it', async ({ bobPage: page }) => {
     await page.goto('/matches');
     await page.waitForLoadState('networkidle');
 
-    // Bob's card shows his outgoing book (Crime and Punishment)
+    // Bob's card shows his outgoing book (Crime and Punishment) in the Pending tab
     const matchCard = page.locator('[class*="matchCard"]').filter({ hasText: BOB_SENDS });
     await expect(matchCard).toBeVisible({ timeout: 10_000 });
 
     await expect(matchCard.getByRole('button', { name: /accept match/i })).toBeVisible();
     await matchCard.getByRole('button', { name: /accept match/i }).click();
 
-    // After both accept the match moves to COMPLETED → pending tab empties
-    // (the card either disappears or the page shows "No pending matches")
-    await expect(
-      page.getByText(/no pending matches/i)
-        .or(page.locator('[class*="matchCard"]').filter({ hasText: BOB_SENDS }).getByText(/accepted/i))
-    ).toBeVisible({ timeout: 12_000 });
+    // After both accept the match moves to COMPLETED → leaves the Pending tab for Bob too.
+    // Switch to Accepted tab to confirm the card appears there (Bob may still have
+    // other seeded pending matches so we can't assume the tab becomes empty).
+    await page.getByRole('button', { name: /^accepted$/i }).click();
+    await page.waitForLoadState('networkidle');
+
+    const acceptedCard = page.locator('[class*="matchCard"]').filter({ hasText: BOB_SENDS });
+    await expect(acceptedCard).toBeVisible({ timeout: 10_000 });
   });
 
   // ── Step 3: Completed match visible in "Accepted" tab ─────────────────────
