@@ -41,6 +41,13 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     });
   });
 
+  test.afterAll(async () => {
+    execFileSync(pythonBin, ['manage.py', 'e2e_seed_trade_flow', '--teardown-only'], {
+      cwd: repoRoot,
+      stdio: 'inherit',
+    });
+  });
+
   // ── Step 1: Alice accepts ──────────────────────────────────────────────────
 
   test('alice sees the pending match and accepts it', async ({ alicePage: page }) => {

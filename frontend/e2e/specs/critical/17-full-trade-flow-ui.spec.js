@@ -147,6 +147,14 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     );
   });
 
+  test.afterAll(async () => {
+    execFileSync(
+      pythonBin,
+      ['manage.py', 'e2e_seed_trade_flow', '--teardown-only'],
+      { cwd: repoRoot, stdio: 'inherit' },
+    );
+  });
+
   // ── Steps 1–2: Alice adds her book and wishlist item ─────────────────────
 
   test('alice adds The Stranger to her have-list', async ({ alicePage: page }) => {

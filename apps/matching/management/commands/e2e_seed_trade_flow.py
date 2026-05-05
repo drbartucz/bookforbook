@@ -17,9 +17,12 @@ Flags
                 WishlistItems, or matching). Use this before a UI-driven spec that
                 adds inventory through the browser so the backend does not need to
                 contact Open Library.
---match-only    Re-run direct matching for Alice's existing "The Stranger" UserBook
-                without touching any other data. Use after a UI-driven spec has added
-                the books and wishlists via the browser.
+--match-only    Create a match from Alice's and Bob's existing UserBooks without
+                touching any other data. Use after a UI-driven spec has added the
+                books and wishlists via the browser.
+--teardown-only Remove all flow-test data (UserBooks, WishlistItems, Matches,
+                Trades) and delete the two Book catalog entries if no other rows
+                reference them. Call this in afterAll to leave the DB clean.
 """
 
 import os
@@ -45,7 +48,12 @@ class Command(BaseCommand):
         group.add_argument(
             "--match-only",
             action="store_true",
-            help="Run direct matching for Alice's existing 'The Stranger' UserBook only.",
+            help="Create a match from Alice's and Bob's existing UserBooks (no other data changes).",
+        )
+        group.add_argument(
+            "--teardown-only",
+            action="store_true",
+            help="Remove all flow-test data and delete orphaned Book catalog entries.",
         )
 
     def handle(self, *args, **options):
@@ -67,6 +75,8 @@ class Command(BaseCommand):
             self._run_books_only(alice, bob)
         elif options["match_only"]:
             self._run_match_only(alice, bob)
+        elif options["teardown_only"]:
+            self._run_teardown_only(alice, bob)
         else:
             self._run_full(alice, bob)
 
@@ -133,6 +143,32 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.SUCCESS(f"Matching complete: {match_count} proposed match(es) created.")
             )
+
+    def _run_teardown_only(self, alice, bob):
+        from apps.books.models import Book
+        from apps.inventory.models import UserBook, WishlistItem
+
+        with transaction.atomic():
+            self._teardown(alice, bob)
+            # Delete the Book catalog entries if no other UserBooks or
+            # WishlistItems reference them — i.e. the test left no trace.
+            for isbn in [STRANGER_ISBN, CRIME_ISBN]:
+                try:
+                    book = Book.objects.get(isbn_13=isbn)
+                except Book.DoesNotExist:
+                    continue
+                still_used = (
+                    UserBook.objects.filter(book=book).exists()
+                    or WishlistItem.objects.filter(book=book).exists()
+                )
+                if not still_used:
+                    book.delete()
+                    self.stdout.write(f"  Deleted orphaned Book: '{book.title}'")
+                else:
+                    self.stdout.write(
+                        f"  Book '{book.title}' still referenced by other rows — kept."
+                    )
+        self.stdout.write(self.style.SUCCESS("e2e_seed_trade_flow teardown complete."))
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
