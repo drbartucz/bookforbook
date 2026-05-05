@@ -139,7 +139,7 @@ export default function TradeDetail() {
   const messages = messagesData?.results ?? messagesData ?? [];
 
   const isCompleted = tradeView.status === 'completed';
-  const canMarkShipped = ['confirmed', 'one_received'].includes(tradeView.status) && !tradeView.myShipped;
+  const canMarkShipped = ['confirmed', 'shipping', 'one_received'].includes(tradeView.status) && !tradeView.myShipped;
   const canMarkReceived = ['shipping', 'one_received'].includes(tradeView.status) && tradeView.theyShipped && !tradeView.iReceived;
   const canRate = isCompleted && !tradeView.iRated;
   const messageLength = msgContent.length;
