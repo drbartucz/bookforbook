@@ -49,13 +49,18 @@ class TestMatchViews:
         assert str(pending_match.id) not in returned_ids
 
     def test_match_list_status_filter_pending_excludes_completed(self, api_client):
-        """Completed matches must not appear under status=pending."""
+        """Completed matches and matches where the user already accepted must not appear under status=pending."""
         user = UserFactory()
         other = UserFactory()
         api_client.force_authenticate(user=user)
 
         pending_match = MatchFactory(status=Match.Status.PENDING)
         MatchLegFactory(match=pending_match, sender=user, receiver=other, status=MatchLeg.Status.PENDING)
+
+        # User already accepted their sender leg; match is still PENDING waiting for the other party.
+        already_accepted_match = MatchFactory(status=Match.Status.PENDING)
+        MatchLegFactory(match=already_accepted_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
+        MatchLegFactory(match=already_accepted_match, sender=other, receiver=user, status=MatchLeg.Status.PENDING)
 
         completed_match = MatchFactory(status=Match.Status.COMPLETED)
         MatchLegFactory(match=completed_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
@@ -66,7 +71,30 @@ class TestMatchViews:
         assert response.status_code == status.HTTP_200_OK
         returned_ids = {item['id'] for item in response.data}
         assert str(pending_match.id) in returned_ids
+        assert str(already_accepted_match.id) not in returned_ids
         assert str(completed_match.id) not in returned_ids
+
+    def test_match_list_status_filter_accepted_excludes_expired(self, api_client):
+        """EXPIRED matches (partner declined after user accepted) must not appear under status=accepted."""
+        user = UserFactory()
+        other = UserFactory()
+        api_client.force_authenticate(user=user)
+
+        # User accepted but the match expired because someone else declined.
+        expired_match = MatchFactory(status=Match.Status.EXPIRED)
+        MatchLegFactory(match=expired_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
+        MatchLegFactory(match=expired_match, sender=other, receiver=user, status=MatchLeg.Status.DECLINED)
+
+        completed_match = MatchFactory(status=Match.Status.COMPLETED)
+        MatchLegFactory(match=completed_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
+
+        url = reverse('match-list')
+        response = api_client.get(url, {'status': 'accepted'})
+
+        assert response.status_code == status.HTTP_200_OK
+        returned_ids = {item['id'] for item in response.data}
+        assert str(completed_match.id) in returned_ids
+        assert str(expired_match.id) not in returned_ids
 
     def test_match_list_no_filter_returns_all(self, api_client):
         """No status filter (All tab) returns matches in any status."""

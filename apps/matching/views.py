@@ -28,9 +28,11 @@ class MatchListView(APIView):
         if status_filter == "accepted":
             # User's outgoing leg is accepted; match may be waiting for others (PENDING/PROPOSED)
             # or fully confirmed (COMPLETED) with a trade already created.
+            # Exclude EXPIRED so matches where someone else declined don't appear here.
             match_ids = MatchLeg.objects.filter(
                 sender=user,
                 status=MatchLeg.Status.ACCEPTED,
+                match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED, Match.Status.COMPLETED],
             ).values_list("match_id", flat=True)
         elif status_filter == "declined":
             match_ids = MatchLeg.objects.filter(
@@ -52,20 +54,13 @@ class MatchListView(APIView):
                 )
             )
         elif status_filter == "pending":
-            match_ids = (
-                MatchLeg.objects.filter(
-                    sender=user,
-                    status=MatchLeg.Status.PENDING,
-                    match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
-                )
-                .values_list("match_id", flat=True)
-                .union(
-                    MatchLeg.objects.filter(
-                        receiver=user,
-                        match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
-                    ).values_list("match_id", flat=True)
-                )
-            )
+            # Filter only by the user's own sender leg being PENDING so that matches
+            # where the user already accepted don't bleed through via the receiver side.
+            match_ids = MatchLeg.objects.filter(
+                sender=user,
+                status=MatchLeg.Status.PENDING,
+                match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+            ).values_list("match_id", flat=True)
         else:
             # No filter (All tab) — every match the user participates in.
             match_ids = (
