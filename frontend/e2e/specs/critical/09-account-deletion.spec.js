@@ -177,9 +177,9 @@ test.describe.serial('Account deletion — happy path and downstream effects', (
       );
 
       // 4a. Dave's pending match with carol should now be CANCELLED.
-      // The matches endpoint only returns PENDING/PROPOSED matches, so if the
-      // dave↔carol match was correctly cancelled it will be absent from this list.
-      const pendingMatches = await apiListMatches(page.request, carolToken);
+      // Filter for pending matches only (status=pending excludes EXPIRED/COMPLETED),
+      // so if the dave↔carol match was correctly cancelled it will be absent.
+      const pendingMatches = await apiListMatches(page.request, carolToken, { status: 'pending' });
       const pendingMatchWithDave = (Array.isArray(pendingMatches) ? pendingMatches : []).find(
         (m) =>
           m.legs?.some(
