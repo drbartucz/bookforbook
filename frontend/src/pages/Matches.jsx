@@ -18,12 +18,14 @@ const PAGE_SIZE = 15;
 const STATUS_TABS = [
   { value: '', label: 'All' },
   { value: 'pending', label: 'Pending' },
+  { value: 'proposed', label: 'Proposed' },
   { value: 'accepted', label: 'Accepted' },
   { value: 'declined', label: 'Declined' },
 ];
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', cls: 'badge-amber' },
+  proposed: { label: 'Proposed', cls: 'badge-amber' },
   accepted: { label: 'Accepted', cls: 'badge-green' },
   declined: { label: 'Declined', cls: 'badge-red' },
   expired: { label: 'Expired', cls: 'badge-gray' },
@@ -170,15 +172,17 @@ function MatchCard({ match, currentUserId, onAccept, onDecline, accepting, decli
   const theirBook = match.theirBook;
   const partner = match.partner;
 
-  const isPending = match.status === 'pending';
-  const hasAccepted = match.legs?.find(leg => String(leg.sender?.id) === String(currentUserId))?.accepted;
+  const isPending = match.status === 'pending' || match.status === 'proposed';
+  const hasAccepted = match.legs?.find(leg => String(leg.sender?.id) === String(currentUserId))?.status === 'accepted';
 
   return (
     <div className={`card ${styles.matchCard}`}>
       <div className={styles.matchHeader}>
         <div className={styles.matchId}>Match #{match.id}</div>
-        {isPending ? (
-          <Tooltip content="This match was found automatically. It's waiting for both of you to accept.">
+        {(match.status === 'pending' || match.status === 'proposed') ? (
+          <Tooltip content={match.status === 'pending' 
+            ? "This match was found automatically. It's waiting for initial processing." 
+            : "This match has been proposed. It's waiting for both of you to accept."}>
             <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
           </Tooltip>
         ) : match.status === 'expired' ? (
