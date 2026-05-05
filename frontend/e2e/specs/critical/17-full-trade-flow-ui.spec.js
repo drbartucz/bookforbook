@@ -87,10 +87,17 @@ async function uiAddMyBook(page, bookData, condition = 'Good') {
   await expect(conditionSelect).toBeVisible();
   await conditionSelect.selectOption({ label: condition });
 
+  // Register a synchronous event listener to accept the "already own a copy?"
+  // confirm dialog if alice has added this book previously (e.g. on a spec retry).
+  autoConfirmDialog(page);
   await page.getByRole('button', { name: /add to my books/i }).click();
 
+  // Wait for the add form to close — this confirms the API call completed
+  // successfully, guaranteeing the UserBook row is committed before we proceed.
+  await expect(page.locator('[class*="addForm"]')).toBeHidden({ timeout: 15_000 });
+
   // Book should appear in the list
-  await expect(page.getByText(bookData.title)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(bookData.title)).toBeVisible({ timeout: 5_000 });
 }
 
 // ── Helper: add a book to the Wishlist via the UI ────────────────────────────
@@ -120,7 +127,11 @@ async function uiAddWishlist(page, bookData) {
 
   await page.getByRole('button', { name: /add to wishlist/i }).last().click();
 
-  await expect(page.getByText(bookData.title)).toBeVisible({ timeout: 10_000 });
+  // Wait for the add form to close — confirms the API call completed
+  // successfully and the WishlistItem row is committed before we proceed.
+  await expect(page.locator('[class*="addForm"]')).toBeHidden({ timeout: 15_000 });
+
+  await expect(page.getByText(bookData.title)).toBeVisible({ timeout: 5_000 });
 }
 
 // ── Helper: open the trade involving a given book title and navigate to detail ─

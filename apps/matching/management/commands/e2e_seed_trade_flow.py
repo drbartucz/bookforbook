@@ -205,6 +205,10 @@ class Command(BaseCommand):
                 "authors": ["Albert Camus"],
                 "publish_year": 1942,
                 "physical_format": "Paperback",
+                # Non-empty description prevents _book_needs_enrichment() from
+                # triggering an Open Library network call when the E2E test adds
+                # this book via the UI — keeping the backend response fast.
+                "description": "A novel by Albert Camus.",
             },
         )
         crime, _ = Book.objects.get_or_create(
@@ -214,6 +218,7 @@ class Command(BaseCommand):
                 "authors": ["Fyodor Dostoevsky"],
                 "publish_year": 1866,
                 "physical_format": "Paperback",
+                "description": "A novel by Fyodor Dostoevsky.",
             },
         )
         self.stdout.write(f"  Books: '{stranger.title}', '{crime.title}'")
