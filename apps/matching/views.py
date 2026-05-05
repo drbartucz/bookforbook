@@ -143,25 +143,32 @@ class MatchAcceptView(APIView):
         if leg.status == MatchLeg.Status.ACCEPTED:
             return Response({"detail": "You have already accepted this match."})
 
-        with transaction.atomic():
-            leg.status = MatchLeg.Status.ACCEPTED
-            leg.save(update_fields=["status"])
+        try:
+            with transaction.atomic():
+                leg.status = MatchLeg.Status.ACCEPTED
+                leg.save(update_fields=["status"])
 
-            # Use a fresh DB-backed check to avoid stale prefetched leg states.
-            if not match.legs.exclude(status=MatchLeg.Status.ACCEPTED).exists():
-                match.status = Match.Status.COMPLETED
-                match.save(update_fields=["status"])
+                # Use a fresh DB-backed check to avoid stale prefetched leg states.
+                if not match.legs.exclude(status=MatchLeg.Status.ACCEPTED).exists():
+                    match.status = Match.Status.COMPLETED
+                    match.save(update_fields=["status"])
 
-                # Create the trade
-                try:
+                    # Create the trade
                     from apps.trading.services.trade_workflow import (
                         create_trade_from_match,
                     )
 
                     trade = create_trade_from_match(match)
                     logger.info("Trade %s created from match %s", trade.pk, match.pk)
-                except Exception:
-                    logger.exception("Failed to create trade from match %s", match.pk)
+        except ValueError as e:
+            logger.warning("Validation failed during match acceptance: %s", str(e))
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("Failed to complete match %s", match.pk)
+            return Response(
+                {"detail": "An error occurred while accepting the match."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response(MatchSerializer(match).data)
 

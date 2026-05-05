@@ -19,6 +19,20 @@ def create_trade_from_match(match) -> "Trade":
     from apps.inventory.models import UserBook
     from apps.trading.models import Trade, TradeShipment
 
+    # Lock all books involved in the match legs to ensure consistency.
+    book_ids = list(match.legs.values_list("user_book_id", flat=True))
+    # select_for_update() to prevent race conditions
+    locked_books = {
+        book.pk: book
+        for book in UserBook.objects.select_for_update().filter(pk__in=book_ids).order_by("pk")
+    }
+
+    if len(locked_books) < len(book_ids):
+        raise ValueError("One or more books in this match no longer exist.")
+
+    if any(book.status != UserBook.Status.AVAILABLE for book in locked_books.values()):
+        raise ValueError("One or more books in this match are no longer available.")
+
     trade, created = Trade.objects.get_or_create(
         source_type=Trade.SourceType.MATCH,
         source_id=match.pk,
