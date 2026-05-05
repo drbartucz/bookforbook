@@ -117,6 +117,9 @@ python manage.py createsuperuser
 ### 4. Start the application (local dev)
 
 ```bash
+# Sync production data (requires Railway CLI and project link)
+./scripts/sync_prod_data.sh
+
 # Terminal 1 — Django dev server
 python manage.py runserver
 
