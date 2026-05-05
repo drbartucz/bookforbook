@@ -108,13 +108,15 @@ async function uiAddWishlist(page, bookData) {
   await isbnInput.fill(bookData.isbn_13);
   await page.getByRole('button', { name: /look\s*up/i }).click();
 
-  await expect(page.getByText(bookData.title)).toBeVisible({ timeout: 8_000 });
-
   // Edition preference modal appears automatically after lookup — dismiss it
+  // before asserting on the book title to avoid strict-mode violations (the
+  // overlay also contains the title in a <strong> tag alongside the preview).
   const doneBtn = page.getByRole('button', { name: /^done$/i });
   if (await doneBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
     await doneBtn.click();
   }
+
+  await expect(page.getByText(bookData.title).first()).toBeVisible({ timeout: 8_000 });
 
   await page.getByRole('button', { name: /add to wishlist/i }).last().click();
 

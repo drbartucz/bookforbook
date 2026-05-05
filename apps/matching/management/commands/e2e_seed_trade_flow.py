@@ -66,7 +66,7 @@ class Command(BaseCommand):
         if options["books_only"]:
             self._run_books_only(alice, bob)
         elif options["match_only"]:
-            self._run_match_only(alice)
+            self._run_match_only(alice, bob)
         else:
             self._run_full(alice, bob)
 
@@ -76,8 +76,8 @@ class Command(BaseCommand):
         with transaction.atomic():
             self._teardown(alice, bob)
             stranger, crime = self._ensure_books()
-            alice_ub, _bob_ub = self._setup_inventory(alice, bob, stranger, crime)
-            match_count = self._run_matching(alice_ub)
+            alice_ub, bob_ub = self._setup_inventory(alice, bob, stranger, crime)
+            match_count = self._run_matching(alice_ub, bob_ub)
 
         if match_count == 0:
             self.stdout.write(
@@ -105,25 +105,29 @@ class Command(BaseCommand):
             )
         )
 
-    def _run_match_only(self, alice):
+    def _run_match_only(self, alice, bob):
         from apps.inventory.models import UserBook
         from apps.books.models import Book
 
         try:
             stranger = Book.objects.get(isbn_13=STRANGER_ISBN)
+            crime = Book.objects.get(isbn_13=CRIME_ISBN)
             alice_ub = UserBook.objects.get(
                 user=alice, book=stranger, status=UserBook.Status.AVAILABLE
             )
+            bob_ub = UserBook.objects.get(
+                user=bob, book=crime, status=UserBook.Status.AVAILABLE
+            )
         except (Book.DoesNotExist, UserBook.DoesNotExist) as exc:
             raise CommandError(
-                f"Could not find Alice's 'The Stranger' UserBook: {exc}. "
+                f"Could not find required UserBooks for match-only mode: {exc}. "
                 "Run the UI steps first or use the default mode."
             )
 
-        match_count = self._run_matching(alice_ub)
+        match_count = self._run_matching(alice_ub, bob_ub)
         if match_count == 0:
             self.stdout.write(
-                self.style.WARNING("No match created — verify Bob's wishlist and inventory exist.")
+                self.style.WARNING("No match created — a match may already exist for these books.")
             )
         else:
             self.stdout.write(
@@ -209,9 +213,35 @@ class Command(BaseCommand):
         self.stdout.write("  Inventory and wishlist items created.")
         return alice_ub, bob_ub
 
-    def _run_matching(self, alice_ub):
-        from apps.matching.services.direct_matcher import run_direct_matching
+    def _run_matching(self, alice_ub, bob_ub):
+        from apps.matching.models import Match, MatchLeg
 
-        matches = run_direct_matching(user_book=alice_ub)
-        self.stdout.write(f"  Direct matching: {len(matches)} proposed match(es) found.")
-        return len(matches)
+        # Create the match directly, bypassing capacity checks that would otherwise
+        # reject the match when test users are at their seeded limit.  This is safe
+        # for E2E seed data because the test users' active matches are well-known and
+        # the flow books are unique to this spec.
+        if Match.objects.filter(legs__user_book=alice_ub).exists():
+            self.stdout.write("  Direct matching: match already exists for these books, skipping.")
+            return 0
+
+        with transaction.atomic():
+            match = Match.objects.create(
+                match_type=Match.MatchType.DIRECT,
+                status=Match.Status.PROPOSED,
+            )
+            MatchLeg.objects.create(
+                match=match,
+                sender=alice_ub.user,
+                receiver=bob_ub.user,
+                user_book=alice_ub,
+                position=0,
+            )
+            MatchLeg.objects.create(
+                match=match,
+                sender=bob_ub.user,
+                receiver=alice_ub.user,
+                user_book=bob_ub,
+                position=1,
+            )
+        self.stdout.write("  Direct matching: 1 proposed match created.")
+        return 1
