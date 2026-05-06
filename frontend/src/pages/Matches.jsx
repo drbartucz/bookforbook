@@ -305,9 +305,9 @@ function MatchCard({ match, currentUserId, onAccept, onDecline, accepting, decli
         </div>
       )}
 
-      {!isProposed && (
+      {match.tradeId && (
         <div className={styles.matchActions}>
-          <Link className="btn btn-primary" to={match.tradeId ? `/trades/${match.tradeId}` : '/trades'}>
+          <Link className="btn btn-primary" to={`/trades/${match.tradeId}`}>
             Open Trade
           </Link>
         </div>

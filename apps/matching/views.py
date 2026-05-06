@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from django.db import transaction
 from django.utils import timezone
@@ -63,12 +64,28 @@ class MatchListView(APIView):
                 )
             )
 
-        matches = (
+        match_list = list(
             Match.objects.filter(id__in=match_ids)
             .prefetch_related("legs__sender", "legs__receiver", "legs__user_book__book")
             .order_by("-detected_at")
         )
-        return Response(MatchSerializer(matches, many=True).data)
+
+        # Preload trade IDs for COMPLETED matches in a single query to avoid N+1.
+        from apps.trading.models import Trade
+
+        completed_ids = [m.id for m in match_list if m.status == Match.Status.COMPLETED]
+        trade_id_map: dict[uuid.UUID, uuid.UUID] = {}
+        if completed_ids:
+            trade_id_map = dict(
+                Trade.objects.filter(
+                    source_type=Trade.SourceType.MATCH,
+                    source_id__in=completed_ids,
+                ).values_list("source_id", "id")
+            )
+
+        return Response(
+            MatchSerializer(match_list, many=True, context={"trade_ids": trade_id_map}).data
+        )
 
 
 class MatchDetailView(APIView):
