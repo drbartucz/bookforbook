@@ -646,13 +646,15 @@ describe('TradeDetail page', () => {
             data: [{
                 id: 'msg-nodate',
                 content: 'Timeless message',
-                message_type: 'general',
+                message_type: 'general_note',
                 sender: { id: 'user-2', username: 'partner' },
                 // no created_at → falsy → {msg.created_at && ...} evaluates to false (covers line 403 false branch)
+                // general_note → badge suppressed (covers msg.message_type !== 'general_note' false branch)
             }],
         });
         renderWithProviders(<TradeDetail />);
         expect(await screen.findByText('Timeless message')).toBeInTheDocument();
+        expect(screen.queryByText('general note')).not.toBeInTheDocument();
     });
 
     it('shows "You" label for messages sent by the current user', async () => {
