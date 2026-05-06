@@ -35,20 +35,93 @@ function formatTrackingNumber(value) {
   return trimmed || 'N/A';
 }
 
+function detectCarrier(trackingNumber) {
+  const normalized = trackingNumber.toUpperCase().replace(/\s+/g, '');
+  const digitsOnly = normalized.replace(/\D/g, '');
+
+  if (/^1Z[0-9A-Z]{16}$/.test(normalized)) {
+    return 'ups';
+  }
+
+  if (
+    /^(94|93|92|95)\d{18,26}$/.test(digitsOnly) ||
+    /^420\d{5,}\d{16,}$/.test(digitsOnly) ||
+    /^(70|14|23|03)\d{14,22}$/.test(digitsOnly)
+  ) {
+    return 'usps';
+  }
+
+  if (/^\d{12}$|^\d{15}$|^\d{20}$|^\d{22}$/.test(digitsOnly)) {
+    return 'fedex';
+  }
+
+  return 'unknown';
+}
+
+function buildTrackingUrl(trackingNumber) {
+  const carrier = detectCarrier(trackingNumber);
+  const encodedTrackingNumber = encodeURIComponent(trackingNumber);
+
+  if (carrier === 'ups') {
+    return `https://www.ups.com/track?tracknum=${encodedTrackingNumber}`;
+  }
+
+  if (carrier === 'usps') {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodedTrackingNumber}`;
+  }
+
+  if (carrier === 'fedex') {
+    return `https://www.fedex.com/fedextrack/?trknbr=${encodedTrackingNumber}`;
+  }
+
+  return `https://www.google.com/search?q=${encodedTrackingNumber}`;
+}
+
+function renderTrackingValue(rawTrackingNumber) {
+  const formattedTrackingNumber = formatTrackingNumber(rawTrackingNumber);
+  if (formattedTrackingNumber === 'N/A') {
+    return 'N/A';
+  }
+
+  return (
+    <a
+      href={buildTrackingUrl(formattedTrackingNumber)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={styles.trackingLink}
+      title="Open tracking details in a new tab"
+    >
+      {formattedTrackingNumber}
+    </a>
+  );
+}
+
 function buildShippingStatusLabel(tradeView) {
-  const myTracking = formatTrackingNumber(tradeView?.myTracking);
-  const theirTracking = formatTrackingNumber(tradeView?.theirTracking);
+  const myTracking = tradeView?.myShipped ? tradeView?.myTracking : null;
+  const theirTracking = tradeView?.theyShipped ? tradeView?.theirTracking : null;
 
   if (tradeView?.myShipped && tradeView?.theyShipped) {
-    return `Both parties shipped (You: ${myTracking}, Partner: ${theirTracking})`;
+    return (
+      <>
+        Both parties shipped (You: {renderTrackingValue(myTracking)}, Partner: {renderTrackingValue(theirTracking)})
+      </>
+    );
   }
 
   if (tradeView?.myShipped) {
-    return `You shipped (You: ${myTracking}, Partner: N/A)`;
+    return (
+      <>
+        You shipped (You: {renderTrackingValue(myTracking)}, Partner: {renderTrackingValue(null)})
+      </>
+    );
   }
 
   if (tradeView?.theyShipped) {
-    return `Partner shipped (You: N/A, Partner: ${theirTracking})`;
+    return (
+      <>
+        Partner shipped (You: {renderTrackingValue(null)}, Partner: {renderTrackingValue(theirTracking)})
+      </>
+    );
   }
 
   return 'Awaiting shipment (You: N/A, Partner: N/A)';
