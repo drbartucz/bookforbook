@@ -212,12 +212,11 @@ def _update_book_from_data(book, data: dict) -> None:
         book.open_library_key = data["open_library_key"]
         updated_fields.append("open_library_key")
 
-    # Always update last_enriched_at when we attempt a full enrichment
-    book.last_enriched_at = timezone.now()
-    updated_fields.append("last_enriched_at")
-
     if updated_fields:
-        updated_fields.append("updated_at")
+        # Only stamp last_enriched_at when enrichment actually improved the record,
+        # so the throttle doesn't suppress retries when OL returned empty/failed data.
+        book.last_enriched_at = timezone.now()
+        updated_fields.extend(["last_enriched_at", "updated_at"])
         book.save(update_fields=updated_fields)
 
 
@@ -311,7 +310,7 @@ def fetch_from_open_library(isbn_13: str, minimal: bool = False) -> dict:
 
     def _do_isbn_fetch():
         try:
-            resp = requests.get(
+            resp = _get_session().get(
                 OPEN_LIBRARY_ISBN_URL.format(isbn=isbn_13),
                 timeout=REQUEST_TIMEOUT,
             )
@@ -413,7 +412,7 @@ def fetch_from_open_library(isbn_13: str, minimal: bool = False) -> dict:
 def _fetch_search_data(isbn_13: str) -> dict:
     """Fetch and normalize the best Open Library search result for an ISBN."""
     try:
-        resp = requests.get(
+        resp = _get_session().get(
             OPEN_LIBRARY_SEARCH_URL,
             params={"isbn": isbn_13, "limit": 5},
             timeout=REQUEST_TIMEOUT,
@@ -428,7 +427,7 @@ def _fetch_search_data(isbn_13: str) -> dict:
                     return _parse_search_result(best, isbn_13)
 
         # Secondary fallback: some editions are searchable only via broad query.
-        resp = requests.get(
+        resp = _get_session().get(
             OPEN_LIBRARY_SEARCH_URL,
             params={"q": isbn_13, "limit": 5},
             timeout=REQUEST_TIMEOUT,
@@ -646,7 +645,7 @@ def _is_placeholder_title(value: str | None) -> bool:
 def _fetch_books_api_data(isbn_13: str) -> dict:
     """Fetch metadata from Open Library Books API for ISBN fallbacks."""
     try:
-        resp = requests.get(
+        resp = _get_session().get(
             OPEN_LIBRARY_BOOKS_API_URL,
             params={
                 "bibkeys": f"ISBN:{isbn_13}",
@@ -714,7 +713,7 @@ def _find_same_work_print_format(
         return None
 
     try:
-        edition_resp = requests.get(
+        edition_resp = _get_session().get(
             OPEN_LIBRARY_WORKS_URL.format(key=edition_key), timeout=REQUEST_TIMEOUT
         )
         if edition_resp.status_code != 200:
@@ -732,7 +731,7 @@ def _find_same_work_print_format(
         if not work_key or not _is_valid_work_key(work_key):
             return None
 
-        editions_resp = requests.get(
+        editions_resp = _get_session().get(
             OPEN_LIBRARY_WORK_EDITIONS_URL.format(key=work_key),
             params={"limit": 200},
             timeout=REQUEST_TIMEOUT,
@@ -800,7 +799,7 @@ def _find_same_work_format_for_current_isbn(
         return None
 
     try:
-        edition_resp = requests.get(
+        edition_resp = _get_session().get(
             OPEN_LIBRARY_WORKS_URL.format(key=edition_key), timeout=REQUEST_TIMEOUT
         )
         if edition_resp.status_code != 200:
@@ -820,7 +819,7 @@ def _find_same_work_format_for_current_isbn(
         if not work_key or not _is_valid_work_key(work_key):
             return None
 
-        editions_resp = requests.get(
+        editions_resp = _get_session().get(
             OPEN_LIBRARY_WORK_EDITIONS_URL.format(key=work_key),
             params={"limit": 200},
             timeout=REQUEST_TIMEOUT,
@@ -884,7 +883,7 @@ def _fetch_edition_data(edition_key: str) -> dict:
         return data
 
     try:
-        resp = requests.get(
+        resp = _get_session().get(
             OPEN_LIBRARY_WORKS_URL.format(key=full_key),
             timeout=REQUEST_TIMEOUT,
         )
@@ -934,7 +933,7 @@ def _fetch_work_data(work_key: str) -> dict:
     if not _is_valid_work_key(work_key):
         return {}
     try:
-        resp = requests.get(
+        resp = _get_session().get(
             OPEN_LIBRARY_WORKS_URL.format(key=work_key),
             timeout=REQUEST_TIMEOUT,
         )
@@ -966,7 +965,7 @@ def _fetch_author_name(author_key: str) -> str | None:
     if not _AUTHOR_KEY_RE.match(author_key):
         return None
     try:
-        resp = requests.get(
+        resp = _get_session().get(
             f"https://openlibrary.org{author_key}.json",
             timeout=REQUEST_TIMEOUT,
         )

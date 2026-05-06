@@ -55,13 +55,12 @@ class BookEnrichView(APIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [ISBNLookupThrottle]
 
     def post(self, request):
-        isbn = request.data.get("isbn")
-        if not isbn:
-            return Response(
-                {"detail": "ISBN is required."}, status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer = BookLookupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        isbn = serializer.validated_data["isbn"]
 
         try:
             from .services.openlibrary import get_or_create_book

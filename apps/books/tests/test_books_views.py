@@ -64,3 +64,49 @@ class TestBooksViews:
         # results is a list inside the response data
         assert len(response.data['results']) == 1
         assert response.data['results'][0]['title'] == "Searchable Book"
+
+
+@pytest.mark.django_db
+class TestBookEnrichView:
+    def test_enrich_requires_authentication(self, api_client):
+        url = reverse('book-enrich')
+        response = api_client.post(url, {"isbn": "9780141036144"})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_enrich_invalid_isbn_returns_400(self, api_client):
+        user = UserFactory()
+        api_client.force_authenticate(user=user)
+        url = reverse('book-enrich')
+        response = api_client.post(url, {"isbn": "notanisbn"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_enrich_missing_isbn_returns_400(self, api_client):
+        user = UserFactory()
+        api_client.force_authenticate(user=user)
+        url = reverse('book-enrich')
+        response = api_client.post(url, {})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_enrich_service_failure_returns_503(self, api_client):
+        user = UserFactory()
+        api_client.force_authenticate(user=user)
+        url = reverse('book-enrich')
+        with patch("apps.books.services.openlibrary.get_or_create_book", side_effect=RuntimeError("OL down")):
+            response = api_client.post(url, {"isbn": "9780141036144"})
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    def test_enrich_success_triggers_full_enrichment(self, api_client):
+        user = UserFactory()
+        api_client.force_authenticate(user=user)
+        book = BookFactory(
+            isbn_13="9780141036144",
+            authors=["George Orwell"],
+            description="A dystopian novel.",
+        )
+        url = reverse('book-enrich')
+        with patch("apps.books.services.openlibrary.get_or_create_book", return_value=book) as mock_enrich:
+            response = api_client.post(url, {"isbn": "9780141036144"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['isbn_13'] == "9780141036144"
+        # Ensure full enrichment (minimal=False) was requested
+        mock_enrich.assert_called_once_with("9780141036144", minimal=False)
