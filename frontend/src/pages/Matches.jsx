@@ -25,7 +25,7 @@ const STATUS_TABS = [
 const STATUS_CONFIG = {
   proposed: { label: 'Proposed', cls: 'badge-amber' },
   accepted: { label: 'Accepted', cls: 'badge-green' },
-  completed: { label: 'Waiting for shipping details', cls: 'badge-blue' },
+  completed: { label: 'Trade Confirmed', cls: 'badge-blue' },
   declined: { label: 'Declined', cls: 'badge-red' },
   expired: { label: 'Expired', cls: 'badge-gray' },
 };

@@ -1,7 +1,7 @@
 import logging
-import uuid
 
 from django.db import transaction
+from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -64,28 +64,23 @@ class MatchListView(APIView):
                 )
             )
 
-        match_list = list(
+        from apps.trading.models import Trade
+
+        matches = (
             Match.objects.filter(id__in=match_ids)
+            .annotate(
+                _trade_id=Subquery(
+                    Trade.objects.filter(
+                        source_type=Trade.SourceType.MATCH,
+                        source_id=OuterRef("id"),
+                    ).values("id")[:1]
+                )
+            )
             .prefetch_related("legs__sender", "legs__receiver", "legs__user_book__book")
             .order_by("-detected_at")
         )
 
-        # Preload trade IDs for COMPLETED matches in a single query to avoid N+1.
-        from apps.trading.models import Trade
-
-        completed_ids = [m.id for m in match_list if m.status == Match.Status.COMPLETED]
-        trade_id_map: dict[uuid.UUID, uuid.UUID] = {}
-        if completed_ids:
-            trade_id_map = dict(
-                Trade.objects.filter(
-                    source_type=Trade.SourceType.MATCH,
-                    source_id__in=completed_ids,
-                ).values_list("source_id", "id")
-            )
-
-        return Response(
-            MatchSerializer(match_list, many=True, context={"trade_ids": trade_id_map}).data
-        )
+        return Response(MatchSerializer(matches, many=True).data)
 
 
 class MatchDetailView(APIView):

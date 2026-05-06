@@ -48,10 +48,12 @@ class MatchSerializer(serializers.ModelSerializer):
         if obj.status != Match.Status.COMPLETED:
             return None
 
-        # Use preloaded mapping from context when available (avoids N+1 on list).
-        trade_ids = self.context.get("trade_ids")
-        if trade_ids is not None:
-            return str(trade_id) if (trade_id := trade_ids.get(obj.id)) else None
+        # Use annotated _trade_id from the list view queryset (avoids N+1).
+        # Fall back to a direct DB query for the detail / accept views where
+        # the annotation is not present.
+        trade_id = getattr(obj, "_trade_id", None)
+        if trade_id is not None:
+            return str(trade_id)
 
         # Fallback: single DB query (used for detail / accept views).
         from apps.trading.models import Trade
