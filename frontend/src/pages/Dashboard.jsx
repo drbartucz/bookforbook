@@ -99,7 +99,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className={styles.summaryValue}>{activeMatchesCount}</p>
-                <p className={styles.summaryLabel}>Pending Matches</p>
+                <p className={styles.summaryLabel}>Proposed Matches</p>
               </div>
             </Link>
 

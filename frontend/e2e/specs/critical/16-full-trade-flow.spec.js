@@ -50,11 +50,11 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
 
   // ── Step 1: Alice accepts ──────────────────────────────────────────────────
 
-  test('alice sees the pending match and accepts it', async ({ alicePage: page }) => {
+  test('alice sees the proposed match and accepts it', async ({ alicePage: page }) => {
     await page.goto('/matches');
     await page.waitForLoadState('networkidle');
 
-    // Default tab is "Pending" — find the card containing Alice's book
+    // Default tab is "Proposed" — find the card containing Alice's book
     const matchCard = page.locator('[class*="matchCard"]').filter({ hasText: ALICE_SENDS });
     await expect(matchCard).toBeVisible({ timeout: 10_000 });
 
@@ -62,16 +62,11 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await expect(matchCard.getByRole('button', { name: /accept match/i })).toBeVisible();
     await matchCard.getByRole('button', { name: /accept match/i }).click();
 
-    // Accepting moves Alice's sender leg to ACCEPTED, removing it from the Pending
-    // tab (which only shows legs with status=PENDING). Switch to Accepted tab to
-    // confirm the card is there and shows "Waiting for partner…" (match is still
-    // PROPOSED waiting for Bob).
-    await page.getByRole('button', { name: /^accepted$/i }).click();
-    await page.waitForLoadState('networkidle');
-
-    const acceptedCard = page.locator('[class*="matchCard"]').filter({ hasText: ALICE_SENDS });
-    await expect(acceptedCard).toBeVisible({ timeout: 10_000 });
-    await expect(acceptedCard.getByText(/waiting for partner/i)).toBeVisible({ timeout: 8_000 });
+    // After accepting, the match stays in the Proposed tab (it's still PROPOSED,
+    // waiting for Bob). The card switches from showing action buttons to showing
+    // "Waiting for partner…".
+    const updatedCard = page.locator('[class*="matchCard"]').filter({ hasText: ALICE_SENDS });
+    await expect(updatedCard.getByText(/waiting for partner/i)).toBeVisible({ timeout: 8_000 });
   });
 
   // ── Step 2: Bob accepts ───────────────────────────────────────────────────
@@ -80,16 +75,16 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await page.goto('/matches');
     await page.waitForLoadState('networkidle');
 
-    // Bob's card shows his outgoing book (Crime and Punishment) in the Pending tab
+    // Bob's card shows his outgoing book (Crime and Punishment) in the Proposed tab
     const matchCard = page.locator('[class*="matchCard"]').filter({ hasText: BOB_SENDS });
     await expect(matchCard).toBeVisible({ timeout: 10_000 });
 
     await expect(matchCard.getByRole('button', { name: /accept match/i })).toBeVisible();
     await matchCard.getByRole('button', { name: /accept match/i }).click();
 
-    // After both accept the match moves to COMPLETED → leaves the Pending tab for Bob too.
-    // Switch to Accepted tab to confirm the card appears there (Bob may still have
-    // other seeded pending matches so we can't assume the tab becomes empty).
+    // After both accept the match moves to COMPLETED → appears in the Accepted tab.
+    // Switch to Accepted tab to confirm (Bob may still have other seeded proposed
+    // matches so we can't assume the Proposed tab becomes empty).
     await page.getByRole('button', { name: /^accepted$/i }).click();
     await page.waitForLoadState('networkidle');
 
