@@ -48,8 +48,8 @@ class TestMatchViews:
         assert str(completed_match.id) in returned_ids
         assert str(pending_match.id) not in returned_ids
 
-    def test_match_list_status_filter_pending_excludes_completed(self, api_client):
-        """Completed matches and matches where the user already accepted must not appear under status=pending."""
+    def test_match_list_status_filter_pending_includes_waiting_for_partner(self, api_client):
+        """A match stays in pending for a user who has already accepted until ALL parties accept."""
         user = UserFactory()
         other = UserFactory()
         api_client.force_authenticate(user=user)
@@ -58,9 +58,10 @@ class TestMatchViews:
         MatchLegFactory(match=pending_match, sender=user, receiver=other, status=MatchLeg.Status.PENDING)
 
         # User already accepted their sender leg; match is still PENDING waiting for the other party.
-        already_accepted_match = MatchFactory(status=Match.Status.PENDING)
-        MatchLegFactory(match=already_accepted_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
-        MatchLegFactory(match=already_accepted_match, sender=other, receiver=user, status=MatchLeg.Status.PENDING)
+        # This must still appear in the pending tab — not the accepted tab.
+        waiting_match = MatchFactory(status=Match.Status.PENDING)
+        MatchLegFactory(match=waiting_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
+        MatchLegFactory(match=waiting_match, sender=other, receiver=user, status=MatchLeg.Status.PENDING)
 
         completed_match = MatchFactory(status=Match.Status.COMPLETED)
         MatchLegFactory(match=completed_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
@@ -71,8 +72,31 @@ class TestMatchViews:
         assert response.status_code == status.HTTP_200_OK
         returned_ids = {item['id'] for item in response.data}
         assert str(pending_match.id) in returned_ids
-        assert str(already_accepted_match.id) not in returned_ids
+        assert str(waiting_match.id) in returned_ids  # must stay pending until partner also accepts
         assert str(completed_match.id) not in returned_ids
+
+    def test_match_list_status_filter_accepted_excludes_waiting_for_partner(self, api_client):
+        """A match where the user accepted but the partner hasn't must NOT appear under status=accepted."""
+        user = UserFactory()
+        other = UserFactory()
+        api_client.force_authenticate(user=user)
+
+        # User accepted their leg but the overall match is still PENDING (partner hasn't responded).
+        waiting_match = MatchFactory(status=Match.Status.PENDING)
+        MatchLegFactory(match=waiting_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
+        MatchLegFactory(match=waiting_match, sender=other, receiver=user, status=MatchLeg.Status.PENDING)
+
+        completed_match = MatchFactory(status=Match.Status.COMPLETED)
+        MatchLegFactory(match=completed_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
+        MatchLegFactory(match=completed_match, sender=other, receiver=user, status=MatchLeg.Status.ACCEPTED)
+
+        url = reverse('match-list')
+        response = api_client.get(url, {'status': 'accepted'})
+
+        assert response.status_code == status.HTTP_200_OK
+        returned_ids = {item['id'] for item in response.data}
+        assert str(completed_match.id) in returned_ids
+        assert str(waiting_match.id) not in returned_ids
 
     def test_match_list_status_filter_accepted_excludes_expired(self, api_client):
         """EXPIRED matches (partner declined after user accepted) must not appear under status=accepted."""
