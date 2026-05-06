@@ -65,6 +65,8 @@ function makeTrade(overrides = {}) {
     };
 }
 
+const ALL_MESSAGE_CATEGORIES = ['general', 'shipping_update', 'question', 'issue'];
+
 describe('TradeDetail page', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -243,6 +245,70 @@ describe('TradeDetail page', () => {
         expect(screen.getByText('shipping update')).toBeInTheDocument(); // message_type badge
         expect(screen.getByText('You')).toBeInTheDocument();
         expect(screen.getByText('partner')).toBeInTheDocument();
+    });
+
+    it('allows both approved traders to send messages in all categories and renders category labels', async () => {
+        const approvedTrade = makeTrade({ status: 'confirmed' });
+        const seedMessages = [
+            { id: 'm1', content: 'from me general', message_type: 'general', sender: { id: 'user-1', username: 'me' }, created_at: '2026-04-20T10:00:00Z' },
+            { id: 'm2', content: 'from partner shipping', message_type: 'shipping_update', sender: { id: 'user-2', username: 'partner' }, created_at: '2026-04-20T10:01:00Z' },
+            { id: 'm3', content: 'from me question', message_type: 'question', sender: { id: 'user-1', username: 'me' }, created_at: '2026-04-20T10:02:00Z' },
+            { id: 'm4', content: 'from partner issue', message_type: 'issue', sender: { id: 'user-2', username: 'partner' }, created_at: '2026-04-20T10:03:00Z' },
+        ];
+
+        // Trader A (user-1)
+        useAuth.mockReturnValue({ user: { id: 'user-1', username: 'me' } });
+        trades.getDetail.mockResolvedValue({ data: approvedTrade });
+        trades.getMessages.mockResolvedValue({ data: seedMessages });
+        trades.sendMessage.mockResolvedValue({ data: {} });
+
+        const firstRender = renderWithProviders(<TradeDetail />);
+        expect(await screen.findByText('from me general')).toBeInTheDocument();
+        expect(screen.getByText('from partner shipping')).toBeInTheDocument();
+        expect(screen.getByText('shipping update')).toBeInTheDocument();
+        expect(screen.getByText('question')).toBeInTheDocument();
+        expect(screen.getByText('issue')).toBeInTheDocument();
+
+        for (const category of ALL_MESSAGE_CATEGORIES) {
+            const content = `user1-${category}`;
+            await userEvent.selectOptions(screen.getByRole('combobox'), category);
+            await userEvent.clear(screen.getByPlaceholderText('Type a message...'));
+            await userEvent.type(screen.getByPlaceholderText('Type a message...'), content);
+            await userEvent.click(screen.getByRole('button', { name: 'Send message' }));
+            await waitFor(() => {
+                expect(trades.sendMessage).toHaveBeenCalledWith('trade-1', {
+                    content,
+                    message_type: category,
+                });
+            });
+        }
+
+        firstRender.unmount();
+
+        // Trader B (user-2)
+        trades.sendMessage.mockClear();
+        useAuth.mockReturnValue({ user: { id: 'user-2', username: 'partner' } });
+        trades.getDetail.mockResolvedValue({ data: approvedTrade });
+        trades.getMessages.mockResolvedValue({ data: seedMessages });
+        trades.sendMessage.mockResolvedValue({ data: {} });
+
+        renderWithProviders(<TradeDetail />);
+        expect(await screen.findByText('from me general')).toBeInTheDocument();
+        expect(screen.getByText('from partner shipping')).toBeInTheDocument();
+
+        for (const category of ALL_MESSAGE_CATEGORIES) {
+            const content = `user2-${category}`;
+            await userEvent.selectOptions(screen.getByRole('combobox'), category);
+            await userEvent.clear(screen.getByPlaceholderText('Type a message...'));
+            await userEvent.type(screen.getByPlaceholderText('Type a message...'), content);
+            await userEvent.click(screen.getByRole('button', { name: 'Send message' }));
+            await waitFor(() => {
+                expect(trades.sendMessage).toHaveBeenCalledWith('trade-1', {
+                    content,
+                    message_type: category,
+                });
+            });
+        }
     });
 
     it('shows shipping address when status is confirmed', async () => {
