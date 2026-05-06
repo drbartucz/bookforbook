@@ -65,7 +65,7 @@ function makeTrade(overrides = {}) {
     };
 }
 
-const ALL_MESSAGE_CATEGORIES = ['general', 'shipping_update', 'question', 'issue'];
+const ALL_MESSAGE_CATEGORIES = ['general_note', 'shipping_update', 'question', 'issue_report'];
 
 describe('TradeDetail page', () => {
     beforeEach(() => {
@@ -250,10 +250,10 @@ describe('TradeDetail page', () => {
     it('allows both approved traders to send messages in all categories and renders category labels', async () => {
         const approvedTrade = makeTrade({ status: 'confirmed' });
         const seedMessages = [
-            { id: 'm1', content: 'from me general', message_type: 'general', sender: { id: 'user-1', username: 'me' }, created_at: '2026-04-20T10:00:00Z' },
+            { id: 'm1', content: 'from me general', message_type: 'general_note', sender: { id: 'user-1', username: 'me' }, created_at: '2026-04-20T10:00:00Z' },
             { id: 'm2', content: 'from partner shipping', message_type: 'shipping_update', sender: { id: 'user-2', username: 'partner' }, created_at: '2026-04-20T10:01:00Z' },
             { id: 'm3', content: 'from me question', message_type: 'question', sender: { id: 'user-1', username: 'me' }, created_at: '2026-04-20T10:02:00Z' },
-            { id: 'm4', content: 'from partner issue', message_type: 'issue', sender: { id: 'user-2', username: 'partner' }, created_at: '2026-04-20T10:03:00Z' },
+            { id: 'm4', content: 'from partner issue', message_type: 'issue_report', sender: { id: 'user-2', username: 'partner' }, created_at: '2026-04-20T10:03:00Z' },
         ];
 
         // Trader A (user-1)
@@ -267,7 +267,7 @@ describe('TradeDetail page', () => {
         expect(screen.getByText('from partner shipping')).toBeInTheDocument();
         expect(screen.getByText('shipping update')).toBeInTheDocument();
         expect(screen.getByText('question')).toBeInTheDocument();
-        expect(screen.getByText('issue')).toBeInTheDocument();
+        expect(screen.getByText('issue report')).toBeInTheDocument();
 
         for (const category of ALL_MESSAGE_CATEGORIES) {
             const content = `user1-${category}`;
