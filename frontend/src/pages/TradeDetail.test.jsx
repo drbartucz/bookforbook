@@ -444,7 +444,7 @@ describe('TradeDetail page', () => {
         await waitFor(() => {
             expect(trades.sendMessage).toHaveBeenCalledWith('trade-1', {
                 content: 'Ready to ship soon',
-                message_type: 'general',
+                message_type: 'general_note',
             });
         });
     });
