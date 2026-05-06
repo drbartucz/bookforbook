@@ -15,10 +15,10 @@ import styles from './TradeDetail.module.css';
 const MESSAGE_MAX_LENGTH = 1000;
 
 const MESSAGE_TYPES = [
-  { value: 'general', label: 'General' },
+  { value: 'general_note', label: 'General' },
   { value: 'shipping_update', label: 'Shipping Update' },
   { value: 'question', label: 'Question' },
-  { value: 'issue', label: 'Issue' },
+  { value: 'issue_report', label: 'Issue' },
 ];
 
 const TRADE_STATUS_CONFIG = {
@@ -34,7 +34,7 @@ export default function TradeDetail() {
   const { id } = useParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [msgType, setMsgType] = useState('general');
+  const [msgType, setMsgType] = useState('general_note');
   const [msgContent, setMsgContent] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [showShipForm, setShowShipForm] = useState(false);
@@ -398,7 +398,7 @@ export default function TradeDetail() {
                           <span className={styles.messageSender}>
                             {isMe ? 'You' : (msg.sender?.username ?? 'Partner')}
                           </span>
-                          {msg.message_type && msg.message_type !== 'general' && (
+                          {msg.message_type && msg.message_type !== 'general_note' && msg.message_type !== 'general' && (
                             <span className={`badge badge-gray ${styles.msgType}`}>
                               {msg.message_type.replace('_', ' ')}
                             </span>
@@ -436,7 +436,7 @@ export default function TradeDetail() {
                   {msgType === 'shipping_update' && (
                     <Tooltip content="Use this to share a tracking number or notify your partner of a shipping delay." />
                   )}
-                  {msgType === 'issue' && (
+                  {msgType === 'issue_report' && (
                     <Tooltip content="Use this if something has gone wrong with the trade, e.g. damaged book or no contact." />
                   )}
                 </div>

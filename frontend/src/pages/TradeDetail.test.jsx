@@ -65,7 +65,7 @@ function makeTrade(overrides = {}) {
     };
 }
 
-const ALL_MESSAGE_CATEGORIES = ['general', 'shipping_update', 'question', 'issue'];
+const ALL_MESSAGE_CATEGORIES = ['general_note', 'shipping_update', 'question', 'issue_report'];
 
 describe('TradeDetail page', () => {
     beforeEach(() => {
@@ -250,10 +250,10 @@ describe('TradeDetail page', () => {
     it('allows both approved traders to send messages in all categories and renders category labels', async () => {
         const approvedTrade = makeTrade({ status: 'confirmed' });
         const seedMessages = [
-            { id: 'm1', content: 'from me general', message_type: 'general', sender: { id: 'user-1', username: 'me' }, created_at: '2026-04-20T10:00:00Z' },
+            { id: 'm1', content: 'from me general', message_type: 'general_note', sender: { id: 'user-1', username: 'me' }, created_at: '2026-04-20T10:00:00Z' },
             { id: 'm2', content: 'from partner shipping', message_type: 'shipping_update', sender: { id: 'user-2', username: 'partner' }, created_at: '2026-04-20T10:01:00Z' },
             { id: 'm3', content: 'from me question', message_type: 'question', sender: { id: 'user-1', username: 'me' }, created_at: '2026-04-20T10:02:00Z' },
-            { id: 'm4', content: 'from partner issue', message_type: 'issue', sender: { id: 'user-2', username: 'partner' }, created_at: '2026-04-20T10:03:00Z' },
+            { id: 'm4', content: 'from partner issue', message_type: 'issue_report', sender: { id: 'user-2', username: 'partner' }, created_at: '2026-04-20T10:03:00Z' },
         ];
 
         // Trader A (user-1)
@@ -267,7 +267,7 @@ describe('TradeDetail page', () => {
         expect(screen.getByText('from partner shipping')).toBeInTheDocument();
         expect(screen.getByText('shipping update')).toBeInTheDocument();
         expect(screen.getByText('question')).toBeInTheDocument();
-        expect(screen.getByText('issue')).toBeInTheDocument();
+        expect(screen.getByText('issue report')).toBeInTheDocument();
 
         for (const category of ALL_MESSAGE_CATEGORIES) {
             const content = `user1-${category}`;
@@ -510,7 +510,7 @@ describe('TradeDetail page', () => {
         await waitFor(() => {
             expect(trades.sendMessage).toHaveBeenCalledWith('trade-1', {
                 content: 'Ready to ship soon',
-                message_type: 'general',
+                message_type: 'general_note',
             });
         });
     });
@@ -712,13 +712,15 @@ describe('TradeDetail page', () => {
             data: [{
                 id: 'msg-nodate',
                 content: 'Timeless message',
-                message_type: 'general',
+                message_type: 'general_note',
                 sender: { id: 'user-2', username: 'partner' },
                 // no created_at → falsy → {msg.created_at && ...} evaluates to false (covers line 403 false branch)
+                // general_note → badge suppressed (covers msg.message_type !== 'general_note' false branch)
             }],
         });
         renderWithProviders(<TradeDetail />);
         expect(await screen.findByText('Timeless message')).toBeInTheDocument();
+        expect(screen.queryByText('general note')).not.toBeInTheDocument();
     });
 
     it('shows "You" label for messages sent by the current user', async () => {
@@ -795,7 +797,7 @@ describe('TradeDetail page', () => {
             }],
         });
         renderWithProviders(<TradeDetail />);
-        // msg.message_type !== 'general' → badge shown (covers line 399 true branch)
+        // msg.message_type is not 'general_note' or 'general' → badge shown (covers line 401 true branch)
         expect(await screen.findByText('shipping update')).toBeInTheDocument();
         expect(screen.getByText('Book shipped today!')).toBeInTheDocument();
     });
@@ -930,5 +932,18 @@ describe('TradeDetail page', () => {
         const msgTypeSelect = screen.getByRole('combobox');
         await userEvent.selectOptions(msgTypeSelect, 'shipping_update');
         expect(msgTypeSelect).toHaveValue('shipping_update');
+    });
+
+    it('shows issue_report tooltip when issue_report message type is selected', async () => {
+        trades.getDetail.mockResolvedValue({ data: makeTrade() });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        renderWithProviders(<TradeDetail />);
+        await screen.findByText('My Book');
+
+        const msgTypeSelect = screen.getByRole('combobox');
+        await userEvent.selectOptions(msgTypeSelect, 'issue_report');
+        expect(msgTypeSelect).toHaveValue('issue_report');
+        // issue_report tooltip content should be rendered in the DOM
+        expect(screen.getByText(/damaged book|no contact/i)).toBeInTheDocument();
     });
 });
