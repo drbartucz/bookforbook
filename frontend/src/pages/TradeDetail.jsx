@@ -436,7 +436,7 @@ export default function TradeDetail() {
                   {msgType === 'shipping_update' && (
                     <Tooltip content="Use this to share a tracking number or notify your partner of a shipping delay." />
                   )}
-                  {msgType === 'issue' && (
+                  {msgType === 'issue_report' && (
                     <Tooltip content="Use this if something has gone wrong with the trade, e.g. damaged book or no contact." />
                   )}
                 </div>
