@@ -944,6 +944,6 @@ describe('TradeDetail page', () => {
         await userEvent.selectOptions(msgTypeSelect, 'issue_report');
         expect(msgTypeSelect).toHaveValue('issue_report');
         // issue_report tooltip content should be rendered in the DOM
-        expect(screen.getByRole('tooltip', { name: /damaged book|no contact/i })).toBeInTheDocument();
+        expect(screen.getByText(/damaged book|no contact/i)).toBeInTheDocument();
     });
 });
