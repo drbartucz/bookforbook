@@ -29,7 +29,7 @@ test.describe('Dashboard', () => {
       await spinner.first().waitFor({ state: 'hidden', timeout: 15_000 });
     }
 
-    await expect(page.getByText(/pending matches/i)).toBeVisible();
+    await expect(page.getByText(/proposed matches/i)).toBeVisible();
     await expect(page.getByText(/pending proposals/i)).toBeVisible();
     await expect(page.getByText(/active trades/i)).toBeVisible();
     await expect(page.getByText(/total trades/i)).toBeVisible();
