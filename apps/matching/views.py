@@ -27,8 +27,11 @@ class MatchListView(APIView):
 
         if status_filter == "accepted":
             # All legs accepted — match is fully confirmed (COMPLETED) with a trade created.
+            # Constrain leg status explicitly to use the (sender, status) index and guard
+            # against any data inconsistency where a COMPLETED match has non-accepted legs.
             match_ids = MatchLeg.objects.filter(
                 sender=user,
+                status=MatchLeg.Status.ACCEPTED,
                 match__status=Match.Status.COMPLETED,
             ).values_list("match_id", flat=True)
         elif status_filter == "declined":
@@ -53,8 +56,11 @@ class MatchListView(APIView):
         elif status_filter == "pending":
             # Show all active matches regardless of whether the user has already accepted
             # their own leg — a match stays pending until ALL parties have accepted.
+            # Restrict to PENDING/ACCEPTED leg statuses to use the (sender, status) index
+            # and prevent any unexpected leg states from leaking into this tab.
             match_ids = MatchLeg.objects.filter(
                 sender=user,
+                status__in=[MatchLeg.Status.PENDING, MatchLeg.Status.ACCEPTED],
                 match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
             ).values_list("match_id", flat=True)
         else:
