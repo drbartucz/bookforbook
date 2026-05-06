@@ -34,7 +34,8 @@ class _LocalSession:
     single global Session object.
     """
 
-    _local = threading.local()
+    def __init__(self):
+        self._local = threading.local()
 
     def get(self, *args, **kwargs):
         if not hasattr(self._local, "session"):
@@ -226,7 +227,7 @@ def _update_book_from_data(book, data: dict) -> None:
         content_fields.append("open_library_key")
 
     # Always stamp last_enriched_at on every enrichment attempt so the throttle
-    # activates even when OL consistently returns incomplete/empty data —
+    # activates even when OL consistently returns incomplete/empty data --
     # preventing an infinite re-fetch loop for books OL simply has no data for.
     book.last_enriched_at = timezone.now()
     if content_fields:
