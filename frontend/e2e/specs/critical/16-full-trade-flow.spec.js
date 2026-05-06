@@ -153,9 +153,9 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
 
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
-    // Status badge updates to "Books in Transit"
+    // Status badge updates to reflect shipped status
     await expect(
-      page.locator('.badge').filter({ hasText: /in transit|shipping/i }).first()
+      page.locator('.badge').filter({ hasText: /shipped/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 
@@ -182,7 +182,7 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /in transit|shipping/i }).first()
+      page.locator('.badge').filter({ hasText: /shipped/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 
