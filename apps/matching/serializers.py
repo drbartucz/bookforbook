@@ -15,8 +15,12 @@ class MatchLegSerializer(serializers.ModelSerializer):
     class Meta:
         model = MatchLeg
         fields = [
-            'id', 'sender', 'receiver', 'user_book',
-            'position', 'status',
+            "id",
+            "sender",
+            "receiver",
+            "user_book",
+            "position",
+            "status",
         ]
         read_only_fields = fields
 
@@ -28,8 +32,14 @@ class MatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Match
         fields = [
-            'id', 'match_type', 'status', 'detected_at',
-            'expires_at', 'updated_at', 'legs', 'trade_id',
+            "id",
+            "match_type",
+            "status",
+            "detected_at",
+            "expires_at",
+            "updated_at",
+            "legs",
+            "trade_id",
         ]
         read_only_fields = fields
 
@@ -41,7 +51,7 @@ class MatchSerializer(serializers.ModelSerializer):
                 source_type=Trade.SourceType.MATCH,
                 source_id=obj.id,
             )
-            .values_list('id', flat=True)
+            .values_list("id", flat=True)
             .first()
         )
         return str(trade_id) if trade_id else None
