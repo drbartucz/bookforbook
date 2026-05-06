@@ -210,26 +210,24 @@ export default function TradeDetail() {
           </div>
 
           {/* Shipping address */}
-          {(tradeView.status !== 'confirmed') && (
-            <div className={`card ${styles.section}`}>
-              <h2 className={styles.sectionTitle}>Shipping Address</h2>
-              {tradeView.partnerAddress ? (
-                <div className={styles.address}>
-                  <p>{tradeView.partnerAddress.name}</p>
-                  <p>{tradeView.partnerAddress.street}</p>
-                  {tradeView.partnerAddress.street2 && <p>{tradeView.partnerAddress.street2}</p>}
-                  <p>
-                    {tradeView.partnerAddress.city}, {tradeView.partnerAddress.state}{' '}
-                    {tradeView.partnerAddress.zip}
-                  </p>
-                </div>
-              ) : (
-                <p className={styles.addressHidden}>
-                  Address will be revealed when both parties confirm shipping.
+          <div className={`card ${styles.section}`}>
+            <h2 className={styles.sectionTitle}>Shipping Address</h2>
+            {tradeView.partnerAddress ? (
+              <div className={styles.address}>
+                <p>{tradeView.partnerAddress.name}</p>
+                <p>{tradeView.partnerAddress.street}</p>
+                {tradeView.partnerAddress.street2 && <p>{tradeView.partnerAddress.street2}</p>}
+                <p>
+                  {tradeView.partnerAddress.city}, {tradeView.partnerAddress.state}{' '}
+                  {tradeView.partnerAddress.zip}
                 </p>
-              )}
-            </div>
-          )}
+              </div>
+            ) : (
+              <p className={styles.addressHidden}>
+                Shipping address is not available yet.
+              </p>
+            )}
+          </div>
 
           {/* Actions */}
           {actionError && (
