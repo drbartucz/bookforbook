@@ -254,6 +254,67 @@ describe('TradeDetail page', () => {
         expect(await screen.findByText('You shipped (You: N/A, Partner: N/A)')).toBeInTheDocument();
     });
 
+    it('shows partner-only shipped label when only partner has shipped', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'pending',
+                    tracking_number: '',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' },
+                    receiver: { id: 'user-1', username: 'me' },
+                    status: 'shipped',
+                    tracking_number: 'TRK-PARTNER',
+                    shipped_at: '2026-04-22T00:00:00Z',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByText(/Partner shipped/i)).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'TRK-PARTNER' })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /You:/i })).not.toBeInTheDocument();
+        const badge = screen.getByText(/Partner shipped/i).closest('span') ?? screen.getByText(/Partner shipped/i);
+        expect(badge).toHaveTextContent('N/A');
+    });
+
+    it('shows awaiting shipment label when neither party has shipped', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'pending',
+                    tracking_number: '',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' },
+                    receiver: { id: 'user-1', username: 'me' },
+                    status: 'pending',
+                    tracking_number: '',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByText('Awaiting shipment (You: N/A, Partner: N/A)')).toBeInTheDocument();
+    });
+
     it('shows "Rate Trade Partner" button when trade is completed and user has not rated', async () => {
         const trade = makeTrade({
             status: 'completed',
