@@ -21,6 +21,7 @@ class BookLookupView(APIView):
     """
     POST /api/v1/books/lookup/
     Look up a book by ISBN. Creates the book record if not already cached.
+    Uses minimal=True for fast initial search results.
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -34,7 +35,8 @@ class BookLookupView(APIView):
         try:
             from .services.openlibrary import get_or_create_book
 
-            book = get_or_create_book(isbn)
+            # Perform a minimal lookup for fast UI feedback
+            book = get_or_create_book(isbn, minimal=True)
             return Response(BookSerializer(book).data, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -42,6 +44,37 @@ class BookLookupView(APIView):
             logger.exception("ISBN lookup failed for %s", isbn)
             return Response(
                 {"detail": "Failed to look up book. Please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+
+class BookEnrichView(APIView):
+    """
+    POST /api/v1/books/enrich/
+    Trigger full metadata enrichment for a book.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        isbn = request.data.get("isbn")
+        if not isbn:
+            return Response(
+                {"detail": "ISBN is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            from .services.openlibrary import get_or_create_book
+
+            # Perform a full enrichment
+            book = get_or_create_book(isbn, minimal=False)
+            return Response(BookSerializer(book).data, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("ISBN enrichment failed for %s", isbn)
+            return Response(
+                {"detail": "Failed to enrich book metadata."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 

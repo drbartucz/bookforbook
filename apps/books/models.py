@@ -18,6 +18,7 @@ class Book(models.Model):
     subjects = models.JSONField(default=list)
     description = models.TextField(null=True, blank=True)
     open_library_key = models.CharField(max_length=100, null=True, blank=True)
+    last_enriched_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

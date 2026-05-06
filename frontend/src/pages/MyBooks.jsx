@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { myBooks as myBooksApi } from '../services/api.js';
+import { myBooks as myBooksApi, books as booksApi } from '../services/api.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
@@ -125,8 +125,15 @@ export default function MyBooks() {
       }
     }
 
+    const cleanIsbn = isbn.trim().replace(/[\s-]/g, '');
+
+    // Fire-and-forget background enrichment since we only have minimal data so far
+    booksApi.enrichISBN(cleanIsbn).catch(err => {
+      console.warn('Background enrichment failed:', err);
+    });
+
     addMutation.mutate({
-      isbn: isbn.trim().replace(/[\s-]/g, ''),
+      isbn: cleanIsbn,
       condition: addCondition,
     });
   }

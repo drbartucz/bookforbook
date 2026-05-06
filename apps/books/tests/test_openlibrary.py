@@ -417,7 +417,7 @@ def test_get_or_create_book_refreshes_cached_book_with_missing_metadata():
     ) as mocked_fetch:
         book = get_or_create_book("9780393081084")
 
-    mocked_fetch.assert_called_once_with("9780393081084")
+    mocked_fetch.assert_called_once_with("9780393081084", minimal=False)
     cached.refresh_from_db()
     assert book.id == cached.id
     assert cached.authors == ["J. Kenji L\u00f3pez-Alt"]
@@ -468,7 +468,7 @@ def test_get_or_create_book_refreshes_cached_unknown_title():
     ) as mocked_fetch:
         book = get_or_create_book("9781549120169")
 
-    mocked_fetch.assert_called_once_with("9781549120169")
+    mocked_fetch.assert_called_once_with("9781549120169", minimal=False)
     cached.refresh_from_db()
     assert book.id == cached.id
     assert cached.title == "Billion Dollar Whale"
