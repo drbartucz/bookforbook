@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from apps.tests.factories import UserFactory, BookFactory, UserBookFactory, MatchFactory, MatchLegFactory
 from apps.matching.models import Match, MatchLeg
+from apps.trading.models import Trade
 
 @pytest.mark.django_db
 class TestMatchViews:
@@ -36,6 +37,11 @@ class TestMatchViews:
         completed_match = MatchFactory(status=Match.Status.COMPLETED)
         MatchLegFactory(match=completed_match, sender=user, receiver=other, status=MatchLeg.Status.ACCEPTED)
         MatchLegFactory(match=completed_match, sender=other, receiver=user, status=MatchLeg.Status.ACCEPTED)
+        trade = Trade.objects.create(
+            source_type=Trade.SourceType.MATCH,
+            source_id=completed_match.id,
+            status=Trade.Status.CONFIRMED,
+        )
 
         proposed_match = MatchFactory(status=Match.Status.PROPOSED)
         MatchLegFactory(match=proposed_match, sender=user, receiver=other, status=MatchLeg.Status.PENDING)
@@ -47,6 +53,8 @@ class TestMatchViews:
         returned_ids = {item['id'] for item in response.data}
         assert str(completed_match.id) in returned_ids
         assert str(proposed_match.id) not in returned_ids
+        completed_payload = next(item for item in response.data if item['id'] == str(completed_match.id))
+        assert completed_payload['trade_id'] == str(trade.id)
 
     def test_match_list_status_filter_proposed_includes_waiting_for_partner(self, api_client):
         """A match stays in proposed for a user who has already accepted until ALL parties accept."""

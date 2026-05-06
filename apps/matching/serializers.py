@@ -23,14 +23,28 @@ class MatchLegSerializer(serializers.ModelSerializer):
 
 class MatchSerializer(serializers.ModelSerializer):
     legs = MatchLegSerializer(many=True, read_only=True)
+    trade_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Match
         fields = [
             'id', 'match_type', 'status', 'detected_at',
-            'expires_at', 'updated_at', 'legs',
+            'expires_at', 'updated_at', 'legs', 'trade_id',
         ]
         read_only_fields = fields
+
+    def get_trade_id(self, obj):
+        from apps.trading.models import Trade
+
+        trade_id = (
+            Trade.objects.filter(
+                source_type=Trade.SourceType.MATCH,
+                source_id=obj.id,
+            )
+            .values_list('id', flat=True)
+            .first()
+        )
+        return str(trade_id) if trade_id else None
 
 
 class DiscoveryPartnerSerializer(serializers.Serializer):

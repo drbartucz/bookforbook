@@ -24,6 +24,7 @@ export function mapMatchForCard(match, currentUserId) {
 
   return {
     ...match,
+    tradeId: match?.trade_id ?? null,
     yourBook,
     yourCondition: outgoingLeg?.user_book?.condition ?? match?.your_book?.condition ?? null,
     theirBook,
