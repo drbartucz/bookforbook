@@ -52,13 +52,14 @@ export default function Matches() {
   useEffect(() => {
     if (!isInitialLoad.current) return;
     if (isLoading) return;
+    if (isError) { isInitialLoad.current = false; return; }
     if (statusFilter !== 'proposed') { isInitialLoad.current = false; return; }
     const { count } = parsePaginatedResponse(data);
     if (count === 0) {
       setStatusFilter('');
     }
     isInitialLoad.current = false;
-  }, [isLoading, data, statusFilter]);
+  }, [isLoading, isError, data, statusFilter]);
 
   const acceptMutation = useMutation({
     mutationFn: (id) => matchesApi.accept(id),
