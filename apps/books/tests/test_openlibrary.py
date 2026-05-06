@@ -158,7 +158,7 @@ def test_fetch_from_open_library_enriches_missing_author_and_format_from_search_
             return FakeResponse(200, {"name": "J. Kenji López-Alt"})
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780393081084")
 
     assert data["authors"] == ["J. Kenji López-Alt"]
@@ -209,7 +209,7 @@ def test_fetch_from_open_library_ignores_unknown_format_and_uses_edition_fallbac
             return FakeResponse(200, {"name": "J. Kenji López-Alt"})
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780393081084")
 
     assert data["physical_format"] == "Hardcover"
@@ -253,7 +253,7 @@ def test_fetch_from_open_library_prefers_print_format_when_isbn_is_audio():
             )
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780063341906")
 
     assert data["physical_format"] == "Paperback"
@@ -318,7 +318,7 @@ def test_fetch_from_open_library_uses_same_work_paperback_fallback_for_audio_isb
             )
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780063341906")
 
     assert data["physical_format"] == "Paperback"
@@ -354,7 +354,7 @@ def test_fetch_from_open_library_uses_books_api_when_isbn_and_search_are_sparse(
             )
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780201616224")
 
     assert data["title"] == "Recovered From Books API"
@@ -390,7 +390,7 @@ def test_get_or_create_book_ignores_malformed_author_payload():
             return FakeResponse(200, ["unexpected"])
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         book = get_or_create_book("9780201616224")
 
     assert book.title == "Example Book"
@@ -417,7 +417,7 @@ def test_get_or_create_book_refreshes_cached_book_with_missing_metadata():
     ) as mocked_fetch:
         book = get_or_create_book("9780393081084")
 
-    mocked_fetch.assert_called_once_with("9780393081084")
+    mocked_fetch.assert_called_once_with("9780393081084", minimal=False)
     cached.refresh_from_db()
     assert book.id == cached.id
     assert cached.authors == ["J. Kenji L\u00f3pez-Alt"]
@@ -468,7 +468,7 @@ def test_get_or_create_book_refreshes_cached_unknown_title():
     ) as mocked_fetch:
         book = get_or_create_book("9781549120169")
 
-    mocked_fetch.assert_called_once_with("9781549120169")
+    mocked_fetch.assert_called_once_with("9781549120169", minimal=False)
     cached.refresh_from_db()
     assert book.id == cached.id
     assert cached.title == "Billion Dollar Whale"
@@ -612,7 +612,7 @@ def test_fetch_from_open_library_handles_isbn_endpoint_timeout():
             raise requests.Timeout("timed out")
         return search_resp
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780201616224")
 
     assert data["title"] == "Some Book"
@@ -634,7 +634,7 @@ def test_fetch_from_open_library_handles_503_on_isbn_endpoint():
             return error_resp
         return search_resp
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780201616224")
 
     assert "cover_image_url" in data
@@ -658,7 +658,7 @@ def test_fetch_from_open_library_handles_malformed_search_json():
             return isbn_resp
         return search_resp
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780201616224")
 
     assert data["title"] == "Some Book"
@@ -690,7 +690,7 @@ def test_fetch_from_open_library_handles_edition_404():
             return edition_resp
         return MagicMock(status_code=404)
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780201616224")
 
     assert data.get("physical_format") is None
@@ -712,7 +712,7 @@ class TestFetchWorkData:
 
     def test_extracts_description_string(self):
         resp = self._make_resp(200, {"description": "A great book about things."})
-        with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+        with patch("apps.books.services.openlibrary._session.get", return_value=resp):
             data = _fetch_work_data("/works/OL123W")
         assert data["description"] == "A great book about things."
 
@@ -720,20 +720,20 @@ class TestFetchWorkData:
         resp = self._make_resp(200, {
             "description": {"type": "/type/text", "value": "A dict-wrapped synopsis."}
         })
-        with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+        with patch("apps.books.services.openlibrary._session.get", return_value=resp):
             data = _fetch_work_data("/works/OL123W")
         assert data["description"] == "A dict-wrapped synopsis."
 
     def test_extracts_subjects(self):
         subjects = ["Fiction", "Mystery", "Thriller"]
         resp = self._make_resp(200, {"subjects": subjects})
-        with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+        with patch("apps.books.services.openlibrary._session.get", return_value=resp):
             data = _fetch_work_data("/works/OL123W")
         assert data["subjects"] == subjects
 
     def test_returns_empty_on_404(self):
         resp = self._make_resp(404, {})
-        with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+        with patch("apps.books.services.openlibrary._session.get", return_value=resp):
             data = _fetch_work_data("/works/OL123W")
         assert data == {}
 
@@ -744,7 +744,7 @@ class TestFetchWorkData:
     def test_returns_empty_on_request_exception(self):
         import requests
         with patch(
-            "apps.books.services.openlibrary.requests.get",
+            "apps.books.services.openlibrary._session.get",
             side_effect=requests.ConnectionError("no network"),
         ):
             data = _fetch_work_data("/works/OL123W")
@@ -777,7 +777,7 @@ def test_fetch_from_open_library_populates_description_from_work_endpoint():
             })
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780201616224")
 
     assert data["description"] == "A seminal guide to software craftsmanship."
@@ -814,7 +814,7 @@ def test_fetch_from_open_library_uses_search_work_key_for_description():
             })
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780201616224")
 
     assert data["description"] == "From search work key."
@@ -848,7 +848,7 @@ def test_fetch_from_open_library_skips_work_fetch_when_description_already_prese
             return FakeResponse(200, {"description": "Should not overwrite."})
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780201616224")
 
     assert data["description"] == "Already here."
@@ -881,7 +881,7 @@ def test_fetch_from_open_library_gets_cover_and_description_via_edition_work_key
             return FakeResponse(200, {"description": "A synopsis from the work record."})
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780143136439")
 
     assert data["cover_image_url"] == "https://covers.openlibrary.org/b/id/99887766-M.jpg"
@@ -921,7 +921,7 @@ def test_fetch_from_open_library_gets_description_via_edition_data_work_key():
             return FakeResponse(200, {"description": "Description via edition work key."})
         return FakeResponse(404, {})
 
-    with patch("apps.books.services.openlibrary.requests.get", side_effect=mock_get):
+    with patch("apps.books.services.openlibrary._session.get", side_effect=mock_get):
         data = fetch_from_open_library("9780143136439")
 
     assert data["cover_image_url"] == "https://covers.openlibrary.org/b/id/55443322-M.jpg"
@@ -936,7 +936,7 @@ def test_fetch_author_name_returns_none_on_non_200():
     resp = MagicMock()
     resp.status_code = 404
 
-    with patch("apps.books.services.openlibrary.requests.get", return_value=resp):
+    with patch("apps.books.services.openlibrary._session.get", return_value=resp):
         result = _fetch_author_name("/authors/OL999A")
 
     assert result is None
@@ -949,7 +949,7 @@ def test_fetch_author_name_returns_none_on_request_exception():
     from apps.books.services.openlibrary import _fetch_author_name
 
     with patch(
-        "apps.books.services.openlibrary.requests.get",
+        "apps.books.services.openlibrary._session.get",
         side_effect=requests.ConnectionError("no network"),
     ):
         result = _fetch_author_name("/authors/OL999A")

@@ -135,6 +135,7 @@ REST_FRAMEWORK = {
         "anon": "60/hour",
         "user": "1000/hour",
         "isbn_lookup": "30/hour",
+        "isbn_enrich": "30/hour",
         # Bot mitigation: tight per-IP limits on sensitive auth endpoints
         "auth_login": "10/hour",
         "auth_register": "5/hour",

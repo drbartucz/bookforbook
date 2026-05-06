@@ -141,6 +141,7 @@ export const users = {
 // ── Books ─────────────────────────────────────────────────────────────────────
 export const books = {
   lookupISBN: (isbn) => apiClient.post(`/books/lookup/`, { isbn }),
+  enrichISBN: (isbn) => apiClient.post(`/books/enrich/`, { isbn }),
   searchBooks: (params) => apiClient.get('/books/search/', { params }),
   getBook: (bookId) => apiClient.get(`/books/${bookId}/`),
   fromImage: (file) => {

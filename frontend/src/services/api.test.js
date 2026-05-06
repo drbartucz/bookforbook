@@ -217,6 +217,17 @@ describe('api client response interceptor', () => {
     postSpy.mockRestore();
   });
 
+  it('enrichISBN sends a POST request with isbn in the body', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      data: { id: 'abc', isbn_13: '9780141036144', title: 'Nineteen Eighty-Four' },
+    });
+
+    await books.enrichISBN('9780141036144');
+
+    expect(postSpy).toHaveBeenCalledWith('/books/enrich/', { isbn: '9780141036144' });
+    postSpy.mockRestore();
+  });
+
   it('deleteAccount sends password in DELETE request body', async () => {
     const deleteSpy = vi.spyOn(apiClient, 'delete').mockResolvedValueOnce({
       data: { detail: 'Account deletion initiated.' },
@@ -408,7 +419,7 @@ describe('api module — method function coverage', () => {
     await users.getPublicProfile('u1'); await users.getUserRatings('u1', {});
     await users.getUserOfferedBooks('u1', {}); await users.getUserWantedBooks('u1', {});
     // books
-    await books.lookupISBN('isbn'); await books.searchBooks({}); await books.getBook('b1');
+    await books.lookupISBN('isbn'); await books.enrichISBN('isbn'); await books.searchBooks({}); await books.getBook('b1');
     // myBooks
     await myBooks.list({}); await myBooks.add({}); await myBooks.update('id', {}); await myBooks.remove('id');
     // wishlist

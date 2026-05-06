@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { myBooks as myBooksApi } from '../services/api.js';
+import { myBooks as myBooksApi, books as booksApi } from '../services/api.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
@@ -57,6 +57,14 @@ export default function MyBooks() {
   const addMutation = useMutation({
     mutationFn: (bookData) => myBooksApi.add(bookData),
     onSuccess: (response) => {
+      // Fire background enrichment only after the add succeeds, so we don't
+      // waste rate-limit budget or backend work when the add fails.
+      const isbn = response?.data?.book?.isbn_13;
+      if (isbn) {
+        booksApi.enrichISBN(isbn).catch(err => {
+          console.warn('Background enrichment failed:', err);
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['myBooks'] });
       setShowAddForm(false);
       setIsbn('');
@@ -125,8 +133,10 @@ export default function MyBooks() {
       }
     }
 
+    const cleanIsbn = isbn.trim().replace(/[\s-]/g, '');
+
     addMutation.mutate({
-      isbn: isbn.trim().replace(/[\s-]/g, ''),
+      isbn: cleanIsbn,
       condition: addCondition,
     });
   }

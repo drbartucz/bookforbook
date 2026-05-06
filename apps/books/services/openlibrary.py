@@ -4,9 +4,12 @@ Open Library API service for ISBN lookups and book data enrichment.
 
 import logging
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import timedelta
 
 import requests
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +19,32 @@ OPEN_LIBRARY_SEARCH_URL = "https://openlibrary.org/search.json"
 OPEN_LIBRARY_BOOKS_API_URL = "https://openlibrary.org/api/books"
 OPEN_LIBRARY_WORKS_URL = "https://openlibrary.org{key}.json"
 OPEN_LIBRARY_WORK_EDITIONS_URL = "https://openlibrary.org{key}/editions.json"
+
+# Re-enrichment throttle: don't attempt to enrich the same book more than once a day
+# if it still has missing fields.
+ENRICHMENT_THROTTLE_DAYS = 1
+REQUEST_TIMEOUT = 5  # seconds
+
+
+class _LocalSession:
+    """Wraps a per-thread requests.Session for thread-safe connection pooling.
+
+    Each worker thread gets its own Session and connection pool, avoiding
+    concurrent-modification issues when ThreadPoolExecutor workers share a
+    single global Session object.
+    """
+
+    def __init__(self):
+        self._local = threading.local()
+
+    def get(self, *args, **kwargs):
+        if not hasattr(self._local, "session"):
+            self._local.session = requests.Session()
+        return self._local.session.get(*args, **kwargs)
+
+
+_session = _LocalSession()
+
 
 _EDITION_KEY_RE = re.compile(r"^/books/[A-Za-z0-9]+$")
 _WORK_KEY_RE = re.compile(r"^/works/OL\d+W$")
@@ -28,6 +57,7 @@ def _is_valid_edition_key(key: str) -> bool:
 
 def _is_valid_work_key(key: str) -> bool:
     return bool(_WORK_KEY_RE.match(str(key)))
+
 
 # Curated corrections for known edition edge cases where Open Library endpoints are
 # missing or return work-level mismatches for specific ISBNs.
@@ -66,8 +96,6 @@ KNOWN_ISBN_METADATA_OVERRIDES = {
     },
 }
 
-REQUEST_TIMEOUT = 5  # seconds — fail fast rather than hanging the UI
-
 
 def _response_json_object(resp: requests.Response, context: str) -> dict | None:
     """Return a JSON object payload or None for malformed/unexpected responses."""
@@ -88,7 +116,7 @@ def _response_json_object(resp: requests.Response, context: str) -> dict | None:
     return payload
 
 
-def get_or_create_book(isbn: str):
+def get_or_create_book(isbn: str, minimal: bool = False):
     """
     Normalize ISBN to ISBN-13, check the local cache (Book table),
     fetch from Open Library if not found, and return the Book instance.
@@ -102,15 +130,15 @@ def get_or_create_book(isbn: str):
     # Check cache first
     try:
         book = Book.objects.get(isbn_13=isbn_13)
-        if _book_needs_enrichment(book):
-            enriched = fetch_from_open_library(isbn_13)
+        if not minimal and _book_needs_enrichment(book):
+            enriched = fetch_from_open_library(isbn_13, minimal=False)
             _update_book_from_data(book, enriched)
         return book
     except Book.DoesNotExist:
         pass
 
     # Fetch from Open Library
-    data = fetch_from_open_library(isbn_13)
+    data = fetch_from_open_library(isbn_13, minimal=minimal)
     if not data.get("title"):
         raise ValueError(
             "Could not find this ISBN in our catalog sources. Try another edition ISBN (for example hardcover or paperback)."
@@ -130,6 +158,7 @@ def get_or_create_book(isbn: str):
         subjects=data.get("subjects", []),
         description=data.get("description"),
         open_library_key=data.get("open_library_key"),
+        last_enriched_at=timezone.now() if not minimal else None,
     )
     return book
 
@@ -138,54 +167,74 @@ def _book_needs_enrichment(book) -> bool:
     """Return True when cached book metadata is incomplete enough to re-fetch."""
     if _is_placeholder_title(book.title):
         return True
-    return not book.authors or not book.physical_format or not book.description
+
+    # If it's already "complete", no need to ever enrich again
+    is_complete = book.authors and book.physical_format and book.description
+    if is_complete:
+        return False
+
+    # Less aggressive re-enrichment:
+    # If we tried to enrich recently (within the throttle window), don't try again.
+    # This prevents hammering the API for books that Open Library simply doesn't have data for.
+    if book.last_enriched_at:
+        throttle_limit = timezone.now() - timedelta(days=ENRICHMENT_THROTTLE_DAYS)
+        if book.last_enriched_at > throttle_limit:
+            return False
+
+    return True
 
 
 def _update_book_from_data(book, data: dict) -> None:
     """Persist only missing book metadata from normalized Open Library data."""
-    updated_fields = []
+    content_fields = []
 
     if not book.title and data.get("title"):
         book.title = data["title"]
-        updated_fields.append("title")
+        content_fields.append("title")
     elif (
         _is_placeholder_title(book.title)
         and data.get("title")
         and not _is_placeholder_title(data["title"])
     ):
         book.title = data["title"]
-        updated_fields.append("title")
+        content_fields.append("title")
     if not book.authors and data.get("authors"):
         book.authors = data["authors"]
-        updated_fields.append("authors")
+        content_fields.append("authors")
     if not book.publisher and data.get("publisher"):
         book.publisher = data["publisher"]
-        updated_fields.append("publisher")
+        content_fields.append("publisher")
     if not book.publish_year and data.get("publish_year"):
         book.publish_year = data["publish_year"]
-        updated_fields.append("publish_year")
+        content_fields.append("publish_year")
     if not book.cover_image_url and data.get("cover_image_url"):
         book.cover_image_url = data["cover_image_url"]
-        updated_fields.append("cover_image_url")
+        content_fields.append("cover_image_url")
     if not book.page_count and data.get("page_count"):
         book.page_count = data["page_count"]
-        updated_fields.append("page_count")
+        content_fields.append("page_count")
     if not book.physical_format and data.get("physical_format"):
         book.physical_format = data["physical_format"]
-        updated_fields.append("physical_format")
+        content_fields.append("physical_format")
     if not book.subjects and data.get("subjects"):
         book.subjects = data["subjects"]
-        updated_fields.append("subjects")
+        content_fields.append("subjects")
     if not book.description and data.get("description"):
         book.description = data["description"]
-        updated_fields.append("description")
+        content_fields.append("description")
     if not book.open_library_key and data.get("open_library_key"):
         book.open_library_key = data["open_library_key"]
-        updated_fields.append("open_library_key")
+        content_fields.append("open_library_key")
 
-    if updated_fields:
-        updated_fields.append("updated_at")
-        book.save(update_fields=updated_fields)
+    # Always stamp last_enriched_at on every enrichment attempt so the throttle
+    # activates even when OL consistently returns incomplete/empty data --
+    # preventing an infinite re-fetch loop for books OL simply has no data for.
+    book.last_enriched_at = timezone.now()
+    if content_fields:
+        content_fields.extend(["last_enriched_at", "updated_at"])
+        book.save(update_fields=content_fields)
+    else:
+        book.save(update_fields=["last_enriched_at"])
 
 
 def normalize_isbn(isbn: str) -> str | None:
@@ -259,14 +308,16 @@ def _isbn13_check_digit(first12: str) -> int:
     return (10 - (total % 10)) % 10
 
 
-def fetch_from_open_library(isbn_13: str) -> dict:
+def fetch_from_open_library(isbn_13: str, minimal: bool = False) -> dict:
     """
     Fetch book data from the Open Library API.
 
     Runs the ISBN endpoint and the search endpoint concurrently so the
     total latency is the slower of the two rather than their sum.
-    Author name dereferencing (when the ISBN endpoint returns /authors/
-    keys instead of names) is also parallelized across all authors.
+
+    When minimal=True, skips secondary enrichment lookups (Books API,
+    Edition records, Same-work format fallback, Work-level description).
+    This is prioritized for fast initial UI feedback.
 
     Returns a dict with normalized fields; uses empty/None values on failure.
     """
@@ -276,7 +327,7 @@ def fetch_from_open_library(isbn_13: str) -> dict:
 
     def _do_isbn_fetch():
         try:
-            resp = requests.get(
+            resp = _session.get(
                 OPEN_LIBRARY_ISBN_URL.format(isbn=isbn_13),
                 timeout=REQUEST_TIMEOUT,
             )
@@ -315,6 +366,14 @@ def fetch_from_open_library(isbn_13: str) -> dict:
     # Merge search data for any missing fields
     if search_data:
         data = _merge_book_data(data, search_data)
+
+    if minimal:
+        # Fast exit for minimal lookup
+        if not data.get("cover_image_url"):
+            data["cover_image_url"] = OPEN_LIBRARY_COVER_URL.format(isbn=isbn_13)
+        return _apply_known_isbn_metadata_overrides(isbn_13, data)
+
+    # --- Tier 2 Enrichment (skipped if minimal=True) ---
 
     # Books API often has richer metadata for edge editions (including audio).
     if not data.get("title") or not data.get("authors"):
@@ -370,7 +429,7 @@ def fetch_from_open_library(isbn_13: str) -> dict:
 def _fetch_search_data(isbn_13: str) -> dict:
     """Fetch and normalize the best Open Library search result for an ISBN."""
     try:
-        resp = requests.get(
+        resp = _session.get(
             OPEN_LIBRARY_SEARCH_URL,
             params={"isbn": isbn_13, "limit": 5},
             timeout=REQUEST_TIMEOUT,
@@ -385,7 +444,7 @@ def _fetch_search_data(isbn_13: str) -> dict:
                     return _parse_search_result(best, isbn_13)
 
         # Secondary fallback: some editions are searchable only via broad query.
-        resp = requests.get(
+        resp = _session.get(
             OPEN_LIBRARY_SEARCH_URL,
             params={"q": isbn_13, "limit": 5},
             timeout=REQUEST_TIMEOUT,
@@ -603,7 +662,7 @@ def _is_placeholder_title(value: str | None) -> bool:
 def _fetch_books_api_data(isbn_13: str) -> dict:
     """Fetch metadata from Open Library Books API for ISBN fallbacks."""
     try:
-        resp = requests.get(
+        resp = _session.get(
             OPEN_LIBRARY_BOOKS_API_URL,
             params={
                 "bibkeys": f"ISBN:{isbn_13}",
@@ -671,7 +730,7 @@ def _find_same_work_print_format(
         return None
 
     try:
-        edition_resp = requests.get(
+        edition_resp = _session.get(
             OPEN_LIBRARY_WORKS_URL.format(key=edition_key), timeout=REQUEST_TIMEOUT
         )
         if edition_resp.status_code != 200:
@@ -689,7 +748,7 @@ def _find_same_work_print_format(
         if not work_key or not _is_valid_work_key(work_key):
             return None
 
-        editions_resp = requests.get(
+        editions_resp = _session.get(
             OPEN_LIBRARY_WORK_EDITIONS_URL.format(key=work_key),
             params={"limit": 200},
             timeout=REQUEST_TIMEOUT,
@@ -757,7 +816,7 @@ def _find_same_work_format_for_current_isbn(
         return None
 
     try:
-        edition_resp = requests.get(
+        edition_resp = _session.get(
             OPEN_LIBRARY_WORKS_URL.format(key=edition_key), timeout=REQUEST_TIMEOUT
         )
         if edition_resp.status_code != 200:
@@ -777,7 +836,7 @@ def _find_same_work_format_for_current_isbn(
         if not work_key or not _is_valid_work_key(work_key):
             return None
 
-        editions_resp = requests.get(
+        editions_resp = _session.get(
             OPEN_LIBRARY_WORK_EDITIONS_URL.format(key=work_key),
             params={"limit": 200},
             timeout=REQUEST_TIMEOUT,
@@ -841,7 +900,7 @@ def _fetch_edition_data(edition_key: str) -> dict:
         return data
 
     try:
-        resp = requests.get(
+        resp = _session.get(
             OPEN_LIBRARY_WORKS_URL.format(key=full_key),
             timeout=REQUEST_TIMEOUT,
         )
@@ -891,7 +950,7 @@ def _fetch_work_data(work_key: str) -> dict:
     if not _is_valid_work_key(work_key):
         return {}
     try:
-        resp = requests.get(
+        resp = _session.get(
             OPEN_LIBRARY_WORKS_URL.format(key=work_key),
             timeout=REQUEST_TIMEOUT,
         )
@@ -923,7 +982,7 @@ def _fetch_author_name(author_key: str) -> str | None:
     if not _AUTHOR_KEY_RE.match(author_key):
         return None
     try:
-        resp = requests.get(
+        resp = _session.get(
             f"https://openlibrary.org{author_key}.json",
             timeout=REQUEST_TIMEOUT,
         )

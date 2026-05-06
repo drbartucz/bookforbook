@@ -108,7 +108,7 @@ class UserBookCreateSerializer(serializers.Serializer):
         from apps.books.services.openlibrary import get_or_create_book
 
         isbn = validated_data.pop("isbn")
-        book = get_or_create_book(isbn)
+        book = get_or_create_book(isbn, minimal=True)
         user = self.context["request"].user
         return UserBook.objects.create(user=user, book=book, **validated_data)
 
@@ -191,7 +191,7 @@ class WishlistItemCreateSerializer(serializers.Serializer):
         from apps.books.services.openlibrary import normalize_isbn, get_or_create_book
 
         isbn = attrs["isbn"]
-        book = get_or_create_book(isbn)
+        book = get_or_create_book(isbn, minimal=True)
         user = self.context["request"].user
 
         allowed_formats = {

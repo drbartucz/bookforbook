@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { wishlist as wishlistApi } from '../services/api.js';
+import { wishlist as wishlistApi, books as booksApi } from '../services/api.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
@@ -128,6 +128,14 @@ export default function Wishlist() {
   const addMutation = useMutation({
     mutationFn: (itemData) => wishlistApi.add(itemData),
     onSuccess: (response) => {
+      // Fire background enrichment only after the add succeeds, so we don't
+      // waste rate-limit budget or backend work when the add fails.
+      const isbn = response?.data?.book?.isbn_13;
+      if (isbn) {
+        booksApi.enrichISBN(isbn).catch(err => {
+          console.warn('Background enrichment failed:', err);
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       setShowAddForm(false);
       setShowEditionPrompt(false);
@@ -203,7 +211,9 @@ export default function Wishlist() {
       return;
     }
     setAddError(null);
-    const payload = { isbn: isbn.trim().replace(/[\s-]/g, '') };
+    const cleanIsbn = isbn.trim().replace(/[\s-]/g, '');
+
+    const payload = { isbn: cleanIsbn };
     if (minCondition && minCondition !== 'any') {
       payload.min_condition = minCondition;
     }

@@ -32,6 +32,7 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     "anon": "600/hour",
     "user": "6000/hour",
     "isbn_lookup": "300/hour",
+    "isbn_enrich": "300/hour",
     "auth_login": "600/hour",
     "auth_register": "300/hour",
     "auth_password_reset": "300/hour",
