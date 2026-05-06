@@ -142,7 +142,7 @@ class TestNotificationCountsView:
         user = UserFactory()
         other = UserFactory()
 
-        pending_match = Match.objects.create(match_type="direct", status="pending")
+        pending_match = Match.objects.create(match_type="direct", status="proposed")
         MatchLeg.objects.create(
             match=pending_match,
             sender=user,
@@ -166,9 +166,9 @@ class TestNotificationCountsView:
             user_book=UserBookFactory(user=user),
         )
 
-        TradeProposal.objects.create(recipient=user, proposer=other, status="pending")
+        TradeProposal.objects.create(recipient=user, proposer=other, status="proposed")
         TradeProposal.objects.create(recipient=user, proposer=other, status="accepted")
-        TradeProposal.objects.create(recipient=other, proposer=user, status="pending")
+        TradeProposal.objects.create(recipient=other, proposer=user, status="proposed")
 
         NotificationFactory(user=user, is_read=False)
         NotificationFactory(user=user, is_read=True)

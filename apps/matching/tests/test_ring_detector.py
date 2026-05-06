@@ -54,7 +54,7 @@ class TestRingDetector:
         user_a = UserFactory(email_verified=True)
         # capacity default is 2
         MatchLegFactory(match=MatchFactory(status=Match.Status.PROPOSED), sender=user_a)
-        MatchLegFactory(match=MatchFactory(status=Match.Status.PENDING), sender=user_a)
+        MatchLegFactory(match=MatchFactory(status=Match.Status.PROPOSED), sender=user_a)
         
         user_b = UserFactory(email_verified=True)
         user_c = UserFactory(email_verified=True)

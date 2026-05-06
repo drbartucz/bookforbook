@@ -300,7 +300,7 @@ class TestUserMeView:
         book_a = UserBookFactory(user=user)
         book_b = UserBookFactory(user=other)
 
-        match = Match.objects.create(match_type="direct", status=Match.Status.PENDING)
+        match = Match.objects.create(match_type="direct", status=Match.Status.PROPOSED)
         MatchLeg.objects.create(
             match=match,
             sender=user,
@@ -353,7 +353,7 @@ class TestUserMeView:
         book_a = UserBookFactory(user=user)
         book_b = UserBookFactory(user=other)
 
-        match = Match.objects.create(match_type="direct", status=Match.Status.PENDING)
+        match = Match.objects.create(match_type="direct", status=Match.Status.PROPOSED)
         MatchLeg.objects.create(
             match=match,
             sender=user,

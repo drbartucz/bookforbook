@@ -554,14 +554,14 @@ def _cancel_user_active_matches(user):
     from apps.matching.models import Match, MatchLeg
     from apps.trading.models import TradeProposal
 
-    # Cancel pending/proposed matches where user is either sender or receiver.
+    # Cancel proposed matches where user is either sender or receiver.
     active_leg_match_ids = MatchLeg.objects.filter(
         Q(sender=user) | Q(receiver=user),
         status__in=[MatchLeg.Status.PENDING, MatchLeg.Status.ACCEPTED],
     ).values_list("match_id", flat=True)
     Match.objects.filter(
         id__in=active_leg_match_ids,
-        status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+        status=Match.Status.PROPOSED,
     ).update(status=Match.Status.EXPIRED)
 
     # Cancel pending proposals where user is either side.

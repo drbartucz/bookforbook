@@ -53,16 +53,6 @@ class MatchListView(APIView):
                     ).values_list("match_id", flat=True)
                 )
             )
-        elif status_filter == "pending":
-            # Show all active matches regardless of whether the user has already accepted
-            # their own leg — a match stays pending until ALL parties have accepted.
-            # Restrict to PENDING/ACCEPTED leg statuses to use the (sender, status) index
-            # and prevent any unexpected leg states from leaking into this tab.
-            match_ids = MatchLeg.objects.filter(
-                sender=user,
-                status__in=[MatchLeg.Status.PENDING, MatchLeg.Status.ACCEPTED],
-                match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
-            ).values_list("match_id", flat=True)
         else:
             # No filter (All tab) — every match the user participates in.
             match_ids = (
@@ -116,7 +106,7 @@ class MatchAcceptView(APIView):
         try:
             match = Match.objects.prefetch_related("legs").get(
                 pk=pk,
-                status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+                status=Match.Status.PROPOSED,
             )
         except Match.DoesNotExist:
             return Response(
@@ -185,7 +175,7 @@ class MatchDeclineView(APIView):
         try:
             match = Match.objects.prefetch_related("legs").get(
                 pk=pk,
-                status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+                status=Match.Status.PROPOSED,
             )
         except Match.DoesNotExist:
             return Response(
@@ -315,12 +305,12 @@ class ReverseDiscoveryView(APIView):
         # 3. Identify partners with existing active matches to exclude
         active_match_partner_ids = set(
             MatchLeg.objects.filter(
-                match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+                match__status=Match.Status.PROPOSED,
                 sender=user,
             ).values_list("receiver_id", flat=True)
         ) | set(
             MatchLeg.objects.filter(
-                match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+                match__status=Match.Status.PROPOSED,
                 receiver=user,
             ).values_list("sender_id", flat=True)
         )

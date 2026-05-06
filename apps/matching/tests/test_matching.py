@@ -117,7 +117,7 @@ class TestDirectMatcherService:
         other_user_1 = UserFactory()
         other_ub_1 = UserBookFactory(user=user_a, book=other_book_1, condition="good")
         existing_match_1 = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=existing_match_1,
@@ -130,7 +130,7 @@ class TestDirectMatcherService:
         other_user_2 = UserFactory()
         other_ub_2 = UserBookFactory(user=user_a, book=other_book_2, condition="good")
         existing_match_2 = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=existing_match_2,
@@ -452,7 +452,7 @@ class TestCountActiveMatches:
         book = BookFactory()
         ub = UserBookFactory(user=user, book=book)
         match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(match=match, sender=user, receiver=other, user_book=ub)
         assert count_active_matches_for_user(user) == 1
@@ -514,7 +514,7 @@ class TestMatchAPI:
         ub_b = UserBookFactory(user=other, book=book_b, condition="good")
 
         match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         leg_a = MatchLeg.objects.create(
             match=match,
@@ -544,7 +544,7 @@ class TestMatchAPI:
         ub_b = UserBookFactory(user=other, book=book_b, condition="good")
 
         match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=match, sender=verified_user, receiver=other, user_book=ub_a
@@ -575,7 +575,7 @@ class TestMatchAPI:
         ub_b = UserBookFactory(user=other, book=book_b, condition="good")
 
         match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=match, sender=verified_user, receiver=other, user_book=ub_a
@@ -606,7 +606,7 @@ class TestMatchAPI:
         ub_b = UserBookFactory(user=other, book=book_b, condition="good")
 
         match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=match, sender=verified_user, receiver=other, user_book=ub_a
@@ -627,7 +627,7 @@ class TestMatchAPI:
         ub_b = UserBookFactory(user=other, book=book_b, condition="good")
 
         match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=match, sender=verified_user, receiver=other, user_book=ub_a
@@ -754,7 +754,7 @@ class TestMatchAPI:
         book = BookFactory()
         ub = UserBookFactory(user=user_x, book=book)
         match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=match, sender=user_x, receiver=user_y, user_book=ub
@@ -769,7 +769,7 @@ class TestMatchAPI:
         book = BookFactory()
         ub = UserBookFactory(user=other_a, book=book)
         unrelated_match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=unrelated_match, sender=other_a, receiver=other_b, user_book=ub
@@ -793,7 +793,7 @@ class TestMatchDetailView:
         other = UserFactory()
         ub = UserBookFactory(user=verified_user)
         match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=match, sender=verified_user, receiver=other, user_book=ub, position=0
@@ -823,7 +823,7 @@ class TestMatchDetailView:
         user_a = UserFactory()
         user_b = UserFactory()
         match = Match.objects.create(
-            match_type=Match.MatchType.DIRECT, status=Match.Status.PENDING
+            match_type=Match.MatchType.DIRECT, status=Match.Status.PROPOSED
         )
         MatchLeg.objects.create(
             match=match,

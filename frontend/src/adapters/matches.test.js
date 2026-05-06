@@ -6,7 +6,7 @@ describe('matches adapter', () => {
   it('maps books and partner from legs for the current user', () => {
     const match = {
       id: 'm1',
-      status: 'pending',
+      status: 'proposed',
       legs: [
         {
           sender: { id: 'u1', username: 'me' },

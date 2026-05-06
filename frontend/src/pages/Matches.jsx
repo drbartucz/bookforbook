@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { matches as matchesApi } from '../services/api.js';
@@ -17,14 +17,12 @@ const PAGE_SIZE = 15;
 
 const STATUS_TABS = [
   { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
   { value: 'proposed', label: 'Proposed' },
   { value: 'accepted', label: 'Accepted' },
   { value: 'declined', label: 'Declined' },
 ];
 
 const STATUS_CONFIG = {
-  pending: { label: 'Pending', cls: 'badge-amber' },
   proposed: { label: 'Proposed', cls: 'badge-amber' },
   accepted: { label: 'Accepted', cls: 'badge-green' },
   declined: { label: 'Declined', cls: 'badge-red' },
@@ -35,10 +33,11 @@ export default function Matches() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState('pending');
+  const [statusFilter, setStatusFilter] = useState('proposed');
   const [actionError, setActionError] = useState(null);
   const [requiresAddressVerification, setRequiresAddressVerification] = useState(false);
   const [verificationUrl, setVerificationUrl] = useState('/account');
+  const isInitialLoad = useRef(true);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['matches', statusFilter, page],
@@ -48,6 +47,18 @@ export default function Matches() {
       return matchesApi.list(params).then((r) => r.data);
     },
   });
+
+  // On first load, if there are no proposed matches fall back to the All tab.
+  useEffect(() => {
+    if (!isInitialLoad.current) return;
+    if (isLoading) return;
+    if (statusFilter !== 'proposed') { isInitialLoad.current = false; return; }
+    const { count } = parsePaginatedResponse(data);
+    if (count === 0) {
+      setStatusFilter('');
+    }
+    isInitialLoad.current = false;
+  }, [isLoading, data, statusFilter]);
 
   const acceptMutation = useMutation({
     mutationFn: (id) => matchesApi.accept(id),
@@ -88,6 +99,7 @@ export default function Matches() {
   const totalPages = Math.ceil(count / PAGE_SIZE);
 
   function handleTabChange(val) {
+    isInitialLoad.current = false;
     setStatusFilter(val);
     setPage(1);
   }
@@ -136,7 +148,7 @@ export default function Matches() {
       ) : items.length === 0 ? (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>
-            {statusFilter === 'pending' ? 'No pending matches' : 'No matches found'}
+            {statusFilter === 'proposed' ? 'No proposed matches' : 'No matches found'}
           </p>
           <p className={styles.emptySubtitle}>
             Matches are created automatically when your books line up with other users&apos; wishlists.
@@ -172,17 +184,15 @@ function MatchCard({ match, currentUserId, onAccept, onDecline, accepting, decli
   const theirBook = match.theirBook;
   const partner = match.partner;
 
-  const isPending = match.status === 'pending' || match.status === 'proposed';
+  const isProposed = match.status === 'proposed';
   const hasAccepted = match.legs?.find(leg => String(leg.sender?.id) === String(currentUserId))?.status === 'accepted';
 
   return (
     <div className={`card ${styles.matchCard}`}>
       <div className={styles.matchHeader}>
         <div className={styles.matchId}>Match #{match.id}</div>
-        {(match.status === 'pending' || match.status === 'proposed') ? (
-          <Tooltip content={match.status === 'pending' 
-            ? "This match was found automatically. It's waiting for initial processing." 
-            : "This match has been proposed. It's waiting for both of you to accept."}>
+        {match.status === 'proposed' ? (
+          <Tooltip content="This match is waiting for both of you to accept.">
             <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
           </Tooltip>
         ) : match.status === 'expired' ? (
@@ -266,7 +276,7 @@ function MatchCard({ match, currentUserId, onAccept, onDecline, accepting, decli
         </p>
       )}
 
-      {isPending && (
+      {isProposed && (
         <div className={styles.matchActions}>
           {hasAccepted ? (
             <span className="badge badge-gray">Waiting for partner...</span>

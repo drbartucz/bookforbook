@@ -737,7 +737,7 @@ class TestTradePipelineIntegration:
 
         match = Match.objects.create(
             match_type=Match.MatchType.DIRECT,
-            status=Match.Status.PENDING,
+            status=Match.Status.PROPOSED,
         )
         MatchLeg.objects.create(
             match=match,

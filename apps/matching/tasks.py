@@ -106,13 +106,13 @@ def run_periodic_matching():
 
 def expire_old_matches():
     """
-    Periodic task — expire pending/proposed matches past their expiry time.
+    Periodic task — expire proposed matches past their expiry time.
     """
     from apps.matching.models import Match
 
     now = timezone.now()
     expired_count = Match.objects.filter(
-        status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+        status=Match.Status.PROPOSED,
         expires_at__lt=now,
     ).update(status=Match.Status.EXPIRED)
 

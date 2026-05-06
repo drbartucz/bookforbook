@@ -63,7 +63,7 @@ class PendingCountsView(APIView):
 
         pending_matches = (
             MatchLeg.objects.filter(
-                match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED]
+                match__status=Match.Status.PROPOSED
             )
             .filter(Q(sender=request.user) | Q(receiver=request.user))
             .values("match_id")

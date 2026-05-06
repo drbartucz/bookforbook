@@ -397,7 +397,7 @@ class Command(BaseCommand):
 
     def _seed_matches(self, users, books, inventory):
         """
-        Three pending direct matches so each destructive test has its own record:
+        Three proposed direct matches so each destructive test has its own record:
           Match 1: alice(Orwell) ↔ bob(Gatsby)   — alice accepts
           Match 2: bob(Tolstoy)  ↔ carol(Chekhov) — bob declines
           Match 3: alice(Hemingway) ↔ carol(London) — carol tries to accept (address error)
@@ -433,7 +433,7 @@ class Command(BaseCommand):
 
     def _seed_one_match(self, sender_a, ub_a, sender_b, ub_b, label):
         existing = Match.objects.filter(
-            status=Match.Status.PENDING,
+            status=Match.Status.PROPOSED,
             legs__sender=sender_a,
             legs__user_book=ub_a,
         ).first()
@@ -442,7 +442,7 @@ class Command(BaseCommand):
             return
         match = Match.objects.create(
             match_type=Match.MatchType.DIRECT,
-            status=Match.Status.PENDING,
+            status=Match.Status.PROPOSED,
             expires_at=timezone.now() + timedelta(hours=48),
         )
         MatchLeg.objects.create(

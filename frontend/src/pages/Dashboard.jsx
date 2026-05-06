@@ -17,8 +17,8 @@ export default function Dashboard() {
   });
 
   const { data: matchesData, isLoading: matchesLoading } = useQuery({
-    queryKey: ['matches', 'pending'],
-    queryFn: () => matchesApi.list({ status: 'pending', page_size: 5 }).then((r) => r.data),
+    queryKey: ['matches', 'proposed'],
+    queryFn: () => matchesApi.list({ status: 'proposed', page_size: 5 }).then((r) => r.data),
   });
 
   const { data: proposalsData, isLoading: proposalsLoading } = useQuery({
