@@ -166,9 +166,9 @@ class TestNotificationCountsView:
             user_book=UserBookFactory(user=user),
         )
 
-        TradeProposal.objects.create(recipient=user, proposer=other, status="proposed")
+        TradeProposal.objects.create(recipient=user, proposer=other, status="pending")
         TradeProposal.objects.create(recipient=user, proposer=other, status="accepted")
-        TradeProposal.objects.create(recipient=other, proposer=user, status="proposed")
+        TradeProposal.objects.create(recipient=other, proposer=user, status="pending")
 
         NotificationFactory(user=user, is_read=False)
         NotificationFactory(user=user, is_read=True)
