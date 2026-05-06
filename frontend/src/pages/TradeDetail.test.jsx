@@ -731,7 +731,7 @@ describe('TradeDetail page', () => {
             }],
         });
         renderWithProviders(<TradeDetail />);
-        // msg.message_type !== 'general' → badge shown (covers line 399 true branch)
+        // msg.message_type is not 'general_note' or 'general' → badge shown (covers line 401 true branch)
         expect(await screen.findByText('shipping update')).toBeInTheDocument();
         expect(screen.getByText('Book shipped today!')).toBeInTheDocument();
     });
@@ -866,5 +866,18 @@ describe('TradeDetail page', () => {
         const msgTypeSelect = screen.getByRole('combobox');
         await userEvent.selectOptions(msgTypeSelect, 'shipping_update');
         expect(msgTypeSelect).toHaveValue('shipping_update');
+    });
+
+    it('shows issue_report tooltip when issue_report message type is selected', async () => {
+        trades.getDetail.mockResolvedValue({ data: makeTrade() });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        renderWithProviders(<TradeDetail />);
+        await screen.findByText('My Book');
+
+        const msgTypeSelect = screen.getByRole('combobox');
+        await userEvent.selectOptions(msgTypeSelect, 'issue_report');
+        expect(msgTypeSelect).toHaveValue('issue_report');
+        // issue_report tooltip content should be rendered in the DOM
+        expect(screen.getByRole('tooltip', { name: /damaged book|no contact/i })).toBeInTheDocument();
     });
 });
