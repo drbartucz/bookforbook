@@ -26,13 +26,10 @@ class MatchListView(APIView):
         status_filter = request.query_params.get("status", "").strip().lower()
 
         if status_filter == "accepted":
-            # User's outgoing leg is accepted; match may be waiting for others (PENDING/PROPOSED)
-            # or fully confirmed (COMPLETED) with a trade already created.
-            # Exclude EXPIRED so matches where someone else declined don't appear here.
+            # All legs accepted — match is fully confirmed (COMPLETED) with a trade created.
             match_ids = MatchLeg.objects.filter(
                 sender=user,
-                status=MatchLeg.Status.ACCEPTED,
-                match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED, Match.Status.COMPLETED],
+                match__status=Match.Status.COMPLETED,
             ).values_list("match_id", flat=True)
         elif status_filter == "declined":
             match_ids = MatchLeg.objects.filter(
@@ -54,11 +51,10 @@ class MatchListView(APIView):
                 )
             )
         elif status_filter == "pending":
-            # Filter only by the user's own sender leg being PENDING so that matches
-            # where the user already accepted don't bleed through via the receiver side.
+            # Show all active matches regardless of whether the user has already accepted
+            # their own leg — a match stays pending until ALL parties have accepted.
             match_ids = MatchLeg.objects.filter(
                 sender=user,
-                status=MatchLeg.Status.PENDING,
                 match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
             ).values_list("match_id", flat=True)
         else:
