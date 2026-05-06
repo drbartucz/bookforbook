@@ -4,8 +4,8 @@
  * End-to-end test for the complete book-swap lifecycle:
  *
  *   1.  beforeAll seeds two dedicated books and runs direct matching synchronously.
- *   2.  Alice sees the pending match and accepts it via the UI.
- *   3.  Bob sees the pending match and accepts it via the UI.
+ *   2.  Alice sees the proposed match and accepts it via the UI.
+ *   3.  Bob sees the proposed match and accepts it via the UI.
  *   4.  Both users see the completed match in the "Accepted" tab.
  *   5.  A confirmed trade appears in each user's Trades list.
  *   6.  Alice opens the trade detail, enters a tracking number, and marks shipped.

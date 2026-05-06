@@ -5,7 +5,7 @@ export class MatchesPage {
   constructor(page) {
     this.page = page;
     this.heading = page.getByRole('heading', { name: /matches/i });
-    this.pendingTab = page.getByRole('button', { name: /^pending$/i });
+    this.proposedTab = page.getByRole('button', { name: /^proposed$/i });
     this.acceptedTab = page.getByRole('button', { name: /^accepted$/i });
     this.declinedTab = page.getByRole('button', { name: /^declined$/i });
     this.allTab = page.getByRole('button', { name: /^all$/i });
