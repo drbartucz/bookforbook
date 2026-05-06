@@ -62,6 +62,16 @@
   margin-top: 0.25rem;
 }
 
+.trackingLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.trackingLink:hover {
+  text-decoration-thickness: 2px;
+}
+
 /* Exchange grid */
 .exchangeGrid {
   display: grid;

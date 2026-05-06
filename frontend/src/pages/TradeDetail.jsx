@@ -23,12 +23,109 @@ const MESSAGE_TYPES = [
 
 const TRADE_STATUS_CONFIG = {
   confirmed: { label: 'Confirmed — waiting to ship', cls: 'badge-blue' },
-  shipping: { label: 'Books in transit', cls: 'badge-amber' },
+  shipping: { label: 'Shipping in progress', cls: 'badge-amber' },
   one_received: { label: 'One side received', cls: 'badge-amber' },
   completed: { label: 'Completed', cls: 'badge-green' },
   disputed: { label: 'Disputed', cls: 'badge-red' },
   cancelled: { label: 'Cancelled', cls: 'badge-gray' },
 };
+
+function formatTrackingNumber(value) {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  return trimmed || 'N/A';
+}
+
+function detectCarrier(trackingNumber) {
+  const normalized = trackingNumber.toUpperCase().replace(/\s+/g, '');
+  const digitsOnly = normalized.replace(/\D/g, '');
+
+  if (/^1Z[0-9A-Z]{16}$/.test(normalized)) {
+    return 'ups';
+  }
+
+  if (
+    /^(94|93|92|95)\d{18,26}$/.test(digitsOnly) ||
+    /^420\d{5,}\d{16,}$/.test(digitsOnly) ||
+    /^(70|14|23|03)\d{14,22}$/.test(digitsOnly)
+  ) {
+    return 'usps';
+  }
+
+  if (/^\d{12}$|^\d{15}$|^\d{20}$|^\d{22}$/.test(digitsOnly)) {
+    return 'fedex';
+  }
+
+  return 'unknown';
+}
+
+function buildTrackingUrl(trackingNumber) {
+  const carrier = detectCarrier(trackingNumber);
+  const encodedTrackingNumber = encodeURIComponent(trackingNumber);
+
+  if (carrier === 'ups') {
+    return `https://www.ups.com/track?tracknum=${encodedTrackingNumber}`;
+  }
+
+  if (carrier === 'usps') {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodedTrackingNumber}`;
+  }
+
+  if (carrier === 'fedex') {
+    return `https://www.fedex.com/fedextrack/?trknbr=${encodedTrackingNumber}`;
+  }
+
+  return `https://www.google.com/search?q=${encodedTrackingNumber}`;
+}
+
+function renderTrackingValue(rawTrackingNumber) {
+  const formattedTrackingNumber = formatTrackingNumber(rawTrackingNumber);
+  if (formattedTrackingNumber === 'N/A') {
+    return 'N/A';
+  }
+
+  return (
+    <a
+      href={buildTrackingUrl(formattedTrackingNumber)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={styles.trackingLink}
+      title="Open tracking details in a new tab"
+    >
+      {formattedTrackingNumber}
+    </a>
+  );
+}
+
+function buildShippingStatusLabel(tradeView) {
+  const myTracking = tradeView?.myShipped ? tradeView?.myTracking : null;
+  const theirTracking = tradeView?.theyShipped ? tradeView?.theirTracking : null;
+
+  if (tradeView?.myShipped && tradeView?.theyShipped) {
+    return (
+      <>
+        Both parties shipped (You: {renderTrackingValue(myTracking)}, Partner: {renderTrackingValue(theirTracking)})
+      </>
+    );
+  }
+
+  if (tradeView?.myShipped) {
+    return (
+      <>
+        You shipped (You: {renderTrackingValue(myTracking)}, Partner: {renderTrackingValue(null)})
+      </>
+    );
+  }
+
+  if (tradeView?.theyShipped) {
+    return (
+      <>
+        Partner shipped (You: {renderTrackingValue(null)}, Partner: {renderTrackingValue(theirTracking)})
+      </>
+    );
+  }
+
+  return 'Awaiting shipment (You: N/A, Partner: N/A)';
+}
 
 export default function TradeDetail() {
   const { id } = useParams();
@@ -128,6 +225,9 @@ export default function TradeDetail() {
   const tradeView = mapTradeForView(trade, user?.id);
 
   const statusConfig = TRADE_STATUS_CONFIG[tradeView.status] ?? { label: tradeView.status, cls: 'badge-gray' };
+  const statusLabel = tradeView.status === 'shipping'
+    ? buildShippingStatusLabel(tradeView)
+    : statusConfig.label;
 
   const myBook = tradeView.myBook;
   const theirBook = tradeView.theirBook;
@@ -173,7 +273,7 @@ export default function TradeDetail() {
                 <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>
                   Trade #{trade.id}
                 </h1>
-                <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+                <span className={`badge ${statusConfig.cls}`}>{statusLabel}</span>
               </div>
               {trade.created_at && (
                 <p className={styles.tradeDate}>

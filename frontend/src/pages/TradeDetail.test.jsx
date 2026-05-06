@@ -153,6 +153,168 @@ describe('TradeDetail page', () => {
         expect(await screen.findByRole('button', { name: /mark book received/i })).toBeInTheDocument();
     });
 
+    it('shows detailed shipping status with carrier-aware tracking links', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'shipped',
+                    tracking_number: '1Z999AA10123456784',
+                    shipped_at: '2026-04-22T00:00:00Z',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' },
+                    receiver: { id: 'user-1', username: 'me' },
+                    status: 'shipped',
+                    tracking_number: '9400100000000000000000',
+                    shipped_at: '2026-04-23T00:00:00Z',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByText(/Both parties shipped/i)).toBeInTheDocument();
+
+        const upsTrackingLink = screen.getByRole('link', { name: '1Z999AA10123456784' });
+        expect(upsTrackingLink).toHaveAttribute('href', 'https://www.ups.com/track?tracknum=1Z999AA10123456784');
+        expect(upsTrackingLink).toHaveAttribute('target', '_blank');
+        expect(upsTrackingLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+        const uspsTrackingLink = screen.getByRole('link', { name: '9400100000000000000000' });
+        expect(uspsTrackingLink).toHaveAttribute('href', 'https://tools.usps.com/go/TrackConfirmAction?tLabels=9400100000000000000000');
+        expect(uspsTrackingLink).toHaveAttribute('target', '_blank');
+        expect(uspsTrackingLink).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('falls back to web search for unknown tracking format', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'shipped',
+                    tracking_number: 'MY-CUSTOM-TRACKING',
+                    shipped_at: '2026-04-22T00:00:00Z',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' },
+                    receiver: { id: 'user-1', username: 'me' },
+                    status: 'pending',
+                    tracking_number: '',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        const fallbackTrackingLink = await screen.findByRole('link', { name: 'MY-CUSTOM-TRACKING' });
+        expect(fallbackTrackingLink).toHaveAttribute('href', 'https://www.google.com/search?q=MY-CUSTOM-TRACKING');
+        expect(fallbackTrackingLink).toHaveAttribute('target', '_blank');
+        expect(fallbackTrackingLink).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('shows N/A tracking fallback in detailed shipping status', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'shipped',
+                    tracking_number: '',
+                    shipped_at: '2026-04-22T00:00:00Z',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' },
+                    receiver: { id: 'user-1', username: 'me' },
+                    status: 'pending',
+                    tracking_number: '',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByText('You shipped (You: N/A, Partner: N/A)')).toBeInTheDocument();
+    });
+
+    it('shows partner-only shipped label when only partner has shipped', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'pending',
+                    tracking_number: '',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' },
+                    receiver: { id: 'user-1', username: 'me' },
+                    status: 'shipped',
+                    tracking_number: 'TRK-PARTNER',
+                    shipped_at: '2026-04-22T00:00:00Z',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByText(/Partner shipped/i)).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'TRK-PARTNER' })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /You:/i })).not.toBeInTheDocument();
+        const badge = screen.getByText(/Partner shipped/i).closest('span') ?? screen.getByText(/Partner shipped/i);
+        expect(badge).toHaveTextContent('N/A');
+    });
+
+    it('shows awaiting shipment label when neither party has shipped', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'pending',
+                    tracking_number: '',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' },
+                    receiver: { id: 'user-1', username: 'me' },
+                    status: 'pending',
+                    tracking_number: '',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByText('Awaiting shipment (You: N/A, Partner: N/A)')).toBeInTheDocument();
+    });
+
     it('shows "Rate Trade Partner" button when trade is completed and user has not rated', async () => {
         const trade = makeTrade({
             status: 'completed',
@@ -402,7 +564,7 @@ describe('TradeDetail page', () => {
         trades.getDetail.mockResolvedValue({ data: trade });
         trades.getMessages.mockResolvedValue({ data: [] });
         renderWithProviders(<TradeDetail />);
-        expect(await screen.findByText('TRK-ABC')).toBeInTheDocument();
+        expect(await screen.findByRole('link', { name: 'TRK-ABC' })).toBeInTheDocument();
         const shipped = await screen.findAllByText('Shipped');
         expect(shipped.length).toBeGreaterThan(0);
     });
