@@ -153,6 +153,65 @@ describe('TradeDetail page', () => {
         expect(await screen.findByRole('button', { name: /mark book received/i })).toBeInTheDocument();
     });
 
+    it('shows detailed shipping status when both parties have shipped', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'shipped',
+                    tracking_number: 'MY-TRACK-1',
+                    shipped_at: '2026-04-22T00:00:00Z',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' },
+                    receiver: { id: 'user-1', username: 'me' },
+                    status: 'shipped',
+                    tracking_number: 'THEIR-TRACK-2',
+                    shipped_at: '2026-04-23T00:00:00Z',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByText('Both parties shipped (You: MY-TRACK-1, Partner: THEIR-TRACK-2)')).toBeInTheDocument();
+    });
+
+    it('shows N/A tracking fallback in detailed shipping status', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'shipped',
+                    tracking_number: '',
+                    shipped_at: '2026-04-22T00:00:00Z',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    sender: { id: 'user-2', username: 'partner' },
+                    receiver: { id: 'user-1', username: 'me' },
+                    status: 'pending',
+                    tracking_number: '',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByText('You shipped (You: N/A, Partner: N/A)')).toBeInTheDocument();
+    });
+
     it('shows "Rate Trade Partner" button when trade is completed and user has not rated', async () => {
         const trade = makeTrade({
             status: 'completed',

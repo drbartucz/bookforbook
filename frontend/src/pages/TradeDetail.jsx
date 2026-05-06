@@ -23,12 +23,36 @@ const MESSAGE_TYPES = [
 
 const TRADE_STATUS_CONFIG = {
   confirmed: { label: 'Confirmed — waiting to ship', cls: 'badge-blue' },
-  shipping: { label: 'Books in transit', cls: 'badge-amber' },
+  shipping: { label: 'Shipping in progress', cls: 'badge-amber' },
   one_received: { label: 'One side received', cls: 'badge-amber' },
   completed: { label: 'Completed', cls: 'badge-green' },
   disputed: { label: 'Disputed', cls: 'badge-red' },
   cancelled: { label: 'Cancelled', cls: 'badge-gray' },
 };
+
+function formatTrackingNumber(value) {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  return trimmed || 'N/A';
+}
+
+function buildShippingStatusLabel(tradeView) {
+  const myTracking = formatTrackingNumber(tradeView?.myTracking);
+  const theirTracking = formatTrackingNumber(tradeView?.theirTracking);
+
+  if (tradeView?.myShipped && tradeView?.theyShipped) {
+    return `Both parties shipped (You: ${myTracking}, Partner: ${theirTracking})`;
+  }
+
+  if (tradeView?.myShipped) {
+    return `You shipped (You: ${myTracking}, Partner: N/A)`;
+  }
+
+  if (tradeView?.theyShipped) {
+    return `Partner shipped (You: N/A, Partner: ${theirTracking})`;
+  }
+
+  return 'Awaiting shipment (You: N/A, Partner: N/A)';
+}
 
 export default function TradeDetail() {
   const { id } = useParams();
@@ -128,6 +152,9 @@ export default function TradeDetail() {
   const tradeView = mapTradeForView(trade, user?.id);
 
   const statusConfig = TRADE_STATUS_CONFIG[tradeView.status] ?? { label: tradeView.status, cls: 'badge-gray' };
+  const statusLabel = tradeView.status === 'shipping'
+    ? buildShippingStatusLabel(tradeView)
+    : statusConfig.label;
 
   const myBook = tradeView.myBook;
   const theirBook = tradeView.theirBook;
@@ -173,7 +200,7 @@ export default function TradeDetail() {
                 <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>
                   Trade #{trade.id}
                 </h1>
-                <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
+                <span className={`badge ${statusConfig.cls}`}>{statusLabel}</span>
               </div>
               {trade.created_at && (
                 <p className={styles.tradeDate}>
