@@ -4,6 +4,7 @@ Open Library API service for ISBN lookups and book data enrichment.
 
 import logging
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 
@@ -24,11 +25,27 @@ OPEN_LIBRARY_WORK_EDITIONS_URL = "https://openlibrary.org{key}/editions.json"
 ENRICHMENT_THROTTLE_DAYS = 1
 REQUEST_TIMEOUT = 5  # seconds
 
-# Use a global session for connection pooling (reduces TLS handshake overhead)
-_session = requests.Session()
+
+class _LocalSession:
+    """Wraps a per-thread requests.Session for thread-safe connection pooling.
+
+    Each worker thread gets its own Session and connection pool, avoiding
+    concurrent-modification issues when ThreadPoolExecutor workers share a
+    single global Session object.
+    """
+
+    _local = threading.local()
+
+    def get(self, *args, **kwargs):
+        if not hasattr(self._local, "session"):
+            self._local.session = requests.Session()
+        return self._local.session.get(*args, **kwargs)
 
 
-def _get_session() -> requests.Session:
+_session = _LocalSession()
+
+
+def _get_session() -> _LocalSession:
     return _session
 
 
@@ -172,52 +189,55 @@ def _book_needs_enrichment(book) -> bool:
 
 def _update_book_from_data(book, data: dict) -> None:
     """Persist only missing book metadata from normalized Open Library data."""
-    updated_fields = []
+    content_fields = []
 
     if not book.title and data.get("title"):
         book.title = data["title"]
-        updated_fields.append("title")
+        content_fields.append("title")
     elif (
         _is_placeholder_title(book.title)
         and data.get("title")
         and not _is_placeholder_title(data["title"])
     ):
         book.title = data["title"]
-        updated_fields.append("title")
+        content_fields.append("title")
     if not book.authors and data.get("authors"):
         book.authors = data["authors"]
-        updated_fields.append("authors")
+        content_fields.append("authors")
     if not book.publisher and data.get("publisher"):
         book.publisher = data["publisher"]
-        updated_fields.append("publisher")
+        content_fields.append("publisher")
     if not book.publish_year and data.get("publish_year"):
         book.publish_year = data["publish_year"]
-        updated_fields.append("publish_year")
+        content_fields.append("publish_year")
     if not book.cover_image_url and data.get("cover_image_url"):
         book.cover_image_url = data["cover_image_url"]
-        updated_fields.append("cover_image_url")
+        content_fields.append("cover_image_url")
     if not book.page_count and data.get("page_count"):
         book.page_count = data["page_count"]
-        updated_fields.append("page_count")
+        content_fields.append("page_count")
     if not book.physical_format and data.get("physical_format"):
         book.physical_format = data["physical_format"]
-        updated_fields.append("physical_format")
+        content_fields.append("physical_format")
     if not book.subjects and data.get("subjects"):
         book.subjects = data["subjects"]
-        updated_fields.append("subjects")
+        content_fields.append("subjects")
     if not book.description and data.get("description"):
         book.description = data["description"]
-        updated_fields.append("description")
+        content_fields.append("description")
     if not book.open_library_key and data.get("open_library_key"):
         book.open_library_key = data["open_library_key"]
-        updated_fields.append("open_library_key")
+        content_fields.append("open_library_key")
 
-    if updated_fields:
-        # Only stamp last_enriched_at when enrichment actually improved the record,
-        # so the throttle doesn't suppress retries when OL returned empty/failed data.
-        book.last_enriched_at = timezone.now()
-        updated_fields.extend(["last_enriched_at", "updated_at"])
-        book.save(update_fields=updated_fields)
+    # Always stamp last_enriched_at on every enrichment attempt so the throttle
+    # activates even when OL consistently returns incomplete/empty data —
+    # preventing an infinite re-fetch loop for books OL simply has no data for.
+    book.last_enriched_at = timezone.now()
+    if content_fields:
+        content_fields.extend(["last_enriched_at", "updated_at"])
+        book.save(update_fields=content_fields)
+    else:
+        book.save(update_fields=["last_enriched_at"])
 
 
 def normalize_isbn(isbn: str) -> str | None:

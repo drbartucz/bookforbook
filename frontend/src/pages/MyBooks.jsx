@@ -57,6 +57,14 @@ export default function MyBooks() {
   const addMutation = useMutation({
     mutationFn: (bookData) => myBooksApi.add(bookData),
     onSuccess: (response) => {
+      // Fire background enrichment only after the add succeeds, so we don't
+      // waste rate-limit budget or backend work when the add fails.
+      const isbn = response?.data?.book?.isbn_13 || response?.data?.book?.isbn_10;
+      if (isbn) {
+        booksApi.enrichISBN(isbn).catch(err => {
+          console.warn('Background enrichment failed:', err);
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['myBooks'] });
       setShowAddForm(false);
       setIsbn('');
@@ -126,11 +134,6 @@ export default function MyBooks() {
     }
 
     const cleanIsbn = isbn.trim().replace(/[\s-]/g, '');
-
-    // Fire-and-forget background enrichment since we only have minimal data so far
-    booksApi.enrichISBN(cleanIsbn).catch(err => {
-      console.warn('Background enrichment failed:', err);
-    });
 
     addMutation.mutate({
       isbn: cleanIsbn,

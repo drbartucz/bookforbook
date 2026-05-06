@@ -128,6 +128,14 @@ export default function Wishlist() {
   const addMutation = useMutation({
     mutationFn: (itemData) => wishlistApi.add(itemData),
     onSuccess: (response) => {
+      // Fire background enrichment only after the add succeeds, so we don't
+      // waste rate-limit budget or backend work when the add fails.
+      const isbn = response?.data?.book?.isbn_13 || response?.data?.book?.isbn_10;
+      if (isbn) {
+        booksApi.enrichISBN(isbn).catch(err => {
+          console.warn('Background enrichment failed:', err);
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
       setShowAddForm(false);
       setShowEditionPrompt(false);
@@ -204,11 +212,6 @@ export default function Wishlist() {
     }
     setAddError(null);
     const cleanIsbn = isbn.trim().replace(/[\s-]/g, '');
-
-    // Fire-and-forget background enrichment
-    booksApi.enrichISBN(cleanIsbn).catch(err => {
-      console.warn('Background enrichment failed:', err);
-    });
 
     const payload = { isbn: cleanIsbn };
     if (minCondition && minCondition !== 'any') {

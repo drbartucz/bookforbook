@@ -17,6 +17,10 @@ class ISBNLookupThrottle(UserRateThrottle):
     scope = "isbn_lookup"
 
 
+class ISBNEnrichThrottle(UserRateThrottle):
+    scope = "isbn_enrich"
+
+
 class BookLookupView(APIView):
     """
     POST /api/v1/books/lookup/
@@ -55,7 +59,7 @@ class BookEnrichView(APIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
-    throttle_classes = [ISBNLookupThrottle]
+    throttle_classes = [ISBNEnrichThrottle]
 
     def post(self, request):
         serializer = BookLookupSerializer(data=request.data)
