@@ -41,7 +41,7 @@ class TestMatchingTasks:
 
         matches = Match.objects.filter(
             match_type=Match.MatchType.DIRECT,
-            status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+            status=Match.Status.PROPOSED,
         )
         assert matches.count() == 1
 
@@ -65,7 +65,7 @@ class TestMatchingTasks:
 
         matches = Match.objects.filter(
             match_type=Match.MatchType.DIRECT,
-            status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+            status=Match.Status.PROPOSED,
         )
         assert matches.count() == 1
         assert matches.first().legs.filter(user_book=user_book).exists()
@@ -98,7 +98,7 @@ class TestMatchingTasks:
         now = timezone.now()
         expired_pending = Match.objects.create(
             match_type=Match.MatchType.DIRECT,
-            status=Match.Status.PENDING,
+            status=Match.Status.PROPOSED,
             expires_at=now - timedelta(minutes=1),
         )
         expired_proposed = Match.objects.create(
@@ -108,7 +108,7 @@ class TestMatchingTasks:
         )
         future_pending = Match.objects.create(
             match_type=Match.MatchType.DIRECT,
-            status=Match.Status.PENDING,
+            status=Match.Status.PROPOSED,
             expires_at=now + timedelta(hours=1),
         )
         already_completed = Match.objects.create(
@@ -126,7 +126,7 @@ class TestMatchingTasks:
 
         assert expired_pending.status == Match.Status.EXPIRED
         assert expired_proposed.status == Match.Status.EXPIRED
-        assert future_pending.status == Match.Status.PENDING
+        assert future_pending.status == Match.Status.PROPOSED
         assert already_completed.status == Match.Status.COMPLETED
 
     def test_retry_ring_after_decline_task_queues_notification_when_reformed(self):
@@ -250,7 +250,7 @@ class TestMatchingTaskEdgeCases:
 
         assert Match.objects.filter(
             match_type=Match.MatchType.DIRECT,
-            status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+            status=Match.Status.PROPOSED,
         ).exists()
 
     def test_run_matching_for_relisted_books_no_books_is_silent(self):
@@ -284,7 +284,7 @@ class TestMatchingTaskEdgeCases:
         book = BookFactory()
         direct = Match.objects.create(
             match_type=Match.MatchType.DIRECT,
-            status=Match.Status.PENDING,
+            status=Match.Status.PROPOSED,
         )
         ub = UserBookFactory(user=user_a, book=book)
         from apps.matching.models import MatchLeg

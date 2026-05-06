@@ -38,11 +38,11 @@ def _ordered_wishlist_entries_by_match_phase(wishlist_queryset):
 
 
 def count_active_matches_for_user(user) -> int:
-    """Count the number of active (pending/proposed) matches a user is involved in."""
+    """Count the number of active (proposed) matches a user is involved in."""
     match_count = (
         MatchLeg.objects.filter(
             sender=user,
-            match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+            match__status=Match.Status.PROPOSED,
         )
         .values("match")
         .distinct()
@@ -96,7 +96,7 @@ def _active_match_exists_for_user_book(user_book_id) -> bool:
     """Check if the given UserBook is already in an active match."""
     return MatchLeg.objects.filter(
         user_book_id=user_book_id,
-        match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+        match__status=Match.Status.PROPOSED,
     ).exists()
 
 
@@ -264,7 +264,7 @@ def _find_book_for_trade(user_a, user_b) -> Optional[UserBook]:
 def _duplicate_match_exists(user_a, user_b, book_a: UserBook, book_b: UserBook) -> bool:
     """Check if an equivalent active direct match already exists."""
     existing = MatchLeg.objects.filter(
-        match__status__in=[Match.Status.PENDING, Match.Status.PROPOSED],
+        match__status=Match.Status.PROPOSED,
         match__match_type=Match.MatchType.DIRECT,
         user_book=book_a,
         sender=user_a,

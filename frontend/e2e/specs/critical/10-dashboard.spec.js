@@ -29,7 +29,7 @@ test.describe('Dashboard', () => {
       await spinner.first().waitFor({ state: 'hidden', timeout: 15_000 });
     }
 
-    await expect(page.getByText(/pending matches/i)).toBeVisible();
+    await expect(page.getByText(/proposed matches/i)).toBeVisible();
     await expect(page.getByText(/pending proposals/i)).toBeVisible();
     await expect(page.getByText(/active trades/i)).toBeVisible();
     await expect(page.getByText(/total trades/i)).toBeVisible();
@@ -61,7 +61,7 @@ test.describe('Dashboard', () => {
     expect(count).toBeGreaterThanOrEqual(4);
   });
 
-  test('Pending Matches card links to /matches', async ({ alicePage: page }) => {
+  test('Proposed Matches card links to /matches', async ({ alicePage: page }) => {
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
 
@@ -70,8 +70,8 @@ test.describe('Dashboard', () => {
       await spinner.first().waitFor({ state: 'hidden', timeout: 15_000 });
     }
 
-    // Click the card containing "Pending Matches" label
-    await page.getByText(/pending matches/i).first().click();
+    // Click the card containing "Proposed Matches" label
+    await page.getByText(/proposed matches/i).first().click();
     await expect(page).toHaveURL(/\/matches/, { timeout: 8_000 });
   });
 

@@ -46,7 +46,7 @@ class TestMatchingTasks:
         assert mock_ring.called
 
     def test_expire_old_matches(self):
-        m1 = MatchFactory(status=Match.Status.PENDING, expires_at=timezone.now() - timedelta(hours=1))
+        m1 = MatchFactory(status=Match.Status.PROPOSED, expires_at=timezone.now() - timedelta(hours=1))
         m2 = MatchFactory(status=Match.Status.PROPOSED, expires_at=timezone.now() + timedelta(hours=1))
         
         expire_old_matches()

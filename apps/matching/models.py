@@ -12,14 +12,13 @@ class Match(models.Model):
         RING = 'ring', 'Ring'
 
     class Status(models.TextChoices):
-        PENDING = 'pending', 'Pending'
         PROPOSED = 'proposed', 'Proposed'
         EXPIRED = 'expired', 'Expired'
         COMPLETED = 'completed', 'Completed'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     match_type = models.CharField(max_length=10, choices=MatchType.choices)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PROPOSED)
     detected_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     updated_at = models.DateTimeField(auto_now=True)

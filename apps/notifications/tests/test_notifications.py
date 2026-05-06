@@ -142,7 +142,7 @@ class TestNotificationCountsView:
         user = UserFactory()
         other = UserFactory()
 
-        pending_match = Match.objects.create(match_type="direct", status="pending")
+        pending_match = Match.objects.create(match_type="direct", status="proposed")
         MatchLeg.objects.create(
             match=pending_match,
             sender=user,

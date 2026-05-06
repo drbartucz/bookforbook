@@ -32,7 +32,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-1',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             {
@@ -91,7 +91,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-1',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             {
@@ -141,18 +141,18 @@ describe('Matches page', () => {
     it('shows empty state when no matches found (all tab)', async () => {
         matches.list.mockResolvedValue({ data: { count: 0, results: [] } });
         renderWithProviders(<Matches />);
-        // Default tab is 'pending', switch to 'all' to see "no matches found"
+        // Switch to All tab to see "no matches found"
         const allTab = await screen.findByRole('button', { name: /^all$/i });
         await userEvent.click(allTab);
         expect(await screen.findByText(/no matches found/i)).toBeInTheDocument();
     });
 
-    it('shows "No pending matches" when pending tab active and empty', async () => {
+    it('shows "No proposed matches" when proposed tab active and empty', async () => {
         matches.list.mockResolvedValue({ data: { count: 0, results: [] } });
         renderWithProviders(<Matches />);
-        const pendingTab = await screen.findByRole('button', { name: /^pending$/i });
-        await userEvent.click(pendingTab);
-        expect(await screen.findByText(/no pending matches/i)).toBeInTheDocument();
+        const proposedTab = await screen.findByRole('button', { name: /^proposed$/i });
+        await userEvent.click(proposedTab);
+        expect(await screen.findByText(/no proposed matches/i)).toBeInTheDocument();
     });
 
     it('shows "Book info unavailable" for match leg with no book data', async () => {
@@ -162,7 +162,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-2',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             {
@@ -192,7 +192,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-9',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             { sender: { id: 'user-1', username: 'bart0605' }, receiver: { id: 'user-2', username: 'alice' }, user_book: { condition: 'good', book: { id: 'b13', title: 'Book G', authors: ['Author'] } } },
@@ -216,7 +216,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-10',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             { sender: { id: 'user-1', username: 'bart0605' }, receiver: { id: 'user-2', username: 'alice' }, user_book: { condition: 'good', book: { id: 'b15', title: 'Book I', authors: ['Author'] } } },
@@ -249,7 +249,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-4',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             { sender: { id: 'user-1', username: 'bart0605' }, receiver: { id: 'user-2', username: 'alice' }, user_book: { condition: 'good', book: { id: 'b1', title: 'Book A', authors: ['Author'] } } },
@@ -272,7 +272,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-5',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             { sender: { id: 'user-1', username: 'bart0605' }, receiver: { id: 'user-2', username: 'alice' }, user_book: { condition: 'good', book: { id: 'b3', title: 'Book C', authors: ['Author'] } } },
@@ -295,7 +295,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-6',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             { sender: { id: 'user-1', username: 'bart0605' }, receiver: { id: 'user-2', username: 'alice' }, user_book: { condition: 'good', book: { id: 'b5', title: 'Book E', authors: ['Author'] } } },
@@ -365,7 +365,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-8',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             { sender: { id: 'user-1', username: 'bart0605' }, receiver: { id: 'user-2', username: 'alice' }, user_book: { condition: 'good', book: { id: 'b11', title: 'Clear Error Book A', authors: ['Author'] } } },
@@ -399,7 +399,7 @@ describe('Matches page', () => {
                 results: [
                     {
                         id: 'match-3',
-                        status: 'pending',
+                        status: 'proposed',
                         match_type: 'direct',
                         legs: [
                             {

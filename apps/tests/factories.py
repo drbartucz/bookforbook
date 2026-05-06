@@ -117,7 +117,7 @@ class MatchFactory(factory.django.DjangoModelFactory):
         model = Match
 
     match_type = Match.MatchType.DIRECT
-    status = Match.Status.PENDING
+    status = Match.Status.PROPOSED
 
 
 class MatchLegFactory(factory.django.DjangoModelFactory):

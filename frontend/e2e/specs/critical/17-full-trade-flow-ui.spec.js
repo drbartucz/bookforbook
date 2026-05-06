@@ -208,13 +208,10 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await expect(matchCard.getByRole('button', { name: /accept match/i })).toBeVisible();
     await matchCard.getByRole('button', { name: /accept match/i }).click();
 
-    // Alice's leg → ACCEPTED → card leaves Pending tab; switch to Accepted tab
-    await page.getByRole('button', { name: /^accepted$/i }).click();
-    await page.waitForLoadState('networkidle');
-
-    const acceptedCard = page.locator('[class*="matchCard"]').filter({ hasText: ALICE_SENDS });
-    await expect(acceptedCard).toBeVisible({ timeout: 10_000 });
-    await expect(acceptedCard.getByText(/waiting for partner/i)).toBeVisible({ timeout: 8_000 });
+    // Alice's leg → ACCEPTED → match stays in Proposed tab (still waiting for Bob).
+    // The card switches from action buttons to "Waiting for partner…".
+    const updatedCard = page.locator('[class*="matchCard"]').filter({ hasText: ALICE_SENDS });
+    await expect(updatedCard.getByText(/waiting for partner/i)).toBeVisible({ timeout: 8_000 });
   });
 
   // ── Step 7: Bob accepts ───────────────────────────────────────────────────

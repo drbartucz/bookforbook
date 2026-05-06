@@ -285,7 +285,7 @@ class TestSendMatchNotificationTask:
         user_b = UserFactory()
         book_a = UserBookFactory(user=user_a)
         book_b = UserBookFactory(user=user_b)
-        match = Match.objects.create(match_type="direct", status="pending")
+        match = Match.objects.create(match_type="direct", status="proposed")
         MatchLeg.objects.create(
             match=match, sender=user_a, receiver=user_b, user_book=book_a, position=0
         )
@@ -308,7 +308,7 @@ class TestSendMatchNotificationTask:
 
         users = [UserFactory() for _ in range(3)]
         books = [UserBookFactory(user=u) for u in users]
-        match = Match.objects.create(match_type="ring", status="pending")
+        match = Match.objects.create(match_type="ring", status="proposed")
         for i, (u, b) in enumerate(zip(users, books)):
             MatchLeg.objects.create(
                 match=match,

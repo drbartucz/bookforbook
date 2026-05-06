@@ -89,7 +89,7 @@ describe('Dashboard page', () => {
         renderWithProviders(<Dashboard />);
 
         expect(await screen.findByText('Welcome back, alice!')).toBeInTheDocument();
-        expect(screen.getByText('Pending Matches')).toBeInTheDocument();
+        expect(screen.getByText('Proposed Matches')).toBeInTheDocument();
         expect(screen.getByText('Pending Proposals')).toBeInTheDocument();
         expect(screen.getAllByText('Active Trades')).toHaveLength(2);
         expect(screen.getByText('New Matches')).toBeInTheDocument();

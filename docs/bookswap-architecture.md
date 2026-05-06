@@ -158,7 +158,7 @@ INDEX: (book_id, is_active) — for matching queries
 Match
 ├── id                  UUID, primary key
 ├── match_type          ENUM: 'direct', 'ring'
-├── status              ENUM: 'pending', 'proposed', 'expired', 'completed'
+├── status              ENUM: 'proposed', 'expired', 'completed'
 ├── detected_at         timestamp
 ├── expires_at          timestamp (auto-expire if not acted on)
 └── updated_at          timestamp
@@ -179,7 +179,7 @@ INDEX on MatchLeg: (sender_id, status), (receiver_id, status)
 **Notes:**
 - A **direct match** has exactly 2 legs: A→B and B→A.
 - An **exchange ring** has 3+ legs: A→B, B→C, C→A.
-- A match moves to `proposed` when the system notifies users. All legs must be `accepted` for the match to proceed.
+- All detected matches start as `proposed`. All legs must be `accepted` for the match to proceed.
 - If any leg is `declined`, the entire match is cancelled and re-detection can find alternatives.
 
 ### TradeProposals (User-Initiated, Including Post-Match Browse)
@@ -417,7 +417,7 @@ If any leg in a ring is declined:
 
 **Deduplication:**
 - Don't create a match if an equivalent active match already exists.
-- A UserBook can only be in one active (pending/proposed) match at a time.
+- A UserBook can only be in one active (proposed) match at a time.
 
 **Match Discovery (Reverse Match):**
 This is a user-initiated discovery path that finds potential partners when no mutual match exists.
@@ -521,7 +521,7 @@ Formula: max_active_matches = min(max(rating_count, 1), 10)
 
 **Enforcement:**
 - Checked when the system proposes a match or a user creates a trade proposal.
-- "Active match" = any Match or TradeProposal in a non-terminal state (pending, proposed, accepted, shipping).
+- "Active match" = any Match or TradeProposal in a non-terminal state (proposed, accepted, shipping).
 - If a user is at their limit, new matches involving them are deferred (not lost — re-detected on next scan after a slot opens).
 
 ### 8. Email Verification
@@ -544,7 +544,7 @@ User registers with email + password
 Daily background task scans all users:
 
 1 month since last_active_at (no warning sent yet):
-    → Send "We miss you" email with summary of any pending matches
+    → Send "We miss you" email with summary of any proposed matches
     → Set inactivity_warned_1m = now()
 
 2 months since last_active_at (1m warning sent, no 2m warning):
@@ -621,7 +621,7 @@ User requests deletion → POST /api/v1/users/me/ (DELETE)
 │   └── DELETE :id/                    # Remove from wishlist
 │
 ├── matches/
-│   ├── GET    /                       # My pending/active matches
+│   ├── GET    /                       # My proposed/active matches
 │   ├── GET    discovery/reverse/      # Find partners who want my books
 │   ├── GET    :id/                    # Match detail (legs, books, users)
 │   ├── POST   :id/accept/            # Accept my leg

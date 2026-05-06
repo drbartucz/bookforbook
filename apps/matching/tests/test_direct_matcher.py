@@ -51,7 +51,7 @@ class TestDirectMatcher:
         
         m1 = MatchFactory(status=Match.Status.PROPOSED)
         MatchLegFactory(match=m1, sender=user_a)
-        m2 = MatchFactory(status=Match.Status.PENDING)
+        m2 = MatchFactory(status=Match.Status.PROPOSED)
         MatchLegFactory(match=m2, sender=user_a)
         
         # Verify user A is at limit

@@ -310,7 +310,7 @@ railway run python manage.py run_periodic_tasks --task=auto_close
 
 ### Manually Expiring Old Matches
 
-Matches in `pending` or `proposed` status that have passed their `expires_at` time will be cleaned up by the scheduled `expire_old_matches` task. To run immediately:
+Matches in `proposed` status that have passed their `expires_at` time will be cleaned up by the scheduled `expire_old_matches` task. To run immediately:
 
 ```bash
 railway run python manage.py run_periodic_tasks --task=expire_matches
@@ -340,8 +340,8 @@ Useful queries:
 -- Count users by account type
 SELECT account_type, COUNT(*) FROM accounts_user GROUP BY account_type;
 
--- All pending matches
-SELECT id, match_type, status, detected_at FROM matching_match WHERE status IN ('pending', 'proposed');
+-- All proposed matches
+SELECT id, match_type, status, detected_at FROM matching_match WHERE status = 'proposed';
 
 -- All active trades
 SELECT id, status, confirmed_at, auto_close_at FROM trading_trade WHERE status NOT IN ('completed', 'auto_closed', 'cancelled');
