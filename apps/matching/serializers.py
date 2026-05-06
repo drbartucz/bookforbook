@@ -15,22 +15,58 @@ class MatchLegSerializer(serializers.ModelSerializer):
     class Meta:
         model = MatchLeg
         fields = [
-            'id', 'sender', 'receiver', 'user_book',
-            'position', 'status',
+            "id",
+            "sender",
+            "receiver",
+            "user_book",
+            "position",
+            "status",
         ]
         read_only_fields = fields
 
 
 class MatchSerializer(serializers.ModelSerializer):
     legs = MatchLegSerializer(many=True, read_only=True)
+    trade_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Match
         fields = [
-            'id', 'match_type', 'status', 'detected_at',
-            'expires_at', 'updated_at', 'legs',
+            "id",
+            "match_type",
+            "status",
+            "detected_at",
+            "expires_at",
+            "updated_at",
+            "legs",
+            "trade_id",
         ]
         read_only_fields = fields
+
+    def get_trade_id(self, obj):
+        # Only COMPLETED matches have an associated trade.
+        if obj.status != Match.Status.COMPLETED:
+            return None
+
+        # Use annotated _trade_id from the list view queryset (avoids N+1).
+        # Fall back to a direct DB query for the detail / accept views where
+        # the annotation is not present.
+        trade_id = getattr(obj, "_trade_id", None)
+        if trade_id is not None:
+            return str(trade_id)
+
+        # Fallback: single DB query (used for detail / accept views).
+        from apps.trading.models import Trade
+
+        trade_id = (
+            Trade.objects.filter(
+                source_type=Trade.SourceType.MATCH,
+                source_id=obj.id,
+            )
+            .values_list("id", flat=True)
+            .first()
+        )
+        return str(trade_id) if trade_id else None
 
 
 class DiscoveryPartnerSerializer(serializers.Serializer):

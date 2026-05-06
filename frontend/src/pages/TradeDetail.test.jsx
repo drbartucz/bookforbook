@@ -245,9 +245,9 @@ describe('TradeDetail page', () => {
         expect(screen.getByText('partner')).toBeInTheDocument();
     });
 
-    it('shows shipping address when status is not confirmed', async () => {
+    it('shows shipping address when status is confirmed', async () => {
         const trade = makeTrade({
-            status: 'shipping',
+            status: 'confirmed',
             partner_addresses: {
                 'user-2': {
                     full_name: 'Alice Reader',

@@ -1,6 +1,7 @@
 import logging
 
 from django.db import transaction
+from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -63,11 +64,22 @@ class MatchListView(APIView):
                 )
             )
 
+        from apps.trading.models import Trade
+
         matches = (
             Match.objects.filter(id__in=match_ids)
+            .annotate(
+                _trade_id=Subquery(
+                    Trade.objects.filter(
+                        source_type=Trade.SourceType.MATCH,
+                        source_id=OuterRef("id"),
+                    ).values("id")[:1]
+                )
+            )
             .prefetch_related("legs__sender", "legs__receiver", "legs__user_book__book")
             .order_by("-detected_at")
         )
+
         return Response(MatchSerializer(matches, many=True).data)
 
 

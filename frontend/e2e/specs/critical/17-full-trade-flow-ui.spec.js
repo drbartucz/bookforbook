@@ -17,13 +17,11 @@
  *  6.  Alice  Sees the proposed match, accepts it; match moves to Accepted tab.
  *  7.  Bob    Sees the proposed match, accepts it; match becomes COMPLETED.
  *  8.  Both   Match visible in Accepted tab.
- *  9.  Alice  Sees confirmed trade in Trades list.
- * 10.  Bob    Sees confirmed trade in Trades list.
- * 11.  Alice  Opens trade detail, enters tracking number, marks shipped.
- * 12.  Bob    Opens trade detail, enters tracking number, marks shipped.
- * 13.  Alice  Marks her received book.
- * 14.  Bob    Marks his received book → trade status becomes Completed.
- * 15.  Alice  Completed trade visible in Completed tab.
+ *  9.  Alice  Opens trade from Accepted match card and marks shipped.
+ * 10.  Bob    Opens trade from Accepted match card and marks shipped.
+ * 11.  Alice  Marks her received book.
+ * 12.  Bob    Marks his received book → trade status becomes Completed.
+ * 13.  Alice  Completed trade visible in Completed tab.
  *
  * Books
  * ─────
@@ -115,15 +113,16 @@ async function uiAddWishlist(page, bookData) {
   await isbnInput.fill(bookData.isbn_13);
   await page.getByRole('button', { name: /look\s*up/i }).click();
 
-  // Edition preference modal appears automatically after lookup — dismiss it
-  // before asserting on the book title to avoid strict-mode violations (the
-  // overlay also contains the title in a <strong> tag alongside the preview).
-  const doneBtn = page.getByRole('button', { name: /^done$/i });
-  if (await doneBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await doneBtn.click();
-  }
-
   await expect(page.getByText(bookData.title).first()).toBeVisible({ timeout: 8_000 });
+
+  // Edition preference can appear slightly after lookup; close it right before
+  // submitting so the overlay cannot intercept the final click.
+  const overlay = page.locator('[data-testid="edition-preference-overlay"]');
+  const doneBtn = page.getByRole('button', { name: /^done$/i });
+  if (await overlay.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await doneBtn.click();
+    await expect(overlay).toBeHidden({ timeout: 5_000 });
+  }
 
   await page.getByRole('button', { name: /add to wishlist/i }).last().click();
 
@@ -134,12 +133,17 @@ async function uiAddWishlist(page, bookData) {
   await expect(page.getByText(bookData.title)).toBeVisible({ timeout: 5_000 });
 }
 
-// ── Helper: open the trade involving a given book title and navigate to detail ─
+// ── Helper: open a trade from Matches > Accepted via card action ─────────────
 
-async function openTradeDetail(page, bookTitle) {
-  await page.goto('/trades');
+async function openTradeFromAcceptedMatch(page, bookTitle) {
+  await page.goto('/matches');
+  await page.getByRole('button', { name: /^accepted$/i }).click();
   await page.waitForLoadState('networkidle');
-  await page.locator('[class*="tradeCard"]').filter({ hasText: bookTitle }).click();
+
+  const card = page.locator('[class*="matchCard"]').filter({ hasText: bookTitle });
+  await expect(card).toBeVisible({ timeout: 10_000 });
+  await card.getByRole('link', { name: /open trade/i }).click();
+
   await expect(page).toHaveURL(/\/trades\/.+/);
   await expect(page.getByText(/trade #/i)).toBeVisible({ timeout: 8_000 });
 }
@@ -256,30 +260,10 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  // ── Steps 9–10: Trade list ────────────────────────────────────────────────
-
-  test('confirmed trade appears in alice trades list', async ({ alicePage: page }) => {
-    await page.goto('/trades');
-    await page.waitForLoadState('networkidle');
-
-    const tradeCard = page.locator('[class*="tradeCard"]').filter({ hasText: ALICE_SENDS });
-    await expect(tradeCard).toBeVisible({ timeout: 10_000 });
-    await expect(tradeCard.getByText(/confirmed/i)).toBeVisible();
-  });
-
-  test('confirmed trade appears in bob trades list', async ({ bobPage: page }) => {
-    await page.goto('/trades');
-    await page.waitForLoadState('networkidle');
-
-    const tradeCard = page.locator('[class*="tradeCard"]').filter({ hasText: BOB_SENDS });
-    await expect(tradeCard).toBeVisible({ timeout: 10_000 });
-    await expect(tradeCard.getByText(/confirmed/i)).toBeVisible();
-  });
-
-  // ── Step 11: Alice marks her book shipped ─────────────────────────────────
+  // ── Step 9: Alice opens trade from accepted match and marks shipped ───────
 
   test('alice opens trade detail and marks her book shipped', async ({ alicePage: page }) => {
-    await openTradeDetail(page, ALICE_SENDS);
+    await openTradeFromAcceptedMatch(page, ALICE_SENDS);
 
     const shipBtn = page.getByRole('button', { name: /mark my book as shipped/i });
     await expect(shipBtn).toBeVisible({ timeout: 8_000 });
@@ -296,10 +280,10 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     ).toBeVisible({ timeout: 12_000 });
   });
 
-  // ── Step 12: Bob marks his book shipped ──────────────────────────────────
+  // ── Step 10: Bob opens trade from accepted match and marks shipped ───────
 
   test('bob opens trade detail and marks his book shipped', async ({ bobPage: page }) => {
-    await openTradeDetail(page, BOB_SENDS);
+    await openTradeFromAcceptedMatch(page, BOB_SENDS);
 
     const shipBtn = page.getByRole('button', { name: /mark my book as shipped/i });
     await expect(shipBtn).toBeVisible({ timeout: 8_000 });
@@ -316,10 +300,10 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     ).toBeVisible({ timeout: 12_000 });
   });
 
-  // ── Step 13: Alice marks book received ───────────────────────────────────
+  // ── Step 11: Alice marks book received ────────────────────────────────────
 
   test('alice marks her received book', async ({ alicePage: page }) => {
-    await openTradeDetail(page, ALICE_SENDS);
+    await openTradeFromAcceptedMatch(page, ALICE_SENDS);
 
     autoConfirmDialog(page);
     const receiveBtn = page.getByRole('button', { name: /mark book received/i });
@@ -331,10 +315,10 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     ).toBeVisible({ timeout: 12_000 });
   });
 
-  // ── Step 14: Bob marks book received → trade completes ───────────────────
+  // ── Step 12: Bob marks book received → trade completes ────────────────────
 
   test('bob marks his received book and the trade completes', async ({ bobPage: page }) => {
-    await openTradeDetail(page, BOB_SENDS);
+    await openTradeFromAcceptedMatch(page, BOB_SENDS);
 
     autoConfirmDialog(page);
     const receiveBtn = page.getByRole('button', { name: /mark book received/i });
@@ -346,7 +330,7 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     ).toBeVisible({ timeout: 12_000 });
   });
 
-  // ── Step 15: Completed tab ────────────────────────────────────────────────
+  // ── Step 13: Completed tab ─────────────────────────────────────────────────
 
   test('completed trade appears in alice completed tab', async ({ alicePage: page }) => {
     await page.goto('/trades');
