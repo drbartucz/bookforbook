@@ -613,7 +613,7 @@ function ShippingStatus({ shipped, shippedAt, trackingNumber, received }) {
         )}
         {trackingNumber && (
           <p style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--color-gray-600)', marginTop: '0.125rem' }}>
-            {trackingNumber}
+            {renderTrackingValue(trackingNumber)}
           </p>
         )}
       </div>

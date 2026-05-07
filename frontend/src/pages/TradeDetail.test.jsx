@@ -192,8 +192,15 @@ describe('TradeDetail page', () => {
 
         expect(await screen.findByText('You: shipped. Partner: shipped.')).toBeInTheDocument();
 
-        expect(screen.getByText('1Z999AA10123456784')).toBeInTheDocument();
-        expect(screen.getByText('9400100000000000000000')).toBeInTheDocument();
+        const upsLink = screen.getByRole('link', { name: '1Z999AA10123456784' });
+        expect(upsLink).toHaveAttribute('href', 'https://www.ups.com/track?tracknum=1Z999AA10123456784');
+        expect(upsLink).toHaveAttribute('target', '_blank');
+        expect(upsLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+        const uspsLink = screen.getByRole('link', { name: '9400100000000000000000' });
+        expect(uspsLink).toHaveAttribute('href', 'https://tools.usps.com/go/TrackConfirmAction?tLabels=9400100000000000000000');
+        expect(uspsLink).toHaveAttribute('target', '_blank');
+        expect(uspsLink).toHaveAttribute('rel', 'noopener noreferrer');
     });
 
     it('falls back to web search for unknown tracking format', async () => {
@@ -222,7 +229,10 @@ describe('TradeDetail page', () => {
 
         renderWithProviders(<TradeDetail />);
 
-        expect(await screen.findByText('MY-CUSTOM-TRACKING')).toBeInTheDocument();
+        const fallbackLink = await screen.findByRole('link', { name: 'MY-CUSTOM-TRACKING' });
+        expect(fallbackLink).toHaveAttribute('href', 'https://www.google.com/search?q=MY-CUSTOM-TRACKING');
+        expect(fallbackLink).toHaveAttribute('target', '_blank');
+        expect(fallbackLink).toHaveAttribute('rel', 'noopener noreferrer');
     });
 
     it('shows one-sided shipped tracking when shipment uses camelCase fields', async () => {
