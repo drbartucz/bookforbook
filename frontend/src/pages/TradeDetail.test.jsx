@@ -190,18 +190,13 @@ describe('TradeDetail page', () => {
 
         renderWithProviders(<TradeDetail />);
 
-        // Verify color-coded badges appear for shipping status
-        // The status label includes "You:" label before the first badge
-        expect(await screen.findByText('You:')).toBeInTheDocument();
-        const shipmentStatuses = screen.getAllByText((content, element) => 
-            element && (
-                element.className.includes('badge-red') ||
-                element.className.includes('badge-amber') ||
-                element.className.includes('badge-green')
-            )
-        );
-        // Should have at least 2 status badges (You and Partner) plus book condition/shipping badges
-        expect(shipmentStatuses.length).toBeGreaterThanOrEqual(2);
+        // Verify color-coded badges appear for the shipping status label specifically
+        const myBadge = await screen.findByTestId('my-status-badge');
+        const partnerBadge = screen.getByTestId('partner-status-badge');
+        expect(myBadge).toBeInTheDocument();
+        expect(partnerBadge).toBeInTheDocument();
+        expect(myBadge).toHaveClass('badge-amber');    // user-1 shipped
+        expect(partnerBadge).toHaveClass('badge-amber'); // user-2 shipped
 
         const upsLink = screen.getByRole('link', { name: '1Z999AA10123456784' });
         expect(upsLink).toHaveAttribute('href', 'https://www.ups.com/track?tracknum=1Z999AA10123456784');
@@ -453,29 +448,18 @@ describe('TradeDetail page', () => {
         it.each(lifecycleCases)('shows color-coded status badges for both parties at $name', async ({ trade, badges }) => {
             const firstRender = renderTradeDetailForUser(trade, 'user-1', 'bart0605');
 
-            // Wait for badges to appear and check user-1's view
-            // Look specifically for the two status values for user-1
-            const statusText1 = badges['user-1'][0].label;
-            const statusText2 = badges['user-1'][1].label;
-            
-            const badge1Elements = await screen.findAllByText(statusText1);
-            const badge1 = badge1Elements.find(el => 
-                el.className.includes('badge-red') || 
-                el.className.includes('badge-amber') || 
-                el.className.includes('badge-green')
-            );
-            
-            const badge2Elements = await screen.findAllByText(statusText2);
-            const badge2 = badge2Elements.find(el => 
-                el.className.includes('badge-red') || 
-                el.className.includes('badge-amber') || 
-                el.className.includes('badge-green')
-            );
+            // Use data-testid to get exactly the two per-party status badges —
+            // this avoids false matches against unrelated condition/shipment badges
+            // and correctly handles cases where both parties share the same label.
+            const myBadge1 = await screen.findByTestId('my-status-badge');
+            const partnerBadge1 = screen.getByTestId('partner-status-badge');
 
-            expect(badge1).toBeInTheDocument();
-            expect(badge1).toHaveClass(badges['user-1'][0].color);
-            expect(badge2).toBeInTheDocument();
-            expect(badge2).toHaveClass(badges['user-1'][1].color);
+            expect(myBadge1).toHaveTextContent(badges['user-1'][0].label);
+            expect(myBadge1).toHaveClass(badges['user-1'][0].color);
+            expect(partnerBadge1).toHaveTextContent(badges['user-1'][1].label);
+            expect(partnerBadge1).toHaveClass(badges['user-1'][1].color);
+            // Ensure they are two distinct DOM nodes even when labels are identical
+            expect(myBadge1).not.toBe(partnerBadge1);
 
             firstRender.unmount();
 
@@ -484,27 +468,14 @@ describe('TradeDetail page', () => {
             renderTradeDetailForUser(trade, 'user-2', 'partner');
 
             // Check user-2's view
-            const statusText3 = badges['user-2'][0].label;
-            const statusText4 = badges['user-2'][1].label;
-            
-            const badge3Elements = await screen.findAllByText(statusText3);
-            const badge3 = badge3Elements.find(el => 
-                el.className.includes('badge-red') || 
-                el.className.includes('badge-amber') || 
-                el.className.includes('badge-green')
-            );
-            
-            const badge4Elements = await screen.findAllByText(statusText4);
-            const badge4 = badge4Elements.find(el => 
-                el.className.includes('badge-red') || 
-                el.className.includes('badge-amber') || 
-                el.className.includes('badge-green')
-            );
+            const myBadge2 = await screen.findByTestId('my-status-badge');
+            const partnerBadge2 = screen.getByTestId('partner-status-badge');
 
-            expect(badge3).toBeInTheDocument();
-            expect(badge3).toHaveClass(badges['user-2'][0].color);
-            expect(badge4).toBeInTheDocument();
-            expect(badge4).toHaveClass(badges['user-2'][1].color);
+            expect(myBadge2).toHaveTextContent(badges['user-2'][0].label);
+            expect(myBadge2).toHaveClass(badges['user-2'][0].color);
+            expect(partnerBadge2).toHaveTextContent(badges['user-2'][1].label);
+            expect(partnerBadge2).toHaveClass(badges['user-2'][1].color);
+            expect(myBadge2).not.toBe(partnerBadge2);
         });
     });
 

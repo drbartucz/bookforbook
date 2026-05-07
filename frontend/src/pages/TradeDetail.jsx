@@ -22,10 +22,6 @@ const MESSAGE_TYPES = [
 ];
 
 const TRADE_STATUS_CONFIG = {
-  confirmed: { label: 'Confirmed — waiting to ship', cls: 'badge-blue' },
-  shipping: { label: 'Shipping in progress', cls: 'badge-amber' },
-  one_received: { label: 'One side received', cls: 'badge-amber' },
-  completed: { label: 'Completed', cls: 'badge-green' },
   disputed: { label: 'Disputed', cls: 'badge-red' },
   cancelled: { label: 'Cancelled', cls: 'badge-gray' },
 };
@@ -131,14 +127,14 @@ function buildShippingStatusLabel(tradeView) {
   });
 
   return (
-    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+    <div data-testid="shipping-status-label" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
         <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>You:</span>
-        <span className={`badge ${getStatusBadgeClass(myStatus)}`}>{myStatus}</span>
+        <span data-testid="my-status-badge" className={`badge ${getStatusBadgeClass(myStatus)}`}>{myStatus}</span>
       </div>
       <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
         <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>Partner:</span>
-        <span className={`badge ${getStatusBadgeClass(partnerStatus)}`}>{partnerStatus}</span>
+        <span data-testid="partner-status-badge" className={`badge ${getStatusBadgeClass(partnerStatus)}`}>{partnerStatus}</span>
       </div>
     </div>
   );
