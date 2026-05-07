@@ -88,7 +88,9 @@ test.describe('Public Profile', () => {
 
   test('institution profile shows Wanted Books section', async ({ guestPage: page }) => {
     await page.goto('/institutions');
-    await page.getByRole('link', { name: /view profile/i }).first().click();
+    const viewBtn = page.getByRole('link', { name: /view profile/i }).first();
+    await expect(viewBtn).toBeVisible({ timeout: 15_000 });
+    await viewBtn.click();
     await expect(page).toHaveURL(/\/profile\//);
 
     await expect(page.getByRole('heading', { name: /wanted books/i })).toBeVisible({ timeout: 8_000 });
@@ -100,7 +102,9 @@ test.describe('Public Profile', () => {
 
   test('institution profile does not show Wishlist preferences (own-profile only)', async ({ guestPage: page }) => {
     await page.goto('/institutions');
-    await page.getByRole('link', { name: /view profile/i }).first().click();
+    const viewBtn = page.getByRole('link', { name: /view profile/i }).first();
+    await expect(viewBtn).toBeVisible({ timeout: 15_000 });
+    await viewBtn.click();
     await expect(page).toHaveURL(/\/profile\//);
 
     // Wishlist match preferences form is only shown on own profile
