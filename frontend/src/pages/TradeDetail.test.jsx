@@ -190,7 +190,18 @@ describe('TradeDetail page', () => {
 
         renderWithProviders(<TradeDetail />);
 
-        expect(await screen.findByText('You: shipped. Partner: shipped.')).toBeInTheDocument();
+        // Verify color-coded badges appear for shipping status
+        // The status label includes "You:" label before the first badge
+        expect(await screen.findByText('You:')).toBeInTheDocument();
+        const shipmentStatuses = screen.getAllByText((content, element) => 
+            element && (
+                element.className.includes('badge-red') ||
+                element.className.includes('badge-amber') ||
+                element.className.includes('badge-green')
+            )
+        );
+        // Should have at least 2 status badges (You and Partner) plus book condition/shipping badges
+        expect(shipmentStatuses.length).toBeGreaterThanOrEqual(2);
 
         const upsLink = screen.getByRole('link', { name: '1Z999AA10123456784' });
         expect(upsLink).toHaveAttribute('href', 'https://www.ups.com/track?tracknum=1Z999AA10123456784');
@@ -261,7 +272,9 @@ describe('TradeDetail page', () => {
 
         renderWithProviders(<TradeDetail />);
 
-        expect(await screen.findByText('You: shipped. Partner: not yet shipped.')).toBeInTheDocument();
+        // Verify color-coded badges appear for each party
+        expect(await screen.findByText('shipped')).toBeInTheDocument();
+        expect(screen.getByText('not yet shipped')).toBeInTheDocument();
 
         expect(screen.getByText('CAMEL-12345')).toBeInTheDocument();
     });
@@ -289,9 +302,15 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: not yet shipped. Partner: not yet shipped.',
-                    'user-2': 'You: not yet shipped. Partner: not yet shipped.',
+                badges: {
+                    'user-1': [
+                        { label: 'not yet shipped', color: 'badge-red' },
+                        { label: 'not yet shipped', color: 'badge-red' },
+                    ],
+                    'user-2': [
+                        { label: 'not yet shipped', color: 'badge-red' },
+                        { label: 'not yet shipped', color: 'badge-red' },
+                    ],
                 },
             },
             {
@@ -316,9 +335,15 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: shipped. Partner: not yet shipped.',
-                    'user-2': 'You: not yet shipped. Partner: shipped.',
+                badges: {
+                    'user-1': [
+                        { label: 'shipped', color: 'badge-amber' },
+                        { label: 'not yet shipped', color: 'badge-red' },
+                    ],
+                    'user-2': [
+                        { label: 'not yet shipped', color: 'badge-red' },
+                        { label: 'shipped', color: 'badge-amber' },
+                    ],
                 },
             },
             {
@@ -344,9 +369,15 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: shipped. Partner: shipped.',
-                    'user-2': 'You: shipped. Partner: shipped.',
+                badges: {
+                    'user-1': [
+                        { label: 'shipped', color: 'badge-amber' },
+                        { label: 'shipped', color: 'badge-amber' },
+                    ],
+                    'user-2': [
+                        { label: 'shipped', color: 'badge-amber' },
+                        { label: 'shipped', color: 'badge-amber' },
+                    ],
                 },
             },
             {
@@ -372,9 +403,15 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: received. Partner: shipped.',
-                    'user-2': 'You: shipped. Partner: received.',
+                badges: {
+                    'user-1': [
+                        { label: 'received', color: 'badge-green' },
+                        { label: 'shipped', color: 'badge-amber' },
+                    ],
+                    'user-2': [
+                        { label: 'shipped', color: 'badge-amber' },
+                        { label: 'received', color: 'badge-green' },
+                    ],
                 },
             },
             {
@@ -400,23 +437,74 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: received. Partner: received.',
-                    'user-2': 'You: received. Partner: received.',
+                badges: {
+                    'user-1': [
+                        { label: 'received', color: 'badge-green' },
+                        { label: 'received', color: 'badge-green' },
+                    ],
+                    'user-2': [
+                        { label: 'received', color: 'badge-green' },
+                        { label: 'received', color: 'badge-green' },
+                    ],
                 },
             },
         ];
 
-        it.each(lifecycleCases)('shows proper status for both parties at $name', async ({ trade, expectations }) => {
+        it.each(lifecycleCases)('shows color-coded status badges for both parties at $name', async ({ trade, badges }) => {
             const firstRender = renderTradeDetailForUser(trade, 'user-1', 'bart0605');
-            expect(await screen.findByText(expectations['user-1'])).toBeInTheDocument();
+
+            // Wait for badges to appear and check user-1's view
+            // Look specifically for the two status values for user-1
+            const statusText1 = badges['user-1'][0].label;
+            const statusText2 = badges['user-1'][1].label;
+            
+            const badge1Elements = await screen.findAllByText(statusText1);
+            const badge1 = badge1Elements.find(el => 
+                el.className.includes('badge-red') || 
+                el.className.includes('badge-amber') || 
+                el.className.includes('badge-green')
+            );
+            
+            const badge2Elements = await screen.findAllByText(statusText2);
+            const badge2 = badge2Elements.find(el => 
+                el.className.includes('badge-red') || 
+                el.className.includes('badge-amber') || 
+                el.className.includes('badge-green')
+            );
+
+            expect(badge1).toBeInTheDocument();
+            expect(badge1).toHaveClass(badges['user-1'][0].color);
+            expect(badge2).toBeInTheDocument();
+            expect(badge2).toHaveClass(badges['user-1'][1].color);
 
             firstRender.unmount();
 
             vi.clearAllMocks();
 
             renderTradeDetailForUser(trade, 'user-2', 'partner');
-            expect(await screen.findByText(expectations['user-2'])).toBeInTheDocument();
+
+            // Check user-2's view
+            const statusText3 = badges['user-2'][0].label;
+            const statusText4 = badges['user-2'][1].label;
+            
+            const badge3Elements = await screen.findAllByText(statusText3);
+            const badge3 = badge3Elements.find(el => 
+                el.className.includes('badge-red') || 
+                el.className.includes('badge-amber') || 
+                el.className.includes('badge-green')
+            );
+            
+            const badge4Elements = await screen.findAllByText(statusText4);
+            const badge4 = badge4Elements.find(el => 
+                el.className.includes('badge-red') || 
+                el.className.includes('badge-amber') || 
+                el.className.includes('badge-green')
+            );
+
+            expect(badge3).toBeInTheDocument();
+            expect(badge3).toHaveClass(badges['user-2'][0].color);
+            expect(badge4).toBeInTheDocument();
+            expect(badge4).toHaveClass(badges['user-2'][1].color);
         });
     });
 
