@@ -276,7 +276,7 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /you shipped/i }).first()
+      page.locator('.badge').filter({ hasText: /you: shipped/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 
@@ -296,7 +296,7 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /both parties shipped/i }).first()
+      page.locator('.badge').filter({ hasText: /partner: shipped/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 
@@ -326,7 +326,7 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await receiveBtn.click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /completed/i }).first()
+      page.locator('.badge').filter({ hasText: /partner: received/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 

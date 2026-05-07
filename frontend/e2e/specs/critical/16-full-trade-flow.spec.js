@@ -261,9 +261,9 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
 
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
-    // Status badge updates to "You shipped (...)"
+    // Status badge updates to "You: shipped. Partner: not yet shipped."
     await expect(
-      page.locator('.badge').filter({ hasText: /you shipped/i }).first()
+      page.locator('.badge').filter({ hasText: /you: shipped/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 
@@ -299,7 +299,7 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /both parties shipped/i }).first()
+      page.locator('.badge').filter({ hasText: /partner: shipped/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 
@@ -340,9 +340,9 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await expect(receiveBtn).toBeVisible({ timeout: 10_000 });
     await receiveBtn.click();
 
-    // Both sides received → trade is now Completed
+    // Both sides received → badge shows "You: received. Partner: received."
     await expect(
-      page.locator('.badge').filter({ hasText: /completed/i }).first()
+      page.locator('.badge').filter({ hasText: /partner: received/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 
