@@ -225,6 +225,40 @@ describe('TradeDetail page', () => {
         expect(fallbackTrackingLink).toHaveAttribute('rel', 'noopener noreferrer');
     });
 
+    it('shows one-sided shipped tracking when shipment uses camelCase fields', async () => {
+        const trade = makeTrade({
+            status: 'shipping',
+            shipments: [
+                {
+                    sender: { id: 'user-1', username: 'me' },
+                    receiver: { id: 'user-2', username: 'partner' },
+                    status: 'shipped',
+                    trackingNumber: 'CAMEL-12345',
+                    shippedAt: '2026-04-22T00:00:00Z',
+                    user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                },
+                {
+                    senderId: 'user-2',
+                    receiverId: 'user-1',
+                    status: 'pending',
+                    trackingNumber: '',
+                    user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                },
+            ],
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByText(/You shipped/i)).toBeInTheDocument();
+
+        const trackingLink = screen.getByRole('link', { name: 'CAMEL-12345' });
+        expect(trackingLink).toHaveAttribute('href', 'https://www.google.com/search?q=CAMEL-12345');
+        expect(trackingLink).toHaveAttribute('target', '_blank');
+        expect(trackingLink).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
     it('shows N/A tracking fallback in detailed shipping status', async () => {
         const trade = makeTrade({
             status: 'shipping',
