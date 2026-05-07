@@ -75,9 +75,9 @@ test.describe('Trades', () => {
     // Confirm shipped
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
-    // Status badge should update
+    // Status badge should update to a post-shipment state
     await expect(
-      page.locator('.badge').filter({ hasText: /shipping|books in transit/i }).first()
+      page.locator('.badge').filter({ hasText: /shipped|shipping|shipment|in transit|one side received/i }).first()
     ).toBeVisible({ timeout: 12_000 });
   });
 

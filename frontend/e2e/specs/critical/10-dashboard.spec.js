@@ -53,7 +53,9 @@ test.describe('Dashboard', () => {
     await expect(page.getByText(/proposed matches/i)).toBeVisible();
     await expect(page.getByText(/potential partners/i)).toBeVisible();
     await expect(page.getByText(/pending proposals/i)).toBeVisible();
-    await expect(page.getByText(/active trades/i)).toBeVisible();
+    await expect(
+      page.locator('[class*="summaryCard"]').filter({ hasText: 'Active Trades' })
+    ).toBeVisible();
     await expect(page.getByText(/total trades/i)).toBeVisible();
     await expect(page.getByText(/books offered/i)).toBeVisible();
     await expect(page.getByText(/books wanted/i)).toBeVisible();
