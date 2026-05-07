@@ -148,7 +148,8 @@ test.describe('Trades', () => {
     await tradeCard.click();
     await expect(page).toHaveURL(/\/trades\/.+/);
     await expect(page.getByText(/trade #/i)).toBeVisible({ timeout: 8_000 });
-    await expect(page.getByText(/you: received\. partner: received/i).first()).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId('my-status-badge')).toHaveText(/received/i, { timeout: 8_000 });
+    await expect(page.getByTestId('partner-status-badge')).toHaveText(/received/i);
   });
 
   test('alice can rate a completed trade partner', async ({ alicePage: page }) => {
