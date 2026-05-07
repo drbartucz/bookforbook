@@ -30,16 +30,14 @@ test.describe('Public Profile', () => {
   test('individual user profile loads', async ({ alicePage: page }) => {
     const profileUrl = await getOwnProfileUrl(page);
     await page.goto(profileUrl);
-    await page.waitForLoadState('networkidle');
-
-    // Username displayed as @username in the profile h1
-    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 8_000 });
+    // Wait for the profile heading — confirms the main profile query resolved
+    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
   });
 
   test('profile header shows Trades and Member since stats', async ({ alicePage: page }) => {
     const profileUrl = await getOwnProfileUrl(page);
     await page.goto(profileUrl);
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByText(/trades/i).first()).toBeVisible({ timeout: 8_000 });
     await expect(page.getByText(/member since/i)).toBeVisible({ timeout: 8_000 });
@@ -48,7 +46,7 @@ test.describe('Public Profile', () => {
   test('profile has Offered Books section', async ({ alicePage: page }) => {
     const profileUrl = await getOwnProfileUrl(page);
     await page.goto(profileUrl);
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByRole('heading', { name: /offered books/i })).toBeVisible({ timeout: 8_000 });
     // Alice has 3 seeded books — at least one should appear
@@ -61,7 +59,7 @@ test.describe('Public Profile', () => {
   test('profile has Wanted Books section for individual user', async ({ alicePage: page }) => {
     const profileUrl = await getOwnProfileUrl(page);
     await page.goto(profileUrl);
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByRole('heading', { name: /wanted books/i })).toBeVisible({ timeout: 8_000 });
   });
@@ -69,7 +67,7 @@ test.describe('Public Profile', () => {
   test('profile has Recent Ratings section', async ({ alicePage: page }) => {
     const profileUrl = await getOwnProfileUrl(page);
     await page.goto(profileUrl);
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByRole('heading', { name: /recent ratings/i })).toBeVisible({ timeout: 8_000 });
     await expect(
@@ -80,10 +78,8 @@ test.describe('Public Profile', () => {
 
   test('institution profile loads via institutions page', async ({ guestPage: page }) => {
     await page.goto('/institutions');
-    await page.waitForLoadState('networkidle');
-
     const viewBtn = page.getByRole('link', { name: /view profile/i }).first();
-    await expect(viewBtn).toBeVisible({ timeout: 10_000 });
+    await expect(viewBtn).toBeVisible({ timeout: 15_000 });
     await viewBtn.click();
 
     await expect(page).toHaveURL(/\/profile\//, { timeout: 8_000 });
@@ -92,9 +88,9 @@ test.describe('Public Profile', () => {
 
   test('institution profile shows Wanted Books section', async ({ guestPage: page }) => {
     await page.goto('/institutions');
-    await page.waitForLoadState('networkidle');
-
-    await page.getByRole('link', { name: /view profile/i }).first().click();
+    const viewBtn = page.getByRole('link', { name: /view profile/i }).first();
+    await expect(viewBtn).toBeVisible({ timeout: 15_000 });
+    await viewBtn.click();
     await expect(page).toHaveURL(/\/profile\//);
 
     await expect(page.getByRole('heading', { name: /wanted books/i })).toBeVisible({ timeout: 8_000 });
@@ -106,9 +102,9 @@ test.describe('Public Profile', () => {
 
   test('institution profile does not show Wishlist preferences (own-profile only)', async ({ guestPage: page }) => {
     await page.goto('/institutions');
-    await page.waitForLoadState('networkidle');
-
-    await page.getByRole('link', { name: /view profile/i }).first().click();
+    const viewBtn = page.getByRole('link', { name: /view profile/i }).first();
+    await expect(viewBtn).toBeVisible({ timeout: 15_000 });
+    await viewBtn.click();
     await expect(page).toHaveURL(/\/profile\//);
 
     // Wishlist match preferences form is only shown on own profile
@@ -118,7 +114,7 @@ test.describe('Public Profile', () => {
   test('own profile shows shipping address section', async ({ alicePage: page }) => {
     const profileUrl = await getOwnProfileUrl(page);
     await page.goto(profileUrl);
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByRole('heading', { name: /shipping address/i })).toBeVisible({ timeout: 8_000 });
     // Alice has a verified address — "Edit address" link should appear
@@ -128,7 +124,7 @@ test.describe('Public Profile', () => {
   test('own profile shows wishlist match preferences form', async ({ alicePage: page }) => {
     const profileUrl = await getOwnProfileUrl(page);
     await page.goto(profileUrl);
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByRole('heading', { name: /wishlist match preferences/i })).toBeVisible({ timeout: 8_000 });
     await expect(page.getByLabel(/minimum acceptable condition/i)).toBeVisible();
@@ -139,7 +135,7 @@ test.describe('Public Profile', () => {
   test('own profile wishlist preferences can be saved', async ({ alicePage: page }) => {
     const profileUrl = await getOwnProfileUrl(page);
     await page.goto(profileUrl);
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await page.getByLabel(/edition matching/i).selectOption('same_language');
     await page.getByRole('button', { name: /save wishlist preferences/i }).click();
@@ -150,7 +146,7 @@ test.describe('Public Profile', () => {
   test('custom edition preference shows additional controls', async ({ alicePage: page }) => {
     const profileUrl = await getOwnProfileUrl(page);
     await page.goto(profileUrl);
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await page.getByLabel(/edition matching/i).selectOption('custom');
 
@@ -165,11 +161,10 @@ test.describe('Public Profile', () => {
   test('bob profile is viewable by alice (someone else\'s profile)', async ({ alicePage: page }) => {
     // Navigate to bob's profile via the proposals page (bob sent alice a proposal)
     await page.goto('/proposals');
-    await page.waitForLoadState('networkidle');
 
     // The proposal card has a link to bob's profile: "From: @bob_e2e"
     const bobLink = page.getByRole('link', { name: /@bob_e2e/i }).first();
-    await expect(bobLink).toBeVisible({ timeout: 10_000 });
+    await expect(bobLink).toBeVisible({ timeout: 15_000 });
     await bobLink.click();
 
     await expect(page).toHaveURL(/\/profile\//, { timeout: 8_000 });
