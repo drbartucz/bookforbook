@@ -5,9 +5,11 @@ import { matches as matchesApi, myBooks as myBooksApi, proposals as proposalsApi
 import useAuth from '../hooks/useAuth.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import Tooltip from '../components/common/Tooltip.jsx';
+import { parsePaginatedResponse } from '../utils/pagination.js';
 import styles from './Dashboard.module.css';
 
 export default function Dashboard() {
+  const RECENT_ACTIVITY_LIMIT = 5;
   const { user } = useAuth();
 
   const { data: meData } = useQuery({
@@ -50,16 +52,15 @@ export default function Dashboard() {
   });
 
   const displayUser = meData ?? user;
-  const activeMatchesCount = matchesData?.count ?? 0;
+  const { count: activeMatchesCount, results: parsedMatches } = parsePaginatedResponse(matchesData);
+  const { count: pendingProposalsCount, results: parsedProposals } = parsePaginatedResponse(proposalsData);
+  const { count: activeTradesCount, results: parsedTrades } = parsePaginatedResponse(tradesData);
+  const recentMatches = parsedMatches.slice(0, RECENT_ACTIVITY_LIMIT);
+  const recentProposals = parsedProposals.slice(0, RECENT_ACTIVITY_LIMIT);
+  const recentTrades = parsedTrades.slice(0, RECENT_ACTIVITY_LIMIT);
   const discoveryCount = discoveryCountData ?? 0;
-  const pendingProposalsCount = proposalsData?.count ?? 0;
-  const activeTradesCount = tradesData?.count ?? 0;
   const booksOfferedCount = myBooksData?.count ?? 0;
   const booksWantedCount = wishlistData?.count ?? 0;
-
-  const recentMatches = matchesData?.results ?? [];
-  const recentProposals = proposalsData?.results ?? [];
-  const recentTrades = tradesData?.results ?? [];
 
   const isLoading = matchesLoading || proposalsLoading || tradesLoading || myBooksLoading || wishlistLoading || discoveryLoading;
 

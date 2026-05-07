@@ -16,6 +16,10 @@
  * Books used (ISBNs dedicated to this spec, not in the main seed_e2e catalog):
  *   Alice sends: "The Stranger" by Albert Camus       (9780679720201)
  *   Bob   sends: "Crime and Punishment" by Dostoevsky (9780140449136)
+ *
+ * Dashboard card assertions are interleaved at each stage to verify that
+ * Proposed Matches, Active Trades, and Total Trades counts change correctly
+ * throughout the lifecycle.
  */
 
 import { test, expect } from '../../fixtures/index.js';
@@ -33,6 +37,40 @@ const pythonBin = existsSync(venvPython) ? venvPython : 'python3';
 const ALICE_SENDS = 'The Stranger';      // Alice's outgoing book
 const BOB_SENDS   = 'Crime and Punishment'; // Bob's outgoing book
 
+// ── Dashboard helper ──────────────────────────────────────────────────────────
+
+/** Wait for the loading gate to clear and return all dashboard card counts. */
+async function getDashboardCounts(page) {
+  await page.goto('/dashboard');
+  await page.waitForLoadState('networkidle');
+  const spinner = page.getByRole('status');
+  if (await spinner.count() > 0) {
+    await spinner.first().waitFor({ state: 'hidden', timeout: 15_000 });
+  }
+  await expect(page.locator('[class*="summaryCard"]').first()).toBeVisible({ timeout: 10_000 });
+
+  const cardCount = async (labelText) => {
+    const card = page.locator('[class*="summaryCard"]').filter({ hasText: labelText });
+    const text = await card.locator('[class*="summaryValue"]').textContent();
+    return parseInt(text.trim(), 10);
+  };
+
+  return {
+    proposedMatches:   await cardCount('Proposed Matches'),
+    pendingProposals:  await cardCount('Pending Proposals'),
+    activeTrades:      await cardCount('Active Trades'),
+    totalTrades:       await cardCount('Total Trades'),
+    booksOffered:      await cardCount('Books Offered'),
+    booksWanted:       await cardCount('Books Wanted'),
+  };
+}
+
+// ── Shared state (populated by dashboard checkpoint tests) ────────────────────
+
+// Baseline counts captured at the start of the flow, before any accept actions.
+let aliceBaseline = null;
+let bobBaseline   = null;
+
 test.describe.serial('Full trade flow (match → accept → ship → receive)', () => {
   test.beforeAll(async () => {
     execFileSync(pythonBin, ['manage.py', 'e2e_seed_trade_flow'], {
@@ -46,6 +84,37 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
       cwd: repoRoot,
       stdio: 'inherit',
     });
+  });
+
+  // ── Dashboard checkpoint 1: baseline after seed ───────────────────────────
+  // The seed creates one new proposed match (The Stranger ↔ Crime and Punishment).
+
+  test('dashboard baseline: alice has ≥1 proposed match and ≥1 active trade after seed', async ({ alicePage: page }) => {
+    aliceBaseline = await getDashboardCounts(page);
+
+    // The seeded CONFIRMED trade must always be reflected in Active Trades
+    expect(aliceBaseline.activeTrades, 'Active Trades should be ≥ 1 (seeded confirmed trade)').toBeGreaterThanOrEqual(1);
+
+    // The seed just created a new proposed match for The Stranger
+    expect(aliceBaseline.proposedMatches, 'Proposed Matches should be ≥ 1 after seed').toBeGreaterThanOrEqual(1);
+
+    // All counts must be valid non-negative integers (regression: was undefined before fix)
+    for (const [key, val] of Object.entries(aliceBaseline)) {
+      expect(Number.isInteger(val), `alice "${key}" should be a valid integer`).toBe(true);
+      expect(val, `alice "${key}" should be >= 0`).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  test('dashboard baseline: bob has ≥1 proposed match and ≥1 active trade after seed', async ({ bobPage: page }) => {
+    bobBaseline = await getDashboardCounts(page);
+
+    expect(bobBaseline.activeTrades, 'Bob Active Trades should be ≥ 1').toBeGreaterThanOrEqual(1);
+    expect(bobBaseline.proposedMatches, 'Bob Proposed Matches should be ≥ 1 after seed').toBeGreaterThanOrEqual(1);
+
+    for (const [key, val] of Object.entries(bobBaseline)) {
+      expect(Number.isInteger(val), `bob "${key}" should be a valid integer`).toBe(true);
+      expect(val, `bob "${key}" should be >= 0`).toBeGreaterThanOrEqual(0);
+    }
   });
 
   // ── Step 1: Alice accepts ──────────────────────────────────────────────────
@@ -67,6 +136,21 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     // "Waiting for partner…".
     const updatedCard = page.locator('[class*="matchCard"]').filter({ hasText: ALICE_SENDS });
     await expect(updatedCard.getByText(/waiting for partner/i)).toBeVisible({ timeout: 8_000 });
+  });
+
+  // Dashboard check: after alice accepts (but not bob yet) the match is still
+  // PROPOSED → Proposed Matches count is unchanged.
+  test('dashboard: proposed matches unchanged while waiting for bob to accept', async ({ alicePage: page }) => {
+    const counts = await getDashboardCounts(page);
+
+    // Match is still PROPOSED (backend only moves to COMPLETED when both accept)
+    // so alice's Proposed Matches count must still equal her baseline
+    expect(counts.proposedMatches, 'Proposed Matches should be unchanged while waiting for partner')
+      .toBe(aliceBaseline.proposedMatches);
+
+    // Active trades unchanged — the trade hasn't been created yet
+    expect(counts.activeTrades, 'Active Trades should be unchanged before trade is created')
+      .toBe(aliceBaseline.activeTrades);
   });
 
   // ── Step 2: Bob accepts ───────────────────────────────────────────────────
@@ -132,6 +216,30 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await expect(tradeCard.getByText(/confirmed/i)).toBeVisible();
   });
 
+  // ── Dashboard checkpoint 2: after both accept, Active Trades +1 ──────────
+
+  test('dashboard: alice active trades +1 and proposed matches -1 after both accept', async ({ alicePage: page }) => {
+    const counts = await getDashboardCounts(page);
+
+    // Both alice and bob accepted → new CONFIRMED trade created
+    expect(counts.activeTrades, 'Active Trades should increase by 1 after trade is created')
+      .toBe(aliceBaseline.activeTrades + 1);
+
+    // The match moved from PROPOSED to COMPLETED → Proposed Matches decreased by 1
+    expect(counts.proposedMatches, 'Proposed Matches should decrease by 1 after match is accepted by both')
+      .toBe(aliceBaseline.proposedMatches - 1);
+  });
+
+  test('dashboard: bob active trades +1 and proposed matches -1 after both accept', async ({ bobPage: page }) => {
+    const counts = await getDashboardCounts(page);
+
+    expect(counts.activeTrades, 'Bob Active Trades should increase by 1 after trade is created')
+      .toBe(bobBaseline.activeTrades + 1);
+
+    expect(counts.proposedMatches, 'Bob Proposed Matches should decrease by 1 after match is accepted by both')
+      .toBe(bobBaseline.proposedMatches - 1);
+  });
+
   // ── Step 5: Alice marks her book shipped ──────────────────────────────────
 
   test('alice enters shipping details and marks her book shipped', async ({ alicePage: page }) => {
@@ -157,6 +265,15 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await expect(
       page.locator('.badge').filter({ hasText: /you shipped/i }).first()
     ).toBeVisible({ timeout: 12_000 });
+  });
+
+  // Dashboard check: shipping doesn't change Active Trades count (trade is still active)
+  test('dashboard: active trades unchanged while trade is in shipping state', async ({ alicePage: page }) => {
+    const counts = await getDashboardCounts(page);
+
+    // Trade status is now SHIPPING — still active
+    expect(counts.activeTrades, 'Active Trades should stay the same while trade is shipping')
+      .toBe(aliceBaseline.activeTrades + 1);
   });
 
   // ── Step 6: Bob marks his book shipped ───────────────────────────────────
@@ -240,5 +357,29 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     const tradeCard = page.locator('[class*="tradeCard"]').filter({ hasText: ALICE_SENDS });
     await expect(tradeCard).toBeVisible({ timeout: 10_000 });
     await expect(tradeCard.getByText(/completed/i)).toBeVisible();
+  });
+
+  // ── Dashboard checkpoint 3: after trade completes, Active Trades -1 ──────
+
+  test('dashboard: alice active trades returns to baseline and total trades increases after completion', async ({ alicePage: page }) => {
+    const counts = await getDashboardCounts(page);
+
+    // The flow trade completed → Active Trades should be back to the original baseline
+    expect(counts.activeTrades, 'Active Trades should return to baseline after trade completes')
+      .toBe(aliceBaseline.activeTrades);
+
+    // Total trades should have increased by at least 1 compared to baseline
+    expect(counts.totalTrades, 'Total Trades should increase after trade completes')
+      .toBeGreaterThan(aliceBaseline.totalTrades);
+  });
+
+  test('dashboard: bob active trades returns to baseline and total trades increases after completion', async ({ bobPage: page }) => {
+    const counts = await getDashboardCounts(page);
+
+    expect(counts.activeTrades, 'Bob Active Trades should return to baseline after trade completes')
+      .toBe(bobBaseline.activeTrades);
+
+    expect(counts.totalTrades, 'Bob Total Trades should increase after trade completes')
+      .toBeGreaterThan(bobBaseline.totalTrades);
   });
 });
