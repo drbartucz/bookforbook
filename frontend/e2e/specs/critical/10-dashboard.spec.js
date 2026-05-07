@@ -3,7 +3,7 @@
  *
  * Dashboard page:
  *   - Welcome heading renders with username
- *   - All six summary cards present
+ *   - All seven summary cards present
  *   - Quick action links visible and functional
  *   - Summary cards link to correct pages
  *   - Activity feed or empty state renders
@@ -40,7 +40,7 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: /welcome back.*alice_e2e/i })).toBeVisible({ timeout: 8_000 });
   });
 
-  test('all six summary cards are visible', async ({ alicePage: page }) => {
+  test('all seven summary cards are visible', async ({ alicePage: page }) => {
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
 
@@ -51,6 +51,7 @@ test.describe('Dashboard', () => {
     }
 
     await expect(page.getByText(/proposed matches/i)).toBeVisible();
+    await expect(page.getByText(/potential partners/i)).toBeVisible();
     await expect(page.getByText(/pending proposals/i)).toBeVisible();
     await expect(page.getByText(/active trades/i)).toBeVisible();
     await expect(page.getByText(/total trades/i)).toBeVisible();

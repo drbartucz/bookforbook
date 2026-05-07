@@ -9,6 +9,7 @@ import { parsePaginatedResponse } from '../utils/pagination.js';
 import styles from './Dashboard.module.css';
 
 export default function Dashboard() {
+  const RECENT_ACTIVITY_LIMIT = 5;
   const { user } = useAuth();
 
   const { data: meData } = useQuery({
@@ -51,9 +52,12 @@ export default function Dashboard() {
   });
 
   const displayUser = meData ?? user;
-  const { count: activeMatchesCount, results: recentMatches } = parsePaginatedResponse(matchesData);
-  const { count: pendingProposalsCount, results: recentProposals } = parsePaginatedResponse(proposalsData);
-  const { count: activeTradesCount, results: recentTrades } = parsePaginatedResponse(tradesData);
+  const { count: activeMatchesCount, results: parsedMatches } = parsePaginatedResponse(matchesData);
+  const { count: pendingProposalsCount, results: parsedProposals } = parsePaginatedResponse(proposalsData);
+  const { count: activeTradesCount, results: parsedTrades } = parsePaginatedResponse(tradesData);
+  const recentMatches = parsedMatches.slice(0, RECENT_ACTIVITY_LIMIT);
+  const recentProposals = parsedProposals.slice(0, RECENT_ACTIVITY_LIMIT);
+  const recentTrades = parsedTrades.slice(0, RECENT_ACTIVITY_LIMIT);
   const discoveryCount = discoveryCountData ?? 0;
   const booksOfferedCount = myBooksData?.count ?? 0;
   const booksWantedCount = wishlistData?.count ?? 0;
