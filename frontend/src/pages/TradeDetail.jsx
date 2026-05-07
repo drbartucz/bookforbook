@@ -96,35 +96,29 @@ function renderTrackingValue(rawTrackingNumber) {
   );
 }
 
+function getParticipantShippingState({ shipped, received }) {
+  if (received) {
+    return 'received';
+  }
+
+  if (shipped) {
+    return 'shipped';
+  }
+
+  return 'not yet shipped';
+}
+
 function buildShippingStatusLabel(tradeView) {
-  const myTracking = tradeView?.myShipped ? tradeView?.myTracking : null;
-  const theirTracking = tradeView?.theyShipped ? tradeView?.theirTracking : null;
+  const myStatus = getParticipantShippingState({
+    shipped: tradeView?.myShipped,
+    received: tradeView?.iReceived,
+  });
+  const partnerStatus = getParticipantShippingState({
+    shipped: tradeView?.theyShipped,
+    received: tradeView?.theyReceived,
+  });
 
-  if (tradeView?.myShipped && tradeView?.theyShipped) {
-    return (
-      <>
-        Both parties shipped (You: {renderTrackingValue(myTracking)}, Partner: {renderTrackingValue(theirTracking)})
-      </>
-    );
-  }
-
-  if (tradeView?.myShipped) {
-    return (
-      <>
-        You shipped (You: {renderTrackingValue(myTracking)}, Partner: {renderTrackingValue(null)})
-      </>
-    );
-  }
-
-  if (tradeView?.theyShipped) {
-    return (
-      <>
-        Partner shipped (You: {renderTrackingValue(null)}, Partner: {renderTrackingValue(theirTracking)})
-      </>
-    );
-  }
-
-  return 'Awaiting shipment (You: N/A, Partner: N/A)';
+  return `You: ${myStatus}. Partner: ${partnerStatus}.`;
 }
 
 export default function TradeDetail() {
@@ -225,7 +219,7 @@ export default function TradeDetail() {
   const tradeView = mapTradeForView(trade, user?.id);
 
   const statusConfig = TRADE_STATUS_CONFIG[tradeView.status] ?? { label: tradeView.status, cls: 'badge-gray' };
-  const statusLabel = tradeView.status === 'shipping'
+  const statusLabel = ['confirmed', 'shipping', 'one_received', 'completed'].includes(tradeView.status)
     ? buildShippingStatusLabel(tradeView)
     : statusConfig.label;
 
