@@ -10,21 +10,64 @@ function isReceivedStatus(status) {
   return status === "received";
 }
 
+function pickFirstNonNil(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function getParticipantId(participant, fallbackId) {
+  if (participant && typeof participant === "object") {
+    return pickFirstNonNil(participant.id, participant.user_id, participant.userId, participant.uuid, fallbackId);
+  }
+  return pickFirstNonNil(participant, fallbackId);
+}
+
+function normalizeParticipant(participant, fallbackId) {
+  if (participant && typeof participant === "object") {
+    return {
+      ...participant,
+      id: getParticipantId(participant, fallbackId),
+    };
+  }
+
+  const id = getParticipantId(participant, fallbackId);
+  return id ? { id } : null;
+}
+
 export function mapTradeForView(trade, currentUserId) {
   const shipments = Array.isArray(trade?.shipments) ? trade.shipments : [];
 
   const myOutgoing = currentUserId
-    ? shipments.find((shipment) => idEq(shipment?.sender?.id, currentUserId))
+    ? shipments.find((shipment) => idEq(
+      getParticipantId(shipment?.sender, pickFirstNonNil(shipment?.sender_id, shipment?.senderId)),
+      currentUserId
+    ))
     : null;
   const myIncoming = currentUserId
-    ? shipments.find((shipment) => idEq(shipment?.receiver?.id, currentUserId))
+    ? shipments.find((shipment) => idEq(
+      getParticipantId(shipment?.receiver, pickFirstNonNil(shipment?.receiver_id, shipment?.receiverId)),
+      currentUserId
+    ))
     : null;
+
+  const outgoingReceiver = normalizeParticipant(
+    myOutgoing?.receiver,
+    pickFirstNonNil(myOutgoing?.receiver_id, myOutgoing?.receiverId)
+  );
+  const incomingSender = normalizeParticipant(
+    myIncoming?.sender,
+    pickFirstNonNil(myIncoming?.sender_id, myIncoming?.senderId)
+  );
 
   const partner =
     trade?.partner ??
     trade?.other_user ??
-    myOutgoing?.receiver ??
-    myIncoming?.sender ??
+    outgoingReceiver ??
+    incomingSender ??
     null;
 
   const partnerAddressRaw = partner?.id
@@ -53,15 +96,23 @@ export function mapTradeForView(trade, currentUserId) {
     theirBook,
     partner,
     partnerAddress,
-    myShipped: myOutgoing ? isShippedStatus(myOutgoing.status) : Boolean(trade?.my_shipped),
-    myShippedAt: myOutgoing?.shipped_at ?? trade?.my_shipped_at ?? null,
-    myTracking: myOutgoing?.tracking_number ?? trade?.my_tracking ?? "",
-    iReceived: myIncoming ? isReceivedStatus(myIncoming.status) : Boolean(trade?.i_received),
-    theyShipped: myIncoming ? isShippedStatus(myIncoming.status) : Boolean(trade?.they_shipped),
-    theyShippedAt: myIncoming?.shipped_at ?? trade?.they_shipped_at ?? null,
-    theirTracking: myIncoming?.tracking_number ?? trade?.their_tracking ?? "",
-    theyReceived: myOutgoing ? isReceivedStatus(myOutgoing.status) : Boolean(trade?.they_received),
-    iRated: Boolean(trade?.i_rated),
+    myShipped: myOutgoing
+      ? isShippedStatus(myOutgoing.status)
+      : Boolean(pickFirstNonNil(trade?.my_shipped, trade?.myShipped)),
+    myShippedAt: pickFirstNonNil(myOutgoing?.shipped_at, myOutgoing?.shippedAt, trade?.my_shipped_at, trade?.myShippedAt) ?? null,
+    myTracking: pickFirstNonNil(myOutgoing?.tracking_number, myOutgoing?.trackingNumber, myOutgoing?.tracking, trade?.my_tracking, trade?.myTracking) ?? "",
+    iReceived: myIncoming
+      ? isReceivedStatus(myIncoming.status)
+      : Boolean(pickFirstNonNil(trade?.i_received, trade?.iReceived)),
+    theyShipped: myIncoming
+      ? isShippedStatus(myIncoming.status)
+      : Boolean(pickFirstNonNil(trade?.they_shipped, trade?.theyShipped)),
+    theyShippedAt: pickFirstNonNil(myIncoming?.shipped_at, myIncoming?.shippedAt, trade?.they_shipped_at, trade?.theyShippedAt) ?? null,
+    theirTracking: pickFirstNonNil(myIncoming?.tracking_number, myIncoming?.trackingNumber, myIncoming?.tracking, trade?.their_tracking, trade?.theirTracking) ?? "",
+    theyReceived: myOutgoing
+      ? isReceivedStatus(myOutgoing.status)
+      : Boolean(pickFirstNonNil(trade?.they_received, trade?.theyReceived)),
+    iRated: Boolean(pickFirstNonNil(trade?.i_rated, trade?.iRated)),
   };
 }
 

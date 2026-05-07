@@ -60,4 +60,34 @@ describe('trades adapter', () => {
       book_condition_accurate: true,
     });
   });
+
+  it('maps camelCase shipment fields for one-sided shipped trades', () => {
+    const trade = {
+      id: 't2',
+      status: 'shipping',
+      shipments: [
+        {
+          sender: { id: 'u1', username: 'me' },
+          receiver: { id: 'u2', username: 'alice' },
+          status: 'shipped',
+          trackingNumber: 'CAMEL-TRACK-1',
+          shippedAt: '2026-04-25T00:00:00Z',
+          user_book: { condition: 'good', book: { title: 'Dune' } },
+        },
+        {
+          senderId: 'u2',
+          receiverId: 'u1',
+          status: 'pending',
+          user_book: { condition: 'very_good', book: { title: 'Hyperion' } },
+        },
+      ],
+    };
+
+    const vm = mapTradeForView(trade, 'u1');
+
+    expect(vm.myShipped).toBe(true);
+    expect(vm.theyShipped).toBe(false);
+    expect(vm.myTracking).toBe('CAMEL-TRACK-1');
+    expect(vm.myShippedAt).toBe('2026-04-25T00:00:00Z');
+  });
 });
