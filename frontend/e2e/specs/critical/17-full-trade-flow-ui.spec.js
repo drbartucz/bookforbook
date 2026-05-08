@@ -276,8 +276,8 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /you: shipped/i }).first()
-    ).toBeVisible({ timeout: 12_000 });
+      page.getByTestId('my-status-badge')
+    ).toHaveText(/shipped/i, { timeout: 12_000 });
   });
 
   // ── Step 10: Bob opens trade from accepted match and marks shipped ───────
@@ -296,8 +296,8 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /partner: shipped/i }).first()
-    ).toBeVisible({ timeout: 12_000 });
+      page.getByTestId('partner-status-badge')
+    ).toHaveText(/shipped/i, { timeout: 12_000 });
   });
 
   // ── Step 11: Alice marks book received ────────────────────────────────────
@@ -311,8 +311,8 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await receiveBtn.click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /one.*received|received/i }).first()
-    ).toBeVisible({ timeout: 12_000 });
+      page.getByTestId('my-status-badge')
+    ).toHaveText(/received/i, { timeout: 12_000 });
   });
 
   // ── Step 12: Bob marks book received → trade completes ────────────────────
@@ -326,8 +326,8 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await receiveBtn.click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /partner: received/i }).first()
-    ).toBeVisible({ timeout: 12_000 });
+      page.getByTestId('partner-status-badge')
+    ).toHaveText(/received/i, { timeout: 12_000 });
   });
 
   // ── Step 13: Completed tab ─────────────────────────────────────────────────

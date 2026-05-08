@@ -190,7 +190,13 @@ describe('TradeDetail page', () => {
 
         renderWithProviders(<TradeDetail />);
 
-        expect(await screen.findByText('You: shipped. Partner: shipped.')).toBeInTheDocument();
+        // Verify color-coded badges appear for the shipping status label specifically
+        const myBadge = await screen.findByTestId('my-status-badge');
+        const partnerBadge = screen.getByTestId('partner-status-badge');
+        expect(myBadge).toBeInTheDocument();
+        expect(partnerBadge).toBeInTheDocument();
+        expect(myBadge).toHaveClass('badge-amber');    // user-1 shipped
+        expect(partnerBadge).toHaveClass('badge-amber'); // user-2 shipped
 
         const upsLink = screen.getByRole('link', { name: '1Z999AA10123456784' });
         expect(upsLink).toHaveAttribute('href', 'https://www.ups.com/track?tracknum=1Z999AA10123456784');
@@ -261,7 +267,9 @@ describe('TradeDetail page', () => {
 
         renderWithProviders(<TradeDetail />);
 
-        expect(await screen.findByText('You: shipped. Partner: not yet shipped.')).toBeInTheDocument();
+        // Verify color-coded badges appear for each party
+        expect(await screen.findByText('shipped')).toBeInTheDocument();
+        expect(screen.getByText('not yet shipped')).toBeInTheDocument();
 
         expect(screen.getByText('CAMEL-12345')).toBeInTheDocument();
     });
@@ -289,9 +297,15 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: not yet shipped. Partner: not yet shipped.',
-                    'user-2': 'You: not yet shipped. Partner: not yet shipped.',
+                badges: {
+                    'user-1': [
+                        { label: 'not yet shipped', color: 'badge-red' },
+                        { label: 'not yet shipped', color: 'badge-red' },
+                    ],
+                    'user-2': [
+                        { label: 'not yet shipped', color: 'badge-red' },
+                        { label: 'not yet shipped', color: 'badge-red' },
+                    ],
                 },
             },
             {
@@ -316,9 +330,15 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: shipped. Partner: not yet shipped.',
-                    'user-2': 'You: not yet shipped. Partner: shipped.',
+                badges: {
+                    'user-1': [
+                        { label: 'shipped', color: 'badge-amber' },
+                        { label: 'not yet shipped', color: 'badge-red' },
+                    ],
+                    'user-2': [
+                        { label: 'not yet shipped', color: 'badge-red' },
+                        { label: 'shipped', color: 'badge-amber' },
+                    ],
                 },
             },
             {
@@ -344,9 +364,15 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: shipped. Partner: shipped.',
-                    'user-2': 'You: shipped. Partner: shipped.',
+                badges: {
+                    'user-1': [
+                        { label: 'shipped', color: 'badge-amber' },
+                        { label: 'shipped', color: 'badge-amber' },
+                    ],
+                    'user-2': [
+                        { label: 'shipped', color: 'badge-amber' },
+                        { label: 'shipped', color: 'badge-amber' },
+                    ],
                 },
             },
             {
@@ -372,9 +398,15 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: received. Partner: shipped.',
-                    'user-2': 'You: shipped. Partner: received.',
+                badges: {
+                    'user-1': [
+                        { label: 'received', color: 'badge-green' },
+                        { label: 'shipped', color: 'badge-amber' },
+                    ],
+                    'user-2': [
+                        { label: 'shipped', color: 'badge-amber' },
+                        { label: 'received', color: 'badge-green' },
+                    ],
                 },
             },
             {
@@ -400,23 +432,50 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                expectations: {
-                    'user-1': 'You: received. Partner: received.',
-                    'user-2': 'You: received. Partner: received.',
+                badges: {
+                    'user-1': [
+                        { label: 'received', color: 'badge-green' },
+                        { label: 'received', color: 'badge-green' },
+                    ],
+                    'user-2': [
+                        { label: 'received', color: 'badge-green' },
+                        { label: 'received', color: 'badge-green' },
+                    ],
                 },
             },
         ];
 
-        it.each(lifecycleCases)('shows proper status for both parties at $name', async ({ trade, expectations }) => {
+        it.each(lifecycleCases)('shows color-coded status badges for both parties at $name', async ({ trade, badges }) => {
             const firstRender = renderTradeDetailForUser(trade, 'user-1', 'bart0605');
-            expect(await screen.findByText(expectations['user-1'])).toBeInTheDocument();
+
+            // Use data-testid to get exactly the two per-party status badges —
+            // this avoids false matches against unrelated condition/shipment badges
+            // and correctly handles cases where both parties share the same label.
+            const myBadge1 = await screen.findByTestId('my-status-badge');
+            const partnerBadge1 = screen.getByTestId('partner-status-badge');
+
+            expect(myBadge1).toHaveTextContent(badges['user-1'][0].label);
+            expect(myBadge1).toHaveClass(badges['user-1'][0].color);
+            expect(partnerBadge1).toHaveTextContent(badges['user-1'][1].label);
+            expect(partnerBadge1).toHaveClass(badges['user-1'][1].color);
+            // Ensure they are two distinct DOM nodes even when labels are identical
+            expect(myBadge1).not.toBe(partnerBadge1);
 
             firstRender.unmount();
 
             vi.clearAllMocks();
 
             renderTradeDetailForUser(trade, 'user-2', 'partner');
-            expect(await screen.findByText(expectations['user-2'])).toBeInTheDocument();
+
+            // Check user-2's view
+            const myBadge2 = await screen.findByTestId('my-status-badge');
+            const partnerBadge2 = screen.getByTestId('partner-status-badge');
+
+            expect(myBadge2).toHaveTextContent(badges['user-2'][0].label);
+            expect(myBadge2).toHaveClass(badges['user-2'][0].color);
+            expect(partnerBadge2).toHaveTextContent(badges['user-2'][1].label);
+            expect(partnerBadge2).toHaveClass(badges['user-2'][1].color);
+            expect(myBadge2).not.toBe(partnerBadge2);
         });
     });
 

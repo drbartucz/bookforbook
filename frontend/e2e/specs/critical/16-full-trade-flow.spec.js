@@ -261,10 +261,10 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
 
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
-    // Status badge updates to "You: shipped. Partner: not yet shipped."
+    // Status badge updates to show "shipped" for the current user
     await expect(
-      page.locator('.badge').filter({ hasText: /you: shipped/i }).first()
-    ).toBeVisible({ timeout: 12_000 });
+      page.getByTestId('my-status-badge')
+    ).toHaveText(/shipped/i, { timeout: 12_000 });
   });
 
   // Dashboard check: shipping doesn't change Active Trades count (trade is still active)
@@ -299,8 +299,8 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.locator('.badge').filter({ hasText: /partner: shipped/i }).first()
-    ).toBeVisible({ timeout: 12_000 });
+      page.getByTestId('partner-status-badge')
+    ).toHaveText(/shipped/i, { timeout: 12_000 });
   });
 
   // ── Step 7: Alice marks book received ────────────────────────────────────
@@ -321,8 +321,8 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
 
     // One side received → status badge updates
     await expect(
-      page.locator('.badge').filter({ hasText: /one.*received|received/i }).first()
-    ).toBeVisible({ timeout: 12_000 });
+      page.getByTestId('my-status-badge')
+    ).toHaveText(/received/i, { timeout: 12_000 });
   });
 
   // ── Step 8: Bob marks book received → trade completes ────────────────────
@@ -340,10 +340,10 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await expect(receiveBtn).toBeVisible({ timeout: 10_000 });
     await receiveBtn.click();
 
-    // Both sides received → badge shows "You: received. Partner: received."
+    // Both sides received → partner badge shows "received"
     await expect(
-      page.locator('.badge').filter({ hasText: /partner: received/i }).first()
-    ).toBeVisible({ timeout: 12_000 });
+      page.getByTestId('partner-status-badge')
+    ).toHaveText(/received/i, { timeout: 12_000 });
   });
 
   // ── Step 9: Trade appears in "Completed" tab ─────────────────────────────

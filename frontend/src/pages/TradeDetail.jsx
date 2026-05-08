@@ -22,10 +22,6 @@ const MESSAGE_TYPES = [
 ];
 
 const TRADE_STATUS_CONFIG = {
-  confirmed: { label: 'Confirmed — waiting to ship', cls: 'badge-blue' },
-  shipping: { label: 'Shipping in progress', cls: 'badge-amber' },
-  one_received: { label: 'One side received', cls: 'badge-amber' },
-  completed: { label: 'Completed', cls: 'badge-green' },
   disputed: { label: 'Disputed', cls: 'badge-red' },
   cancelled: { label: 'Cancelled', cls: 'badge-gray' },
 };
@@ -108,6 +104,18 @@ function getParticipantShippingState({ shipped, received }) {
   return 'not yet shipped';
 }
 
+function getStatusBadgeClass(status) {
+  switch (status) {
+    case 'received':
+      return 'badge-green';
+    case 'shipped':
+      return 'badge-amber';
+    case 'not yet shipped':
+    default:
+      return 'badge-red';
+  }
+}
+
 function buildShippingStatusLabel(tradeView) {
   const myStatus = getParticipantShippingState({
     shipped: tradeView?.myShipped,
@@ -118,7 +126,18 @@ function buildShippingStatusLabel(tradeView) {
     received: tradeView?.theyReceived,
   });
 
-  return `You: ${myStatus}. Partner: ${partnerStatus}.`;
+  return (
+    <div data-testid="shipping-status-label" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>You:</span>
+        <span data-testid="my-status-badge" className={`badge ${getStatusBadgeClass(myStatus)}`}>{myStatus}</span>
+      </div>
+      <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>Partner:</span>
+        <span data-testid="partner-status-badge" className={`badge ${getStatusBadgeClass(partnerStatus)}`}>{partnerStatus}</span>
+      </div>
+    </div>
+  );
 }
 
 export default function TradeDetail() {
@@ -219,9 +238,8 @@ export default function TradeDetail() {
   const tradeView = mapTradeForView(trade, user?.id);
 
   const statusConfig = TRADE_STATUS_CONFIG[tradeView.status] ?? { label: tradeView.status, cls: 'badge-gray' };
-  const statusLabel = ['confirmed', 'shipping', 'one_received', 'completed'].includes(tradeView.status)
-    ? buildShippingStatusLabel(tradeView)
-    : statusConfig.label;
+  const shouldShowShippingStatus = ['confirmed', 'shipping', 'one_received', 'completed'].includes(tradeView.status);
+  const statusLabel = shouldShowShippingStatus ? buildShippingStatusLabel(tradeView) : statusConfig.label;
 
   const myBook = tradeView.myBook;
   const theirBook = tradeView.theirBook;
@@ -267,7 +285,7 @@ export default function TradeDetail() {
                 <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>
                   Trade #{trade.id}
                 </h1>
-                <span className={`badge ${statusConfig.cls}`}>{statusLabel}</span>
+                {shouldShowShippingStatus ? statusLabel : <span className={`badge ${statusConfig.cls}`}>{statusLabel}</span>}
               </div>
               {trade.created_at && (
                 <p className={styles.tradeDate}>
