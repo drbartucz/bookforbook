@@ -92,49 +92,31 @@ function renderTrackingValue(rawTrackingNumber) {
   );
 }
 
-function getParticipantShippingState({ shipped, received }) {
-  if (received) {
-    return 'received';
-  }
-
-  if (shipped) {
-    return 'shipped';
-  }
-
-  return 'not yet shipped';
-}
-
-function getStatusBadgeClass(status) {
-  switch (status) {
-    case 'received':
-      return 'badge-green';
-    case 'shipped':
-      return 'badge-amber';
-    case 'not yet shipped':
-    default:
-      return 'badge-red';
-  }
-}
-
 function buildShippingStatusLabel(tradeView) {
-  const myStatus = getParticipantShippingState({
-    shipped: tradeView?.myShipped,
-    received: tradeView?.iReceived,
-  });
-  const partnerStatus = getParticipantShippingState({
-    shipped: tradeView?.theyShipped,
-    received: tradeView?.theyReceived,
-  });
+  const mySendStatus = tradeView?.myShipped ? 'shipped' : 'not yet shipped';
+  const partnerSendStatus = tradeView?.theyShipped ? 'shipped' : 'not yet shipped';
+  const myReceived = tradeView?.iReceived;
+  const partnerReceived = tradeView?.theyReceived;
 
   return (
     <div data-testid="shipping-status-label" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
         <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>You:</span>
-        <span data-testid="my-status-badge" className={`badge ${getStatusBadgeClass(myStatus)}`}>{myStatus}</span>
+        <span data-testid="my-send-badge" className={`badge ${mySendStatus === 'shipped' ? 'badge-amber' : 'badge-red'}`}>
+          {mySendStatus}
+        </span>
+        {myReceived && (
+          <span data-testid="my-receive-badge" className="badge badge-green">received</span>
+        )}
       </div>
       <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
         <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>Partner:</span>
-        <span data-testid="partner-status-badge" className={`badge ${getStatusBadgeClass(partnerStatus)}`}>{partnerStatus}</span>
+        <span data-testid="partner-send-badge" className={`badge ${partnerSendStatus === 'shipped' ? 'badge-amber' : 'badge-red'}`}>
+          {partnerSendStatus}
+        </span>
+        {partnerReceived && (
+          <span data-testid="partner-receive-badge" className="badge badge-green">received</span>
+        )}
       </div>
     </div>
   );

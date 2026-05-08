@@ -190,13 +190,15 @@ describe('TradeDetail page', () => {
 
         renderWithProviders(<TradeDetail />);
 
-        // Verify color-coded badges appear for the shipping status label specifically
-        const myBadge = await screen.findByTestId('my-status-badge');
-        const partnerBadge = screen.getByTestId('partner-status-badge');
-        expect(myBadge).toBeInTheDocument();
-        expect(partnerBadge).toBeInTheDocument();
-        expect(myBadge).toHaveClass('badge-amber');    // user-1 shipped
-        expect(partnerBadge).toHaveClass('badge-amber'); // user-2 shipped
+        // Verify color-coded send badges appear (both parties shipped, neither has received yet)
+        const mySendBadge = await screen.findByTestId('my-send-badge');
+        const partnerSendBadge = screen.getByTestId('partner-send-badge');
+        expect(mySendBadge).toBeInTheDocument();
+        expect(partnerSendBadge).toBeInTheDocument();
+        expect(mySendBadge).toHaveClass('badge-amber');    // user-1 shipped
+        expect(partnerSendBadge).toHaveClass('badge-amber'); // user-2 shipped
+        expect(screen.queryByTestId('my-receive-badge')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('partner-receive-badge')).not.toBeInTheDocument();
 
         const upsLink = screen.getByRole('link', { name: '1Z999AA10123456784' });
         expect(upsLink).toHaveAttribute('href', 'https://www.ups.com/track?tracknum=1Z999AA10123456784');
@@ -275,6 +277,7 @@ describe('TradeDetail page', () => {
     });
 
     describe('shipping status label by lifecycle stage', () => {
+        // Each case lists per-viewer expectations: mySend, myReceive (null=absent), partnerSend, partnerReceive (null=absent)
         const lifecycleCases = [
             {
                 name: 'confirmed when neither party has shipped',
@@ -297,66 +300,54 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                badges: {
-                    'user-1': [
-                        { label: 'not yet shipped', color: 'badge-red' },
-                        { label: 'not yet shipped', color: 'badge-red' },
-                    ],
-                    'user-2': [
-                        { label: 'not yet shipped', color: 'badge-red' },
-                        { label: 'not yet shipped', color: 'badge-red' },
-                    ],
+                expectations: {
+                    'user-1': { mySend: { label: 'not yet shipped', color: 'badge-red' }, myReceive: null, partnerSend: { label: 'not yet shipped', color: 'badge-red' }, partnerReceive: null },
+                    'user-2': { mySend: { label: 'not yet shipped', color: 'badge-red' }, myReceive: null, partnerSend: { label: 'not yet shipped', color: 'badge-red' }, partnerReceive: null },
                 },
             },
             {
-                name: 'shipping when only user-1 has shipped',
+                name: 'shipping when only Alice (user-1) has shipped',
                 trade: makeTrade({
                     status: 'shipping',
                     shipments: [
                         {
-                            sender: { id: 'user-1', username: 'me' },
-                            receiver: { id: 'user-2', username: 'partner' },
+                            sender: { id: 'user-1', username: 'alice' },
+                            receiver: { id: 'user-2', username: 'bob' },
                             status: 'shipped',
                             tracking_number: '',
                             shipped_at: '2026-04-22T00:00:00Z',
                             user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
                         },
                         {
-                            sender: { id: 'user-2', username: 'partner' },
-                            receiver: { id: 'user-1', username: 'me' },
+                            sender: { id: 'user-2', username: 'bob' },
+                            receiver: { id: 'user-1', username: 'alice' },
                             status: 'pending',
                             tracking_number: '',
                             user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
                         },
                     ],
                 }),
-                badges: {
-                    'user-1': [
-                        { label: 'shipped', color: 'badge-amber' },
-                        { label: 'not yet shipped', color: 'badge-red' },
-                    ],
-                    'user-2': [
-                        { label: 'not yet shipped', color: 'badge-red' },
-                        { label: 'shipped', color: 'badge-amber' },
-                    ],
+                expectations: {
+                    'user-1': { mySend: { label: 'shipped', color: 'badge-amber' }, myReceive: null, partnerSend: { label: 'not yet shipped', color: 'badge-red' }, partnerReceive: null },
+                    'user-2': { mySend: { label: 'not yet shipped', color: 'badge-red' }, myReceive: null, partnerSend: { label: 'shipped', color: 'badge-amber' }, partnerReceive: null },
                 },
             },
             {
-                name: 'shipping when both parties have shipped',
+                name: 'shipping when both Alice and Bob have shipped',
                 trade: makeTrade({
                     status: 'shipping',
                     shipments: [
                         {
-                            sender: { id: 'user-1', username: 'me' },
-                            receiver: { id: 'user-2', username: 'partner' },
+                            sender: { id: 'user-1', username: 'alice' },
+                            receiver: { id: 'user-2', username: 'bob' },
                             status: 'shipped',
                             tracking_number: 'TRK1',
                             shipped_at: '2026-04-22T00:00:00Z',
                             user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
                         },
                         {
-                            sender: { id: 'user-2', username: 'partner' },
-                            receiver: { id: 'user-1', username: 'me' },
+                            sender: { id: 'user-2', username: 'bob' },
+                            receiver: { id: 'user-1', username: 'alice' },
                             status: 'shipped',
                             tracking_number: 'TRK2',
                             shipped_at: '2026-04-23T00:00:00Z',
@@ -364,33 +355,60 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                badges: {
-                    'user-1': [
-                        { label: 'shipped', color: 'badge-amber' },
-                        { label: 'shipped', color: 'badge-amber' },
-                    ],
-                    'user-2': [
-                        { label: 'shipped', color: 'badge-amber' },
-                        { label: 'shipped', color: 'badge-amber' },
-                    ],
+                expectations: {
+                    'user-1': { mySend: { label: 'shipped', color: 'badge-amber' }, myReceive: null, partnerSend: { label: 'shipped', color: 'badge-amber' }, partnerReceive: null },
+                    'user-2': { mySend: { label: 'shipped', color: 'badge-amber' }, myReceive: null, partnerSend: { label: 'shipped', color: 'badge-amber' }, partnerReceive: null },
                 },
             },
             {
-                name: 'one_received after user-1 receives partner shipment',
+                // Alice shipped; Bob received Alice's book but has NOT yet shipped his own.
+                // Bug scenario: Bob's view must show "not yet shipped" AND "received" simultaneously.
+                name: 'one_received when Bob received before shipping his own book (Alice shipped, Bob received but not shipped)',
                 trade: makeTrade({
                     status: 'one_received',
                     shipments: [
                         {
-                            sender: { id: 'user-1', username: 'me' },
-                            receiver: { id: 'user-2', username: 'partner' },
+                            sender: { id: 'user-1', username: 'alice' },
+                            receiver: { id: 'user-2', username: 'bob' },
+                            status: 'received',  // Bob confirmed receipt of Alice's book
+                            tracking_number: 'TRK1',
+                            shipped_at: '2026-04-22T00:00:00Z',
+                            user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                        },
+                        {
+                            sender: { id: 'user-2', username: 'bob' },
+                            receiver: { id: 'user-1', username: 'alice' },
+                            status: 'pending',   // Bob has not shipped yet
+                            tracking_number: '',
+                            user_book: { condition: 'very_good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                        },
+                    ],
+                }),
+                expectations: {
+                    // Alice: shipped her book (now 'received'); hasn't received Bob's (pending)
+                    // Partner (Bob) hasn't shipped, but did receive Alice's book
+                    'user-1': { mySend: { label: 'shipped', color: 'badge-amber' }, myReceive: null, partnerSend: { label: 'not yet shipped', color: 'badge-red' }, partnerReceive: { label: 'received', color: 'badge-green' } },
+                    // Bob: hasn't shipped yet; HAS received Alice's book → both badges shown simultaneously
+                    // Partner (Alice) shipped; Alice hasn't received Bob's (Bob hasn't shipped)
+                    'user-2': { mySend: { label: 'not yet shipped', color: 'badge-red' }, myReceive: { label: 'received', color: 'badge-green' }, partnerSend: { label: 'shipped', color: 'badge-amber' }, partnerReceive: null },
+                },
+            },
+            {
+                name: 'one_received after Alice receives Bob\'s shipment (both shipped, Alice received)',
+                trade: makeTrade({
+                    status: 'one_received',
+                    shipments: [
+                        {
+                            sender: { id: 'user-1', username: 'alice' },
+                            receiver: { id: 'user-2', username: 'bob' },
                             status: 'shipped',
                             tracking_number: 'TRK1',
                             shipped_at: '2026-04-22T00:00:00Z',
                             user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
                         },
                         {
-                            sender: { id: 'user-2', username: 'partner' },
-                            receiver: { id: 'user-1', username: 'me' },
+                            sender: { id: 'user-2', username: 'bob' },
+                            receiver: { id: 'user-1', username: 'alice' },
                             status: 'received',
                             tracking_number: 'TRK2',
                             shipped_at: '2026-04-23T00:00:00Z',
@@ -398,33 +416,29 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                badges: {
-                    'user-1': [
-                        { label: 'received', color: 'badge-green' },
-                        { label: 'shipped', color: 'badge-amber' },
-                    ],
-                    'user-2': [
-                        { label: 'shipped', color: 'badge-amber' },
-                        { label: 'received', color: 'badge-green' },
-                    ],
+                expectations: {
+                    // Alice shipped and received Bob's book; Bob shipped but hasn't received Alice's book yet
+                    'user-1': { mySend: { label: 'shipped', color: 'badge-amber' }, myReceive: { label: 'received', color: 'badge-green' }, partnerSend: { label: 'shipped', color: 'badge-amber' }, partnerReceive: null },
+                    // Bob shipped; Alice received Bob's book (theyReceived); Bob hasn't received Alice's book yet
+                    'user-2': { mySend: { label: 'shipped', color: 'badge-amber' }, myReceive: null, partnerSend: { label: 'shipped', color: 'badge-amber' }, partnerReceive: { label: 'received', color: 'badge-green' } },
                 },
             },
             {
-                name: 'completed after both parties receive their books',
+                name: 'completed after both Alice and Bob receive their books',
                 trade: makeTrade({
                     status: 'completed',
                     shipments: [
                         {
-                            sender: { id: 'user-1', username: 'me' },
-                            receiver: { id: 'user-2', username: 'partner' },
+                            sender: { id: 'user-1', username: 'alice' },
+                            receiver: { id: 'user-2', username: 'bob' },
                             status: 'received',
                             tracking_number: 'TRK1',
                             shipped_at: '2026-04-22T00:00:00Z',
                             user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
                         },
                         {
-                            sender: { id: 'user-2', username: 'partner' },
-                            receiver: { id: 'user-1', username: 'me' },
+                            sender: { id: 'user-2', username: 'bob' },
+                            receiver: { id: 'user-1', username: 'alice' },
                             status: 'received',
                             tracking_number: 'TRK2',
                             shipped_at: '2026-04-23T00:00:00Z',
@@ -432,50 +446,72 @@ describe('TradeDetail page', () => {
                         },
                     ],
                 }),
-                badges: {
-                    'user-1': [
-                        { label: 'received', color: 'badge-green' },
-                        { label: 'received', color: 'badge-green' },
-                    ],
-                    'user-2': [
-                        { label: 'received', color: 'badge-green' },
-                        { label: 'received', color: 'badge-green' },
-                    ],
+                expectations: {
+                    'user-1': { mySend: { label: 'shipped', color: 'badge-amber' }, myReceive: { label: 'received', color: 'badge-green' }, partnerSend: { label: 'shipped', color: 'badge-amber' }, partnerReceive: { label: 'received', color: 'badge-green' } },
+                    'user-2': { mySend: { label: 'shipped', color: 'badge-amber' }, myReceive: { label: 'received', color: 'badge-green' }, partnerSend: { label: 'shipped', color: 'badge-amber' }, partnerReceive: { label: 'received', color: 'badge-green' } },
                 },
             },
         ];
 
-        it.each(lifecycleCases)('shows color-coded status badges for both parties at $name', async ({ trade, badges }) => {
-            const firstRender = renderTradeDetailForUser(trade, 'user-1', 'bart0605');
+        it.each(lifecycleCases)('shows split send/receive badges for both parties at $name', async ({ trade, expectations }) => {
+            const firstRender = renderTradeDetailForUser(trade, 'user-1', 'alice');
 
-            // Use data-testid to get exactly the two per-party status badges —
-            // this avoids false matches against unrelated condition/shipment badges
-            // and correctly handles cases where both parties share the same label.
-            const myBadge1 = await screen.findByTestId('my-status-badge');
-            const partnerBadge1 = screen.getByTestId('partner-status-badge');
+            // Verify Alice's view: my-send-badge and partner-send-badge always present;
+            // my-receive-badge and partner-receive-badge only present when received.
+            const u1exp = expectations['user-1'];
+            const mySendBadge1 = await screen.findByTestId('my-send-badge');
+            expect(mySendBadge1).toHaveTextContent(u1exp.mySend.label);
+            expect(mySendBadge1).toHaveClass(u1exp.mySend.color);
 
-            expect(myBadge1).toHaveTextContent(badges['user-1'][0].label);
-            expect(myBadge1).toHaveClass(badges['user-1'][0].color);
-            expect(partnerBadge1).toHaveTextContent(badges['user-1'][1].label);
-            expect(partnerBadge1).toHaveClass(badges['user-1'][1].color);
-            // Ensure they are two distinct DOM nodes even when labels are identical
-            expect(myBadge1).not.toBe(partnerBadge1);
+            const partnerSendBadge1 = screen.getByTestId('partner-send-badge');
+            expect(partnerSendBadge1).toHaveTextContent(u1exp.partnerSend.label);
+            expect(partnerSendBadge1).toHaveClass(u1exp.partnerSend.color);
+
+            if (u1exp.myReceive) {
+                const myReceiveBadge1 = screen.getByTestId('my-receive-badge');
+                expect(myReceiveBadge1).toHaveTextContent(u1exp.myReceive.label);
+                expect(myReceiveBadge1).toHaveClass(u1exp.myReceive.color);
+            } else {
+                expect(screen.queryByTestId('my-receive-badge')).not.toBeInTheDocument();
+            }
+
+            if (u1exp.partnerReceive) {
+                const partnerReceiveBadge1 = screen.getByTestId('partner-receive-badge');
+                expect(partnerReceiveBadge1).toHaveTextContent(u1exp.partnerReceive.label);
+                expect(partnerReceiveBadge1).toHaveClass(u1exp.partnerReceive.color);
+            } else {
+                expect(screen.queryByTestId('partner-receive-badge')).not.toBeInTheDocument();
+            }
 
             firstRender.unmount();
-
             vi.clearAllMocks();
 
-            renderTradeDetailForUser(trade, 'user-2', 'partner');
+            renderTradeDetailForUser(trade, 'user-2', 'bob');
 
-            // Check user-2's view
-            const myBadge2 = await screen.findByTestId('my-status-badge');
-            const partnerBadge2 = screen.getByTestId('partner-status-badge');
+            const u2exp = expectations['user-2'];
+            const mySendBadge2 = await screen.findByTestId('my-send-badge');
+            expect(mySendBadge2).toHaveTextContent(u2exp.mySend.label);
+            expect(mySendBadge2).toHaveClass(u2exp.mySend.color);
 
-            expect(myBadge2).toHaveTextContent(badges['user-2'][0].label);
-            expect(myBadge2).toHaveClass(badges['user-2'][0].color);
-            expect(partnerBadge2).toHaveTextContent(badges['user-2'][1].label);
-            expect(partnerBadge2).toHaveClass(badges['user-2'][1].color);
-            expect(myBadge2).not.toBe(partnerBadge2);
+            const partnerSendBadge2 = screen.getByTestId('partner-send-badge');
+            expect(partnerSendBadge2).toHaveTextContent(u2exp.partnerSend.label);
+            expect(partnerSendBadge2).toHaveClass(u2exp.partnerSend.color);
+
+            if (u2exp.myReceive) {
+                const myReceiveBadge2 = screen.getByTestId('my-receive-badge');
+                expect(myReceiveBadge2).toHaveTextContent(u2exp.myReceive.label);
+                expect(myReceiveBadge2).toHaveClass(u2exp.myReceive.color);
+            } else {
+                expect(screen.queryByTestId('my-receive-badge')).not.toBeInTheDocument();
+            }
+
+            if (u2exp.partnerReceive) {
+                const partnerReceiveBadge2 = screen.getByTestId('partner-receive-badge');
+                expect(partnerReceiveBadge2).toHaveTextContent(u2exp.partnerReceive.label);
+                expect(partnerReceiveBadge2).toHaveClass(u2exp.partnerReceive.color);
+            } else {
+                expect(screen.queryByTestId('partner-receive-badge')).not.toBeInTheDocument();
+            }
         });
     });
 
