@@ -261,9 +261,9 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
 
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
-    // Status badge updates to show "shipped" for the current user
+    // Send badge updates to show "shipped" for the current user
     await expect(
-      page.getByTestId('my-status-badge')
+      page.getByTestId('my-send-badge')
     ).toHaveText(/shipped/i, { timeout: 12_000 });
   });
 
@@ -299,7 +299,7 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.getByTestId('partner-status-badge')
+      page.getByTestId('partner-send-badge')
     ).toHaveText(/shipped/i, { timeout: 12_000 });
   });
 
@@ -319,9 +319,9 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await expect(receiveBtn).toBeVisible({ timeout: 10_000 });
     await receiveBtn.click();
 
-    // One side received → status badge updates
+    // One side received → receive badge appears for alice
     await expect(
-      page.getByTestId('my-status-badge')
+      page.getByTestId('my-receive-badge')
     ).toHaveText(/received/i, { timeout: 12_000 });
   });
 
@@ -340,9 +340,9 @@ test.describe.serial('Full trade flow (match → accept → ship → receive)', 
     await expect(receiveBtn).toBeVisible({ timeout: 10_000 });
     await receiveBtn.click();
 
-    // Both sides received → partner badge shows "received"
+    // Both sides received → bob's own receive badge shows "received"
     await expect(
-      page.getByTestId('partner-status-badge')
+      page.getByTestId('my-receive-badge')
     ).toHaveText(/received/i, { timeout: 12_000 });
   });
 

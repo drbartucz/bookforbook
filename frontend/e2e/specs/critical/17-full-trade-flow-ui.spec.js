@@ -276,7 +276,7 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.getByTestId('my-status-badge')
+      page.getByTestId('my-send-badge')
     ).toHaveText(/shipped/i, { timeout: 12_000 });
   });
 
@@ -296,7 +296,7 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await page.getByRole('button', { name: /confirm shipped/i }).click();
 
     await expect(
-      page.getByTestId('partner-status-badge')
+      page.getByTestId('my-send-badge')
     ).toHaveText(/shipped/i, { timeout: 12_000 });
   });
 
@@ -311,7 +311,7 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await receiveBtn.click();
 
     await expect(
-      page.getByTestId('my-status-badge')
+      page.getByTestId('my-receive-badge')
     ).toHaveText(/received/i, { timeout: 12_000 });
   });
 
@@ -326,7 +326,7 @@ test.describe.serial('Full trade flow — UI driven (match → accept → ship �
     await receiveBtn.click();
 
     await expect(
-      page.getByTestId('partner-status-badge')
+      page.getByTestId('my-receive-badge')
     ).toHaveText(/received/i, { timeout: 12_000 });
   });
 
