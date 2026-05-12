@@ -327,14 +327,14 @@ export default function PublicProfile() {
         )}
 
         {/* Ratings */}
-        <div className={`card ${styles.section}`}>
+        <div className={`card ${styles.section}`} data-testid="recent-ratings-section">
           <h2 className={styles.sectionTitle}>Recent Ratings</h2>
           {ratings.length === 0 ? (
             <p className={styles.emptyText}>No ratings yet.</p>
           ) : (
             <div className={styles.ratingList}>
               {ratings.map((rating, i) => (
-                <div key={rating.id ?? i} className={styles.ratingItem}>
+                <div key={rating.id ?? i} className={styles.ratingItem} data-testid="rating-item">
                   <div className={styles.ratingHeader}>
                     <div className={styles.ratingStars}>
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -371,7 +371,7 @@ export default function PublicProfile() {
 
         {/* Institution wanted books */}
         {isInstitution && (
-          <div className={`card ${styles.section}`}>
+          <div className={`card ${styles.section}`} data-testid="wanted-books-section">
             <h2 className={styles.sectionTitle}>Wanted Books</h2>
             <p className={styles.sectionSubtitle}>
               This institution is looking for these books as donations or trades.
@@ -383,7 +383,7 @@ export default function PublicProfile() {
                 {wantedBooks.map((item, i) => {
                   const book = item.book ?? item;
                   return (
-                    <div key={item.id ?? i} className={styles.wantedItem}>
+                    <div key={item.id ?? i} className={styles.wantedItem} data-testid="wanted-book-item">
                       {getBookCoverUrl(book) && (
                         <img src={getBookCoverUrl(book)} alt={book.title} className={styles.wantedCover} />
                       )}
@@ -413,7 +413,7 @@ export default function PublicProfile() {
         )}
 
         {/* Offered books (all users) */}
-        <div className={`card ${styles.section}`}>
+        <div className={`card ${styles.section}`} data-testid="offered-books-section">
           <h2 className={styles.sectionTitle}>Offered Books</h2>
           <p className={styles.sectionSubtitle}>
             Books this user is currently offering for trade.
@@ -425,7 +425,7 @@ export default function PublicProfile() {
               {offeredBooks.map((item, i) => {
                 const book = item.book ?? item;
                 return (
-                  <div key={item.id ?? i} className={styles.wantedItem}>
+                  <div key={item.id ?? i} className={styles.wantedItem} data-testid="offered-book-item">
                     {getBookCoverUrl(book) && (
                       <img src={getBookCoverUrl(book)} alt={book.title} className={styles.wantedCover} />
                     )}
@@ -450,7 +450,7 @@ export default function PublicProfile() {
 
         {/* Wanted books (non-institution users) */}
         {!isInstitution && (
-          <div className={`card ${styles.section}`}>
+          <div className={`card ${styles.section}`} data-testid="wanted-books-section">
             <h2 className={styles.sectionTitle}>Wanted Books</h2>
             <p className={styles.sectionSubtitle}>
               Books this user is looking to receive via trade.
@@ -462,7 +462,7 @@ export default function PublicProfile() {
                 {publicWantedBooks.map((item, i) => {
                   const book = item.book ?? item;
                   return (
-                    <div key={item.id ?? i} className={styles.wantedItem}>
+                    <div key={item.id ?? i} className={styles.wantedItem} data-testid="wanted-book-item">
                       {getBookCoverUrl(book) && (
                         <img src={getBookCoverUrl(book)} alt={book.title} className={styles.wantedCover} />
                       )}

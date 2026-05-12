@@ -50,9 +50,10 @@ test.describe('Public Profile', () => {
 
     await expect(page.getByRole('heading', { name: /offered books/i })).toBeVisible({ timeout: 8_000 });
     // Alice has 3 seeded books — at least one should appear
+    const section = page.getByTestId('offered-books-section');
     await expect(
-      page.locator('[class*="wantedItem"]').first()
-        .or(page.getByText(/no books offered yet/i))
+      section.getByTestId('offered-book-item').first()
+        .or(section.getByText(/no books offered yet/i))
     ).toBeVisible({ timeout: 8_000 });
   });
 
@@ -62,6 +63,11 @@ test.describe('Public Profile', () => {
     await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByRole('heading', { name: /wanted books/i })).toBeVisible({ timeout: 8_000 });
+    const section = page.getByTestId('wanted-books-section');
+    await expect(
+      section.getByTestId('wanted-book-item').first()
+        .or(section.getByText(/no wanted books listed/i))
+    ).toBeVisible({ timeout: 8_000 });
   });
 
   test('profile has Recent Ratings section', async ({ alicePage: page }) => {
@@ -70,9 +76,10 @@ test.describe('Public Profile', () => {
     await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByRole('heading', { name: /recent ratings/i })).toBeVisible({ timeout: 8_000 });
+    const section = page.getByTestId('recent-ratings-section');
     await expect(
-      page.locator('[class*="ratingItem"]').first()
-        .or(page.getByText(/no ratings yet/i))
+      section.getByTestId('rating-item').first()
+        .or(section.getByText(/no ratings yet/i))
     ).toBeVisible({ timeout: 8_000 });
   });
 
@@ -94,9 +101,10 @@ test.describe('Public Profile', () => {
     await expect(page).toHaveURL(/\/profile\//);
 
     await expect(page.getByRole('heading', { name: /wanted books/i })).toBeVisible({ timeout: 8_000 });
+    const section = page.getByTestId('wanted-books-section');
     await expect(
-      page.locator('[class*="wantedItem"]').first()
-        .or(page.getByText(/no wanted books listed/i))
+      section.getByTestId('wanted-book-item').first()
+        .or(section.getByText(/no wanted books listed/i))
     ).toBeVisible({ timeout: 8_000 });
   });
 
