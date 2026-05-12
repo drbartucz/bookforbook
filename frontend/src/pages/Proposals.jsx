@@ -146,11 +146,25 @@ export default function Proposals() {
                       {proposer && (
                         <span className={styles.userLabel}>
                           From: <a href={`/profile/${proposer.id}`}>@{proposer.username}</a>
+                          {proposer.avg_recent_rating && (
+                            <Tooltip content="Average rating across their last 10 completed trades. Visible on their public profile.">
+                              <span className={styles.partnerRating}>
+                                {' '}&bull; {Number(proposer.avg_recent_rating).toFixed(1)} ★
+                              </span>
+                            </Tooltip>
+                          )}
                         </span>
                       )}
                       {receiver && (
                         <span className={styles.userLabel}>
                           To: <a href={`/profile/${receiver.id}`}>@{receiver.username}</a>
+                          {receiver.avg_recent_rating && (
+                            <Tooltip content="Average rating across their last 10 completed trades. Visible on their public profile.">
+                              <span className={styles.partnerRating}>
+                                {' '}&bull; {Number(receiver.avg_recent_rating).toFixed(1)} ★
+                              </span>
+                            </Tooltip>
+                          )}
                         </span>
                       )}
                     </div>

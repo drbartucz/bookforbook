@@ -193,3 +193,8 @@
   max-width: 440px;
   margin: 0 auto;
 }
+
+.partnerRating {
+  color: var(--color-warning);
+  font-size: 0.8125rem;
+}
