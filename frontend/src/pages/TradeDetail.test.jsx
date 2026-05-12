@@ -710,6 +710,18 @@ describe('TradeDetail page', () => {
         expect(screen.getByText('Apt 2')).toBeInTheDocument();
     });
 
+    it('shows "Trade complete" when status is completed and partner address is not available', async () => {
+        const trade = makeTrade({
+            status: 'completed',
+            partner_addresses: {}, // Empty as expected from backend for privacy
+        });
+        trades.getDetail.mockResolvedValue({ data: trade });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        renderWithProviders(<TradeDetail />);
+        expect(await screen.findByText('Trade complete')).toBeInTheDocument();
+        expect(screen.queryByText('Shipping address is not available yet.')).not.toBeInTheDocument();
+    });
+
     it('shows "Received" badge in ShippingStatus for received shipment', async () => {
         const trade = makeTrade({
             status: 'completed',

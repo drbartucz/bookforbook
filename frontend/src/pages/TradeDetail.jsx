@@ -318,7 +318,7 @@ export default function TradeDetail() {
               </div>
             ) : (
               <p className={styles.addressHidden}>
-                Shipping address is not available yet.
+                {isCompleted ? 'Trade complete' : 'Shipping address is not available yet.'}
               </p>
             )}
           </div>
