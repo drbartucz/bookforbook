@@ -9,6 +9,11 @@ const FAQ_DATA = [
     answer: 'BookForBook is a free book swap platform. You list the books you have and the books you want. Our system automatically matches you with a complementary trade. If you both accept the trade, your addresses are shared. Once you ship the item, you can enter a tracking number for verification. When the items are received, you rate the other user and your addresses disappear!'
   },
   {
+    id: 'discover',
+    question: 'What if I don\'t know what books I want?',
+    answer: 'Once you list books you have, you can go to the "Discover" tab and it will show all the books being offered by people who want something you have!'
+  },
+  {
     id: 'shipping',
     question: 'How does shipping work?',
     answer: 'Once a trade is confirmed, you will receive the shipping address of your trade partner. You are responsible for shipping your book to them, and in return, someone will ship a book to you. We recommend using USPS Media Mail for cost-effective shipping within the US. You can also use UPS or Fedex and enter those tracking numbers.'
