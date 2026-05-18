@@ -32,17 +32,27 @@ const FAQ_DATA = [
     id: 'condition',
     question: 'What should be the condition of the books?',
     answer: 'We expect all books to be in "Good" or better condition—meaning no missing pages, excessive highlighting, or significant water damage. Please be honest about the condition of your books when listing them.'
+  },
+  {
+    id: 'feedback',
+    question: 'Questions? Comments? Suggestions?',
+    answer: 'Please visit the contact page and we will get back to you asap.'
   }
 ];
 
 export default function About() {
   return (
     <div className={styles.container}>
-      <header className={styles.hero}>
-        <h1 className={styles.title}>About BookForBook</h1>
-        <p className={styles.subtitle}>
-          Connecting book lovers one swap at a time.
-        </p>
+      <header className={styles.subtitle}>
+        <ol>
+          <li>Create an account and verify your address.</li>
+          <li>List the books you have and the books you want.</li>
+          <li>If you don't get a match right away, browse the "Discover" tab to find books offered by people that already want what you have.</li>
+          <li>When you get a match, you can accept or reject the trade. If you both accept, your addresses are shared and you can ship your book to your trade partner.</li>
+          <li>Once you ship your book, please enter a tracking number for verification.</li>
+          <li>When you receive your book, mark the trade as "received".</li>
+          <li>Finally, rate your trade partner and leave feedback for the community! The more positive reviews you receive, the more books you can trade at once!</li>
+        </ol>
       </header>
 
       <section className={styles.section}>
