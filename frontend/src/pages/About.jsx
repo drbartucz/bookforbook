@@ -36,8 +36,7 @@ export default function About() {
       <header className={styles.hero}>
         <h1 className={styles.title}>About BookForBook</h1>
         <p className={styles.subtitle}>
-          Connecting book lovers one swap at a time. Our mission is to make reading 
-          accessible and sustainable by facilitating peer-to-peer book trading.
+          Connecting book lovers one swap at a time. List the books you have and the books you want and we'll find your perfect match. It's free, it's fun, and it's a great way to discover new reads while giving your old favorites a new home.
         </p>
       </header>
 
@@ -51,7 +50,7 @@ export default function About() {
           <div className={styles.card}>
             <span className={styles.icon} aria-hidden="true">🤝</span>
             <h3>Community</h3>
-            <p>Join thousands of readers in a trusted, peer-to-peer network.</p>
+            <p>Send your trading partner a note with your book. Share your love or your reason for letting it go.</p>
           </div>
           <div className={styles.card}>
             <span className={styles.icon} aria-hidden="true">💰</span>
@@ -69,13 +68,13 @@ export default function About() {
               <Accordion.Header className={styles.accordionHeader}>
                 <Accordion.Trigger className={styles.accordionTrigger}>
                   <span>{item.question}</span>
-                  <svg 
-                    className={styles.chevron} 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
+                  <svg
+                    className={styles.chevron}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
                     aria-hidden="true"
                   >
