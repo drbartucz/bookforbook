@@ -20,6 +20,7 @@ import TradeDetail from './pages/TradeDetail.jsx';
 import Donations from './pages/Donations.jsx';
 import PublicProfile from './pages/PublicProfile.jsx';
 import Institutions from './pages/Institutions.jsx';
+import About from './pages/About.jsx';
 import useAuth from './hooks/useAuth.js';
 import AppErrorBoundary from './components/AppErrorBoundary.jsx';
 
@@ -47,6 +48,7 @@ export default function App() {
         <Route element={<Layout />}>
           {/* Public routes */}
           <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
           <Route path="/institutions" element={<Institutions />} />
           <Route path="/profile/:id" element={<PublicProfile />} />
 
