@@ -28,9 +28,9 @@ vi.mock('./About.module.css', () => ({
 describe('About Page', () => {
   it('renders the about page content', () => {
     render(<About />);
-    
-    expect(screen.getByText('About BookForBook')).toBeInTheDocument();
-    expect(screen.getByText(/Connecting book lovers one swap at a time/i)).toBeInTheDocument();
+
+    expect(screen.getByText('Create an account')).toBeInTheDocument();
+    expect(screen.getByText('contact')).toBeInTheDocument();
     expect(screen.getByText('Sustainable')).toBeInTheDocument();
     expect(screen.getByText('Community')).toBeInTheDocument();
     expect(screen.getByText('Cost-Effective')).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe('About Page', () => {
 
   it('renders the FAQ section', () => {
     render(<About />);
-    
+
     expect(screen.getByText('Frequently Asked Questions')).toBeInTheDocument();
     expect(screen.getByText('How does BookForBook work?')).toBeInTheDocument();
     expect(screen.getByText('How does shipping work?')).toBeInTheDocument();
@@ -46,15 +46,15 @@ describe('About Page', () => {
 
   it('toggles FAQ items when clicked', async () => {
     render(<About />);
-    
+
     const trigger = screen.getByText('How does BookForBook work?');
-    
+
     // Radix Accordion usually sets data-state="closed" initially
     const item = trigger.closest('[data-state]');
     expect(item).toHaveAttribute('data-state', 'closed');
-    
+
     fireEvent.click(trigger);
-    
+
     // After click, it should be open
     expect(item).toHaveAttribute('data-state', 'open');
     expect(screen.getByText(/BookForBook is a peer-to-peer book swapping platform/i)).toBeVisible();
