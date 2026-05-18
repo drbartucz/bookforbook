@@ -6,12 +6,12 @@ const FAQ_DATA = [
   {
     id: 'how-it-works',
     question: 'How does BookForBook work?',
-    answer: 'BookForBook is a peer-to-peer book swapping platform. You list the books you have and the books you want. Our system automatically finds matches and "rings" (cycles of 3-5 users) to help everyone get the books they desire without spending money on new copies.'
+    answer: 'BookForBook is a free book swap platform. You list the books you have and the books you want. Our system automatically matches you with a complementary trade. If you both accept the trade, your addresses are shared. Once you ship the item, you can enter a tracking number for verification. When the items are received, you rate the other user and your addresses disappear!'
   },
   {
     id: 'shipping',
     question: 'How does shipping work?',
-    answer: 'Once a trade is confirmed, you will receive the shipping address of your trade partner. You are responsible for shipping your book to them, and in return, someone will ship a book to you. We recommend using Media Mail for cost-effective shipping within the US.'
+    answer: 'Once a trade is confirmed, you will receive the shipping address of your trade partner. You are responsible for shipping your book to them, and in return, someone will ship a book to you. We recommend using USPS Media Mail for cost-effective shipping within the US. You can also use UPS or Fedex and enter those tracking numbers.'
   },
   {
     id: 'is-it-free',
@@ -21,7 +21,7 @@ const FAQ_DATA = [
   {
     id: 'safety',
     question: 'Is my personal information safe?',
-    answer: 'We take privacy seriously. Your shipping address is encrypted in our database and is only revealed to your confirmed trade partner once a trade is agreed upon.'
+    answer: 'We take privacy seriously. Your shipping address is encrypted in our database and is only revealed to your confirmed trade partner once a trade is agreed upon. Once the trade is complete, the other user can no longer see your address. No other personal information is gathered and we will never share any information with other parties. If you are concered about revealing your home address, we  recommend using a P.O. Box or a work address.'
   },
   {
     id: 'condition',
@@ -36,8 +36,7 @@ export default function About() {
       <header className={styles.hero}>
         <h1 className={styles.title}>About BookForBook</h1>
         <p className={styles.subtitle}>
-          Connecting book lovers one swap at a time. Our mission is to make reading 
-          accessible and sustainable by facilitating peer-to-peer book trading.
+          Connecting book lovers one swap at a time.
         </p>
       </header>
 
@@ -46,12 +45,12 @@ export default function About() {
           <div className={styles.card}>
             <span className={styles.icon} aria-hidden="true">🌱</span>
             <h3>Sustainable</h3>
-            <p>Give your read books a second life and reduce paper waste.</p>
+            <p>Give your books a second life and reduce waste!</p>
           </div>
           <div className={styles.card}>
             <span className={styles.icon} aria-hidden="true">🤝</span>
-            <h3>Community</h3>
-            <p>Join thousands of readers in a trusted, peer-to-peer network.</p>
+            <h3>Connections</h3>
+            <p>Send a personal note with your book. Tell them why you loved it and/or are letting it go...</p>
           </div>
           <div className={styles.card}>
             <span className={styles.icon} aria-hidden="true">💰</span>
@@ -69,13 +68,13 @@ export default function About() {
               <Accordion.Header className={styles.accordionHeader}>
                 <Accordion.Trigger className={styles.accordionTrigger}>
                   <span>{item.question}</span>
-                  <svg 
-                    className={styles.chevron} 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
+                  <svg
+                    className={styles.chevron}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
                     aria-hidden="true"
                   >
