@@ -9,6 +9,8 @@ vi.mock('./About.module.css', () => ({
     hero: 'hero',
     title: 'title',
     subtitle: 'subtitle',
+    sectionTitle: 'sectionTitle',
+    stepsList: 'stepsList',
     section: 'section',
     grid: 'grid',
     card: 'card',
