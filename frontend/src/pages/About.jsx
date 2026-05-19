@@ -53,7 +53,7 @@ export default function About() {
         <ol className={styles.stepsList}>
           <li>Create an account and verify your address.</li>
           <li>List the books you have and the books you want.</li>
-          <li>If you don't get a match right away, browse the "Discover" tab to find books offered by people that already want what you have.</li>
+          <li>If you don't get a match right away, browse the "Discover" tab to find books offered by people who already want what you have.</li>
           <li>When you get a match, you can accept or reject the trade. If you both accept, your addresses are shared and you can ship your book to your trade partner.</li>
           <li>Once you ship your book, please enter a tracking number for verification.</li>
           <li>When you receive your book, mark the trade as "received".</li>
