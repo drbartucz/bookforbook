@@ -24,6 +24,16 @@ const FAQ_DATA = [
     answer: 'Trades automatically close after 3 weeks. If you shipped your book with a valid USPS, UPS, or FedEx tracking number — or your trade partner marked it as received — you will earn trade credit and an automatic 5-star review from "Trade Manager". If no valid tracking number is on file when the trade closes, your book will be returned to your available list and you will receive a 1-star "Did not ship" review. You will receive a warning email 2 days before auto-close if your tracking information is missing.'
   },
   {
+    id: 'ratings',
+    question: 'How does the rating system work?',
+    answer: 'After a trade is completed, both parties can leave each other a 1–5 star rating with an optional comment. Your visible rating is a rolling average of your last 10 ratings, so it reflects your recent history rather than a single old experience. Ratings also affect how many trades you can have open at once (see below). If a trade auto-closes after 3 weeks, ratings are assigned automatically: 5 stars if you shipped with a valid tracking number, or 1 star ("Did not ship") if you did not.'
+  },
+  {
+    id: 'active-trades',
+    question: 'How many trades can I have open at the same time?',
+    answer: 'New users start with 1 active trade slot. Each rating you receive unlocks an additional slot, up to a maximum of 10. So an experienced trader with 10 or more ratings can have up to 10 trades open at once. The best way to increase your capacity is to complete trades and earn positive reviews.'
+  },
+  {
     id: 'is-it-free',
     question: 'Is it free to use?',
     answer: 'Yes! BookForBook is free to use. You only pay for the cost of shipping the books you send to others. There are no subscription fees or per-trade charges.'

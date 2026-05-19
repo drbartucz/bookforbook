@@ -51,6 +51,16 @@ describe('About Page', () => {
     expect(screen.getByText('What happens if a trade is never completed?')).toBeInTheDocument();
   });
 
+  it('renders the ratings FAQ entry', () => {
+    render(<About />);
+    expect(screen.getByText('How does the rating system work?')).toBeInTheDocument();
+  });
+
+  it('renders the active trades FAQ entry', () => {
+    render(<About />);
+    expect(screen.getByText('How many trades can I have open at the same time?')).toBeInTheDocument();
+  });
+
   it('toggles FAQ items when clicked', async () => {
     render(<About />);
 
