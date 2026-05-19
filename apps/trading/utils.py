@@ -12,5 +12,7 @@ _TRACKING_PATTERNS = [
 def is_valid_tracking_number(value: str) -> bool:
     if not value:
         return False
-    normalized = value.strip().upper()
+    # Strip all whitespace (leading, trailing, internal) before matching.
+    # Users frequently copy tracking numbers with spaces between digit groups.
+    normalized = re.sub(r'\s+', '', value).upper()
     return any(p.match(normalized) for p in _TRACKING_PATTERNS)

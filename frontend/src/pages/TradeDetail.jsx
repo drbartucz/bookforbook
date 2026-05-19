@@ -22,7 +22,7 @@ const TRACKING_PATTERNS = [
 
 function isValidTrackingNumber(value) {
   if (!value) return false;
-  const normalized = value.trim().toUpperCase();
+  const normalized = value.replace(/\s+/g, '').toUpperCase();
   return TRACKING_PATTERNS.some((p) => p.test(normalized));
 }
 

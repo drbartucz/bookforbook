@@ -1350,7 +1350,9 @@ describe('TradeDetail page', () => {
         await waitFor(() => expect(trades.markShipped).toHaveBeenCalled());
     });
 
-    it('submits when user clicks Continue Anyway in AlertDialog', async () => {
+    it('submits when user clicks Continue Anyway in AlertDialog and call succeeds', async () => {
+        // Verifies the backend override path: unrecognized format → dialog → Continue Anyway
+        // → markShipped is called and resolves (no 400 rejection from soft validation).
         trades.getDetail.mockResolvedValue({ data: makeTrade({ status: 'confirmed' }) });
         trades.getMessages.mockResolvedValue({ data: [] });
         trades.markShipped.mockResolvedValue({ data: {} });
@@ -1362,6 +1364,26 @@ describe('TradeDetail page', () => {
         await screen.findByText(/unrecognized tracking number/i);
         await userEvent.click(screen.getByRole('button', { name: /continue anyway/i }));
 
+        await waitFor(() => expect(trades.markShipped).toHaveBeenCalledWith(
+            'trade-1',
+            { tracking_number: 'CUSTOMCARRIER99' },
+        ));
+        // markShipped resolved without error — no actionError rendered
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('does not show AlertDialog for tracking number with internal spaces that normalizes to valid', async () => {
+        trades.getDetail.mockResolvedValue({ data: makeTrade({ status: 'confirmed' }) });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        trades.markShipped.mockResolvedValue({ data: {} });
+        renderWithProviders(<TradeDetail />);
+
+        await userEvent.click(await screen.findByRole('button', { name: /mark my book as shipped/i }));
+        // UPS number with spaces — should normalize and pass validation
+        await userEvent.type(screen.getByRole('textbox', { name: /tracking number/i }), '1Z999 AA1 0123 456784');
+        await userEvent.click(screen.getByRole('button', { name: /confirm shipped/i }));
+
+        expect(screen.queryByText(/unrecognized tracking number/i)).not.toBeInTheDocument();
         await waitFor(() => expect(trades.markShipped).toHaveBeenCalled());
     });
 

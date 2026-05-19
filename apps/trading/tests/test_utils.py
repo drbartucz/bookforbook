@@ -33,3 +33,16 @@ class TestIsValidTrackingNumber:
 
     def test_garbage_string_rejected(self):
         assert is_valid_tracking_number("HELLO-WORLD") is False
+
+    def test_usps_with_internal_spaces(self):
+        # Copy-pasted with spaces between digit groups
+        assert is_valid_tracking_number("9400 1000 0000 0000 0000 00") is True
+
+    def test_ups_with_spaces(self):
+        assert is_valid_tracking_number("1Z999 AA1 0123 456784") is True
+
+    def test_trailing_whitespace(self):
+        assert is_valid_tracking_number("1Z999AA10123456784   ") is True
+
+    def test_leading_whitespace(self):
+        assert is_valid_tracking_number("   1Z999AA10123456784") is True

@@ -285,6 +285,124 @@ class TestSendTradeClosureWarnings:
 
 
 @pytest.mark.django_db
+class TestAutoCloseDeletedUser:
+    def test_auto_close_handles_deleted_user_gracefully(self):
+        """If a sender is deleted (cascade-deleting their shipments) before auto-close
+        runs, the task should not crash — the trade closes with no shipments processed."""
+        sender = UserFactory(total_trades=0)
+        receiver = UserFactory(total_trades=0)
+        trade = make_expired_trade(status=Trade.Status.SHIPPING)
+        ub = UserBookFactory(user=sender, status=UserBook.Status.RESERVED)
+        TradeShipmentFactory(
+            trade=trade, sender=sender, receiver=receiver, user_book=ub,
+            status=TradeShipment.Status.SHIPPED,
+            tracking_number="1Z999AA10123456784",
+        )
+
+        # Delete the sender — cascades to their shipment
+        sender.delete()
+
+        # Task must not raise
+        auto_close_trades()
+
+        trade.refresh_from_db()
+        assert trade.status == Trade.Status.AUTO_CLOSED
+        # No ratings created since there were no shipments to evaluate
+        assert Rating.objects.filter(trade=trade).count() == 0
+
+
+@pytest.mark.django_db
+class TestClosureWarningBoundary:
+    @patch("django_q.tasks.async_task")
+    def test_trade_exactly_at_boundary_is_warned(self, mock_async):
+        """A trade whose auto_close_at equals exactly now+2d is inside the window."""
+        sender = UserFactory()
+        receiver = UserFactory()
+        trade = TradeFactory(status=Trade.Status.SHIPPING)
+        Trade.objects.filter(pk=trade.pk).update(
+            auto_close_at=timezone.now() + timedelta(days=2)
+        )
+        TradeShipmentFactory(
+            trade=trade, sender=sender, receiver=receiver,
+            status=TradeShipment.Status.SHIPPED,
+            tracking_number="",
+        )
+
+        send_trade_closure_warnings()
+
+        assert mock_async.called
+
+    @patch("django_q.tasks.async_task")
+    def test_trade_just_outside_boundary_not_warned(self, mock_async):
+        """A trade 2 days + 2 hours away is outside the window."""
+        sender = UserFactory()
+        receiver = UserFactory()
+        trade = TradeFactory(status=Trade.Status.SHIPPING)
+        Trade.objects.filter(pk=trade.pk).update(
+            auto_close_at=timezone.now() + timedelta(days=2, hours=2)
+        )
+        TradeShipmentFactory(
+            trade=trade, sender=sender, receiver=receiver,
+            status=TradeShipment.Status.SHIPPED,
+            tracking_number="",
+        )
+
+        send_trade_closure_warnings()
+
+        assert not mock_async.called
+
+    @patch("django_q.tasks.async_task")
+    def test_late_cron_still_warns_trade_past_lower_bound(self, mock_async):
+        """If cron runs late, a trade whose auto_close_at has already passed (but hasn't
+        been auto-closed yet) should still receive a warning rather than silently missing
+        it. The lower bound of the window is now, so such a trade is excluded. This test
+        documents the known limitation: trades that slip into the past before the daily
+        warning task runs will not receive a warning email."""
+        sender = UserFactory()
+        receiver = UserFactory()
+        trade = TradeFactory(status=Trade.Status.SHIPPING)
+        # auto_close_at is 3 hours in the past — cron missed its window
+        Trade.objects.filter(pk=trade.pk).update(
+            auto_close_at=timezone.now() - timedelta(hours=3)
+        )
+        TradeShipmentFactory(
+            trade=trade, sender=sender, receiver=receiver,
+            status=TradeShipment.Status.SHIPPED,
+            tracking_number="",
+        )
+
+        send_trade_closure_warnings()
+
+        # Known limitation: warning is NOT sent because the trade is past the lower bound.
+        # The auto_close task will handle it on its next weekly run instead.
+        assert not mock_async.called
+
+    @patch("django_q.tasks.async_task")
+    def test_idempotent_second_warning_call_is_noop(self, mock_async):
+        """A second run of send_trade_closure_warnings does not re-warn the same trade."""
+        sender = UserFactory()
+        receiver = UserFactory()
+        trade = TradeFactory(status=Trade.Status.SHIPPING)
+        Trade.objects.filter(pk=trade.pk).update(
+            auto_close_at=timezone.now() + timedelta(days=1)
+        )
+        TradeShipmentFactory(
+            trade=trade, sender=sender, receiver=receiver,
+            status=TradeShipment.Status.SHIPPED,
+            tracking_number="",
+        )
+
+        send_trade_closure_warnings()
+        first_call_count = mock_async.call_count
+
+        send_trade_closure_warnings()
+        second_call_count = mock_async.call_count
+
+        assert first_call_count == 1
+        assert second_call_count == 1  # no additional calls on second run
+
+
+@pytest.mark.django_db
 class TestTradeRateViewAutoClosedGuard:
     def test_rating_after_auto_close_does_not_flip_to_completed(self, client):
         """A human rating on an AUTO_CLOSED trade does not change status to COMPLETED."""

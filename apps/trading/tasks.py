@@ -212,6 +212,15 @@ def send_trade_closure_warnings():
     ).prefetch_related("shipments")
 
     for trade in trades:
+        # Stamp the guard before queuing tasks so that a crash mid-loop
+        # does not cause re-warnings on retry for this trade.
+        updated = Trade.objects.filter(
+            pk=trade.pk, closure_warning_sent_at__isnull=True
+        ).update(closure_warning_sent_at=now)
+        if not updated:
+            # Another worker already claimed this trade.
+            continue
+
         if trade.status == Trade.Status.CONFIRMED:
             # Nothing shipped at all — warn all senders
             for shipment in trade.shipments.all():
@@ -247,9 +256,6 @@ def send_trade_closure_warnings():
                             trade.pk,
                             shipment.sender_id,
                         )
-
-        trade.closure_warning_sent_at = now
-        trade.save(update_fields=["closure_warning_sent_at"])
 
         logger.info("Queued closure warnings for trade %s", trade.pk)
 
