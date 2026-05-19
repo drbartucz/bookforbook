@@ -17,7 +17,6 @@ import { apiListWishlist, apiLogin } from '../../helpers/api.js';
 test.describe('Home / Browse', () => {
   test('guest sees hero section with Register and Sign in CTAs', async ({ guestPage: page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { name: /trade books, not money/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /register/i })).toBeVisible();
@@ -26,7 +25,6 @@ test.describe('Home / Browse', () => {
 
   test('browse grid shows seeded available books', async ({ guestPage: page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     // Seed has alice/bob/carol with books — at least one card must appear
     const card = page.locator('.card').filter({ has: page.locator('h3') }).first();
@@ -40,7 +38,6 @@ test.describe('Home / Browse', () => {
 
   test('search by title filters results', async ({ guestPage: page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     // Wait for initial results to render
     await page.locator('.card').filter({ has: page.locator('h3') }).first()
@@ -52,7 +49,6 @@ test.describe('Home / Browse', () => {
     await searchInput.fill('Nineteen Eighty-Four');
     // Debounce delay is 400ms — wait a bit longer
     await page.waitForTimeout(600);
-    await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/nineteen eighty-four/i).first()).toBeVisible({ timeout: 8_000 });
     // Unrelated books should not appear
@@ -61,14 +57,12 @@ test.describe('Home / Browse', () => {
 
   test('condition filter narrows results', async ({ guestPage: page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     await page.locator('.card').filter({ has: page.locator('h3') }).first()
       .waitFor({ state: 'visible', timeout: 10_000 });
 
     // Filter to Very Good — seed has bob_gatsby and bob_tolstoy in VERY_GOOD
     await page.getByLabel(/filter by condition/i).selectOption('very_good');
-    await page.waitForLoadState('networkidle');
     await page.waitForTimeout(300);
 
     // Results count or empty state must appear
@@ -78,7 +72,6 @@ test.describe('Home / Browse', () => {
 
   test('search with no match shows empty state', async ({ guestPage: page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     await page.locator('.card').filter({ has: page.locator('h3') }).first()
       .waitFor({ state: 'visible', timeout: 10_000 });
@@ -87,7 +80,6 @@ test.describe('Home / Browse', () => {
       .or(page.getByPlaceholder(/search by title/i));
     await searchInput.fill('xyzzy-no-book-matches-this-query-12345');
     await page.waitForTimeout(600);
-    await page.waitForLoadState('networkidle');
 
     // The emptyTitle paragraph — use .first() since resultsCount also says "No books found"
     await expect(page.getByText(/no books found/i).first()).toBeVisible({ timeout: 8_000 });
@@ -96,7 +88,6 @@ test.describe('Home / Browse', () => {
 
   test('authenticated user sees Want this button on book cards', async ({ carolPage: page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     // Search for a book carol doesn't own (alice's Nineteen Eighty-Four)
     // War and Peace may be RESERVED by a donation acceptance earlier in the suite
@@ -104,7 +95,6 @@ test.describe('Home / Browse', () => {
       .or(page.getByPlaceholder(/search by title/i));
     await searchInput.fill('Nineteen Eighty-Four');
     await page.waitForTimeout(600);
-    await page.waitForLoadState('networkidle');
 
     const wantBtn = page.getByRole('button', { name: /want this/i }).first();
     await expect(wantBtn).toBeVisible({ timeout: 8_000 });
@@ -124,13 +114,11 @@ test.describe('Home / Browse', () => {
     }
 
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     const searchInput = page.getByRole('searchbox', { name: /search books/i })
       .or(page.getByPlaceholder(/search by title/i));
     await searchInput.fill('Nineteen Eighty-Four');
     await page.waitForTimeout(600);
-    await page.waitForLoadState('networkidle');
 
     const wantBtn = page.getByRole('button', { name: /want this/i }).first();
     await expect(wantBtn).toBeVisible({ timeout: 8_000 });
@@ -143,7 +131,6 @@ test.describe('Home / Browse', () => {
 
   test('authenticated user does not see hero CTAs', async ({ alicePage: page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     // Hero Register/Sign-in CTAs should not be shown to authenticated users
     await expect(page.getByRole('link', { name: /^register$/i })).not.toBeVisible();
@@ -151,7 +138,6 @@ test.describe('Home / Browse', () => {
 
   test('results count text shows number of available books', async ({ guestPage: page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     await page.locator('.card').filter({ has: page.locator('h3') }).first()
       .waitFor({ state: 'visible', timeout: 10_000 });

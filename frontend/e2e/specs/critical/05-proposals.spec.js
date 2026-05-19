@@ -12,12 +12,10 @@ test.describe('Proposals', () => {
   test('page loads with pending / received filter active', async ({ alicePage: page }) => {
     await page.goto('/proposals');
     await expect(page.getByRole('heading', { name: /proposals/i })).toBeVisible();
-    await page.waitForLoadState('networkidle');
   });
 
   test('alice sees seeded pending proposal from bob', async ({ alicePage: page }) => {
     await page.goto('/proposals');
-    await page.waitForLoadState('networkidle');
 
     // Default view: received + pending — shows bob's proposal
     const proposalCard = page.locator('[class*="proposalCard"]').first();
@@ -30,7 +28,6 @@ test.describe('Proposals', () => {
 
   test('alice can accept a pending proposal', async ({ alicePage: page }) => {
     await page.goto('/proposals');
-    await page.waitForLoadState('networkidle');
 
     const acceptBtn = page.getByRole('button', { name: /^accept$/i }).first();
     const count = await acceptBtn.count();
@@ -49,7 +46,6 @@ test.describe('Proposals', () => {
 
   test('alice can decline a pending proposal', async ({ alicePage: page }) => {
     await page.goto('/proposals');
-    await page.waitForLoadState('networkidle');
 
     const declineBtn = page.getByRole('button', { name: /^decline$/i }).first();
     const count = await declineBtn.count();
@@ -70,7 +66,6 @@ test.describe('Proposals', () => {
 
     // Switch to Sent direction
     await page.getByRole('button', { name: /^sent$/i }).click();
-    await page.waitForLoadState('networkidle');
 
     await expect(
       page.locator('[class*="proposalCard"]').first().or(page.getByText(/no proposals found/i))
@@ -81,7 +76,6 @@ test.describe('Proposals', () => {
 
   test('Accepted status tab shows accepted proposals', async ({ alicePage: page }) => {
     await page.goto('/proposals');
-    await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: /^accepted$/i }).click();
 
@@ -95,7 +89,6 @@ test.describe('Proposals', () => {
 
   test('Declined status tab shows declined proposals', async ({ alicePage: page }) => {
     await page.goto('/proposals');
-    await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: /^declined$/i }).click();
 
@@ -109,7 +102,6 @@ test.describe('Proposals', () => {
 
   test('All status tab with Sent direction shows bobs sent proposals', async ({ bobPage: page }) => {
     await page.goto('/proposals');
-    await page.waitForLoadState('networkidle');
 
     // Direction: Sent, Status: All
     await page.getByRole('button', { name: /^sent$/i }).click();
