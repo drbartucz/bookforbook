@@ -11,7 +11,7 @@ const FAQ_DATA = [
   {
     id: 'kinds-of-books',
     question: 'What kinds of books can I trade?',
-    answer: 'You can trade any books (including books on CD!) that you own that are in good condition. We encourage trading fiction, non-fiction, kids\' books, textbooks, and other popular titles. Make sure to include a brief description of the book and its condition when listing it.'
+    answer: 'You can trade any books (including books on CD!) with an ISBN that are in good condition. We encourage trading fiction, non-fiction, kids\' books, textbooks, and other popular titles. Make sure to include a brief description of the book and its condition when listing it.'
   },
   {
     id: 'discover',
@@ -26,7 +26,7 @@ const FAQ_DATA = [
   {
     id: 'no-match-yet',
     question: 'Why hasn\'t my book been matched yet?',
-    answer: 'Matching runs automatically every 6 hours, but a match can only happen when someone else has a book you want and also wants a book you have. If you\'re not getting matched, try adding more books to your want list to increase your chances. Also note that if you\'ve reached your active trade limit, new matches won\'t be proposed until an existing trade closes.'
+    answer: 'Matching runs automatically when you add a book and every 6 hours in the background, but a match can only happen when someone else has a book you want and also wants a book you have. If you\'re not getting matched, try adding more books to your want list to increase your chances. Also note that if you\'ve reached your active trade limit, new matches won\'t be proposed until an existing trade closes.'
   },
   {
     id: 'shipping',
@@ -97,7 +97,7 @@ export default function About() {
         <h2 className={styles.sectionTitle}>How It Works</h2>
         <ol className={styles.stepsList}>
           <li>Create an account and verify your address.</li>
-          <li>List the books you have and the books you want.</li>
+          <li>List the books you have and the books you want (even books on CD and kids' books!).</li>
           <li>If you don't get a match right away, browse the "Discover" tab to find books offered by people who already want what you have.</li>
           <li>When you get a match, you can accept or reject the trade. If you both accept, your addresses are shared and you can ship your book to your trade partner.</li>
           <li>Once you ship your book, please enter a tracking number for verification.</li>
