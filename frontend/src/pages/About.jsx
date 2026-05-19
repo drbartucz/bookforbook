@@ -14,9 +14,24 @@ const FAQ_DATA = [
     answer: 'Once you list books you have, you can go to the "Discover" tab and it will show all the books being offered by people who want something you have!'
   },
   {
+    id: 'decline-match',
+    question: 'What happens if I decline a match?',
+    answer: 'Declining a match cancels that pairing and returns both books to the available pool. Your book will be re-evaluated in the next matching scan (which runs every 6 hours) and may be matched with someone else. Declining does not penalize your account — but repeatedly accepting and then not shipping will affect your rating.'
+  },
+  {
+    id: 'no-match-yet',
+    question: 'Why hasn\'t my book been matched yet?',
+    answer: 'Matching runs automatically every 6 hours, but a match can only happen when someone else has a book you want and also wants a book you have. If you\'re not getting matched, try adding more books to your want list to increase your chances. Also note that if you\'ve reached your active trade limit, new matches won\'t be proposed until an existing trade closes.'
+  },
+  {
     id: 'shipping',
     question: 'How does shipping work?',
     answer: 'Once a trade is confirmed, you will receive the shipping address of your trade partner. You are responsible for shipping your book to them, and in return, someone will ship a book to you. We recommend using USPS Media Mail for cost-effective shipping within the US. You can also use UPS or FedEx and enter those tracking numbers. A valid tracking number is required to earn trade credit.'
+  },
+  {
+    id: 'repeat-trade',
+    question: 'Can I trade the same book multiple times?',
+    answer: 'Once a book is marked as traded it is removed from your have list. If you have another copy, simply add it again. There is no limit to how many times you can list and trade the same title.'
   },
   {
     id: 'auto-close',
@@ -34,6 +49,11 @@ const FAQ_DATA = [
     answer: 'New users start with 1 active trade slot. Each rating you receive unlocks an additional slot, up to a maximum of 10. So an experienced trader with 10 or more ratings can have up to 10 trades open at once. The best way to increase your capacity is to complete trades and earn positive reviews.'
   },
   {
+    id: 'institutions',
+    question: 'Can I trade with a library or bookstore?',
+    answer: 'Libraries and bookstores can create institutional accounts, but they are not included in automatic matching. You can propose a trade directly to an institutional account through the Discover tab, or receive a proposal from them. Institutional accounts must be verified by our team before they can participate.'
+  },
+  {
     id: 'is-it-free',
     question: 'Is it free to use?',
     answer: 'Yes! BookForBook is free to use. You only pay for the cost of shipping the books you send to others. There are no subscription fees or per-trade charges.'
@@ -45,8 +65,13 @@ const FAQ_DATA = [
   },
   {
     id: 'condition',
-    question: 'What should be the condition of the books?',
-    answer: 'We expect all books to be in "Good" or better condition—meaning no missing pages, excessive highlighting, or significant water damage. Please be honest about the condition of your books when listing them.'
+    question: 'What condition do books need to be in?',
+    answer: 'Books must be listed in one of four conditions: Acceptable (readable but well-worn — may have highlighting, notes, or creased pages), Good (some wear but no major damage), Very Good (minor signs of use only), or Like New (essentially unread). We do not accept books with missing pages, severe water damage, or broken spines. Please be honest when listing — if a book arrives in noticeably worse condition than described, the recipient can flag this in their rating.'
+  },
+  {
+    id: 'account-deletion',
+    question: 'What happens to my books if I delete my account?',
+    answer: 'When you request account deletion, your books are immediately removed from the matching pool so no new trades are proposed. Any trades already in progress continue normally. Your account and personal data are permanently deleted 30 days after the request, giving you time to cancel if you change your mind. You can cancel the deletion request any time before that 30-day window closes.'
   },
   {
     id: 'feedback',

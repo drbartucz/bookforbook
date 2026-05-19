@@ -61,6 +61,16 @@ describe('About Page', () => {
     expect(screen.getByText('How many trades can I have open at the same time?')).toBeInTheDocument();
   });
 
+  it('renders new FAQ entries', () => {
+    render(<About />);
+    expect(screen.getByText('What happens if I decline a match?')).toBeInTheDocument();
+    expect(screen.getByText(/Why hasn.*t my book been matched yet/)).toBeInTheDocument();
+    expect(screen.getByText('Can I trade the same book multiple times?')).toBeInTheDocument();
+    expect(screen.getByText('Can I trade with a library or bookstore?')).toBeInTheDocument();
+    expect(screen.getByText('What condition do books need to be in?')).toBeInTheDocument();
+    expect(screen.getByText('What happens to my books if I delete my account?')).toBeInTheDocument();
+  });
+
   it('toggles FAQ items when clicked', async () => {
     render(<About />);
 
