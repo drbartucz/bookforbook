@@ -23,7 +23,6 @@ test.describe('Matches', () => {
     await page.goto('/matches');
 
     // Wait for match cards to load
-    await page.waitForLoadState('networkidle');
 
     // Should see the books from the seeded match
     const bookTitle = page.getByText(/nineteen eighty-four|great gatsby/i).first();
@@ -36,7 +35,6 @@ test.describe('Matches', () => {
 
   test('alice can accept a proposed match', async ({ alicePage: page }) => {
     await page.goto('/matches');
-    await page.waitForLoadState('networkidle');
 
     // Count proposed matches
     const matchCards = page.locator('[class*="matchCard"]');
@@ -54,7 +52,6 @@ test.describe('Matches', () => {
 
   test('bob can decline a proposed match', async ({ bobPage: page }) => {
     await page.goto('/matches');
-    await page.waitForLoadState('networkidle');
 
     const declineBtn = page.getByRole('button', { name: /^decline$/i }).first();
     // Only proceed if bob still has a proposed match; otherwise skip gracefully
@@ -76,7 +73,6 @@ test.describe('Matches', () => {
   }) => {
     // Carol has no address — accepting should surface an error with a link to /account
     await page.goto('/matches');
-    await page.waitForLoadState('networkidle');
 
     const acceptBtn = page.getByRole('button', { name: /accept match/i }).first();
     const count = await acceptBtn.count();
