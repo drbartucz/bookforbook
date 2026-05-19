@@ -9,6 +9,11 @@ const FAQ_DATA = [
     answer: 'BookForBook is a free book swap platform. You list the books you have and the books you want. Our system automatically matches you with a complementary trade. If you both accept the trade, your addresses are shared. Once you ship the item, you can enter a tracking number for verification. When the items are received, you rate the other user and your addresses disappear!'
   },
   {
+    id: 'kinds-of-books',
+    question: 'What kinds of books can I trade?',
+    answer: 'You can trade any books (including books on CD!) that you own that are in good condition. We encourage trading fiction, non-fiction, kids\' books, textbooks, and other popular titles. Make sure to include a brief description of the book and its condition when listing it.'
+  },
+  {
     id: 'discover',
     question: 'What if I don\'t know what books I want?',
     answer: 'Once you list books you have, you can go to the "Discover" tab and it will show all the books being offered by people who want something you have!'
