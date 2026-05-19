@@ -320,3 +320,47 @@
   color: var(--color-gray-500);
   text-align: right;
 }
+
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+}
+
+.dialogContent {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  width: min(90vw, 28rem);
+  z-index: 101;
+  box-shadow: var(--shadow-lg);
+}
+
+.dialogTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.dialogDescription {
+  font-size: 0.9375rem;
+  color: var(--color-gray-700);
+  margin-bottom: 1.25rem;
+}
+
+.dialogActions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.autoCloseDate {
+  font-size: 0.8125rem;
+  color: var(--color-gray-500);
+  margin-top: 0.125rem;
+}

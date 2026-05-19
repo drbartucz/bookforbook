@@ -244,7 +244,8 @@ Trade
 ├── updated_at          timestamp
 ├── completed_at        nullable timestamp
 ├── auto_close_at       nullable timestamp (set to confirmed_at + 3 weeks)
-└── rating_reminders_sent  integer, default 0 (0, 1, 2, or 3 weekly reminders)
+├── rating_reminders_sent  integer, default 0 (0, 1, 2, or 3 weekly reminders)
+└── closure_warning_sent_at  nullable timestamp (set when 2-day warning is dispatched)
 
 TradeShipment (one per direction in the trade)
 ├── id                  UUID, primary key
@@ -265,7 +266,7 @@ TradeShipment (one per direction in the trade)
 - Address is revealed to both parties at this point.
 - Each shipment is tracked independently — one side might ship before the other.
 - `one_received` means one party confirmed receipt; `completed` means both have.
-- **Auto-close logic:** After a match is accepted, a weekly background task sends rating reminders to users who haven't rated yet (up to 3 reminders). After 3 weeks with no rating, the trade is auto-closed with status `auto_closed` — the book is assumed received, UserBooks move to `traded`, and user trade counts are updated. No rating is recorded.
+- **Auto-close logic:** After a match is accepted, a weekly background task sends rating reminders to users who haven't rated yet (up to 3 reminders). After 3 weeks, the trade is auto-closed with status `auto_closed`. Per-shipment: valid tracking or received → 5-star auto-rating from 'trademanager'; no valid tracking → 1-star 'Did not ship' auto-rating, book restored.
 - **No dispute resolution.** The rating system is the only accountability mechanism. Users who send wrong books or don't ship will accumulate bad ratings.
 
 ### Ratings
@@ -283,7 +284,7 @@ Rating
 ├── created_at          timestamp
 └── updated_at          timestamp
 
-UNIQUE CONSTRAINT: (trade_id, rater_id) — one rating per user per trade
+UNIQUE CONSTRAINT: (trade_id, rater_id, rated_id) — one rating per rater+rated pair per trade
 ```
 
 **Notes:**
@@ -482,10 +483,19 @@ After a trade is confirmed:
             → Increment rating_reminders_sent
         → If auto_close_at has passed AND trade is not completed:
             → Set status = 'auto_closed'
-            → Mark all shipments as 'received' (assumed)
-            → Mark UserBooks as 'traded'
-            → Increment User.total_trades for both parties
-            → No rating is recorded
+            → If trade was CONFIRMED (nothing shipped):
+                → Restore all UserBooks to 'available'
+                → No ratings, no trade credit
+            → If trade was SHIPPING or ONE_RECEIVED (per shipment):
+                → Shipment has valid tracking OR status=RECEIVED:
+                    → Mark shipment RECEIVED, UserBook TRADED
+                    → Increment total_trades for sender AND receiver
+                    → Create 5-star Rating from 'trademanager' system user
+                → Shipment has no valid tracking:
+                    → Mark shipment NOT_RECEIVED, UserBook AVAILABLE
+                    → No trade credit increment
+                    → Create 1-star Rating ("Did not ship") from 'trademanager'
+            → Daily task (send_trade_closure_warnings) warns affected users 2 days before
 
 When a user DOES submit a rating:
     → Score (1-5) + optional comment + condition accuracy

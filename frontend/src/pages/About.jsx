@@ -16,7 +16,12 @@ const FAQ_DATA = [
   {
     id: 'shipping',
     question: 'How does shipping work?',
-    answer: 'Once a trade is confirmed, you will receive the shipping address of your trade partner. You are responsible for shipping your book to them, and in return, someone will ship a book to you. We recommend using USPS Media Mail for cost-effective shipping within the US. You can also use UPS or Fedex and enter those tracking numbers.'
+    answer: 'Once a trade is confirmed, you will receive the shipping address of your trade partner. You are responsible for shipping your book to them, and in return, someone will ship a book to you. We recommend using USPS Media Mail for cost-effective shipping within the US. You can also use UPS or FedEx and enter those tracking numbers. A valid tracking number is required to earn trade credit.'
+  },
+  {
+    id: 'auto-close',
+    question: 'What happens if a trade is never completed?',
+    answer: 'Trades automatically close after 3 weeks. If you shipped your book with a valid USPS, UPS, or FedEx tracking number — or your trade partner marked it as received — you will earn trade credit and an automatic 5-star review from "Trade Manager". If no valid tracking number is on file when the trade closes, your book will be returned to your available list and you will receive a 1-star "Did not ship" review. You will receive a warning email 2 days before auto-close if your tracking information is missing.'
   },
   {
     id: 'is-it-free',

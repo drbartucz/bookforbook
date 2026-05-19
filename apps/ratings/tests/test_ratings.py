@@ -154,3 +154,36 @@ class TestRatingUnique:
 
         with pytest.raises(IntegrityError):
             _make_rating(trade, a, b, 3)
+
+
+class TestRatingUniqueWithRated:
+    def test_trade_manager_can_rate_two_senders(self):
+        """Trade Manager can create two ratings on the same trade for different senders."""
+        from apps.accounts.models import User
+        trade_manager, _ = User.objects.get_or_create(
+            username="trademanager",
+            defaults={"email": "trademanager@system.internal", "is_active": False},
+        )
+        a = UserFactory()
+        b = UserFactory()
+        trade = _make_trade(a, b)
+
+        _make_rating(trade, trade_manager, a, 5)
+        _make_rating(trade, trade_manager, b, 5)  # should not raise
+
+        assert Rating.objects.filter(trade=trade, rater=trade_manager).count() == 2
+
+    def test_trade_manager_cannot_rate_same_sender_twice(self):
+        """Trade Manager cannot rate the same person twice on the same trade."""
+        from apps.accounts.models import User
+        trade_manager, _ = User.objects.get_or_create(
+            username="trademanager",
+            defaults={"email": "trademanager@system.internal", "is_active": False},
+        )
+        a = UserFactory()
+        b = UserFactory()
+        trade = _make_trade(a, b)
+
+        _make_rating(trade, trade_manager, a, 5)
+        with pytest.raises(IntegrityError):
+            _make_rating(trade, trade_manager, a, 1)

@@ -200,6 +200,13 @@ class MarkShippedSerializer(serializers.Serializer):
     tracking_number = serializers.CharField(required=False, allow_blank=True, max_length=100)
     shipping_method = serializers.CharField(required=False, allow_blank=True, max_length=100)
 
+    def validate_tracking_number(self, value):
+        from apps.trading.utils import is_valid_tracking_number
+        if value and not is_valid_tracking_number(value):
+            # Soft warning — not a hard error, stored as-is but flagged
+            self._tracking_unrecognized = True
+        return value
+
 
 class TradeRateSerializer(serializers.Serializer):
     rated_user_id = serializers.UUIDField()

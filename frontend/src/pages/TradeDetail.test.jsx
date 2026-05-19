@@ -130,9 +130,9 @@ describe('TradeDetail page', () => {
         trades.markShipped.mockResolvedValue({ data: {} });
         renderWithProviders(<TradeDetail />);
         await userEvent.click(await screen.findByRole('button', { name: /mark my book as shipped/i }));
-        await userEvent.type(screen.getByRole('textbox', { name: /tracking number/i }), 'TRACK123');
+        await userEvent.type(screen.getByRole('textbox', { name: /tracking number/i }), '1Z999AA10123456784');
         await userEvent.click(screen.getByRole('button', { name: /confirm shipped/i }));
-        await waitFor(() => expect(trades.markShipped).toHaveBeenCalledWith('trade-1', { tracking_number: 'TRACK123' }));
+        await waitFor(() => expect(trades.markShipped).toHaveBeenCalledWith('trade-1', { tracking_number: '1Z999AA10123456784' }));
     });
 
     it('shows "Mark Book Received" button when partner has shipped', async () => {
@@ -1319,5 +1319,112 @@ describe('TradeDetail page', () => {
         expect(msgTypeSelect).toHaveValue('issue_report');
         // issue_report tooltip content should be rendered in the DOM
         expect(screen.getByText(/damaged book|no contact/i)).toBeInTheDocument();
+    });
+
+    it('shows AlertDialog when invalid tracking number is submitted', async () => {
+        trades.getDetail.mockResolvedValue({ data: makeTrade({ status: 'confirmed' }) });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        renderWithProviders(<TradeDetail />);
+
+        await userEvent.click(await screen.findByRole('button', { name: /mark my book as shipped/i }));
+        const trackingInput = screen.getByRole('textbox', { name: /tracking number/i });
+        await userEvent.type(trackingInput, 'BADTRACKING123');
+        await userEvent.click(screen.getByRole('button', { name: /confirm shipped/i }));
+
+        expect(await screen.findByText(/unrecognized tracking number/i)).toBeInTheDocument();
+        expect(trades.markShipped).not.toHaveBeenCalled();
+    });
+
+    it('does not show AlertDialog for valid UPS tracking number', async () => {
+        trades.getDetail.mockResolvedValue({ data: makeTrade({ status: 'confirmed' }) });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        trades.markShipped.mockResolvedValue({ data: {} });
+        renderWithProviders(<TradeDetail />);
+
+        await userEvent.click(await screen.findByRole('button', { name: /mark my book as shipped/i }));
+        const trackingInput = screen.getByRole('textbox', { name: /tracking number/i });
+        await userEvent.type(trackingInput, '1Z999AA10123456784');
+        await userEvent.click(screen.getByRole('button', { name: /confirm shipped/i }));
+
+        expect(screen.queryByText(/unrecognized tracking number/i)).not.toBeInTheDocument();
+        await waitFor(() => expect(trades.markShipped).toHaveBeenCalled());
+    });
+
+    it('submits when user clicks Continue Anyway in AlertDialog', async () => {
+        trades.getDetail.mockResolvedValue({ data: makeTrade({ status: 'confirmed' }) });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        trades.markShipped.mockResolvedValue({ data: {} });
+        renderWithProviders(<TradeDetail />);
+
+        await userEvent.click(await screen.findByRole('button', { name: /mark my book as shipped/i }));
+        await userEvent.type(screen.getByRole('textbox', { name: /tracking number/i }), 'CUSTOMCARRIER99');
+        await userEvent.click(screen.getByRole('button', { name: /confirm shipped/i }));
+        await screen.findByText(/unrecognized tracking number/i);
+        await userEvent.click(screen.getByRole('button', { name: /continue anyway/i }));
+
+        await waitFor(() => expect(trades.markShipped).toHaveBeenCalled());
+    });
+
+    it('shows tracking warning banner when auto_close_at is within 7 days and no valid tracking', async () => {
+        const soon = new Date();
+        soon.setDate(soon.getDate() + 3);
+        trades.getDetail.mockResolvedValue({
+            data: makeTrade({
+                status: 'shipping',
+                auto_close_at: soon.toISOString(),
+                shipments: [
+                    {
+                        sender: { id: 'user-1', username: 'me' },
+                        receiver: { id: 'user-2', username: 'partner' },
+                        status: 'pending',
+                        tracking_number: '',
+                        user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                    },
+                    {
+                        sender: { id: 'user-2', username: 'partner' },
+                        receiver: { id: 'user-1', username: 'me' },
+                        status: 'shipped',
+                        tracking_number: '',
+                        user_book: { condition: 'good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                    },
+                ],
+            }),
+        });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        renderWithProviders(<TradeDetail />);
+
+        expect(await screen.findByTestId('tracking-warning-banner')).toBeInTheDocument();
+    });
+
+    it('does not show tracking warning banner when valid tracking is present', async () => {
+        const soon = new Date();
+        soon.setDate(soon.getDate() + 3);
+        trades.getDetail.mockResolvedValue({
+            data: makeTrade({
+                status: 'shipping',
+                auto_close_at: soon.toISOString(),
+                shipments: [
+                    {
+                        sender: { id: 'user-1', username: 'me' },
+                        receiver: { id: 'user-2', username: 'partner' },
+                        status: 'shipped',
+                        tracking_number: '1Z999AA10123456784',
+                        user_book: { condition: 'good', book: { id: 'b1', title: 'My Book', authors: [] } },
+                    },
+                    {
+                        sender: { id: 'user-2', username: 'partner' },
+                        receiver: { id: 'user-1', username: 'me' },
+                        status: 'shipped',
+                        tracking_number: '',
+                        user_book: { condition: 'good', book: { id: 'b2', title: 'Their Book', authors: [] } },
+                    },
+                ],
+            }),
+        });
+        trades.getMessages.mockResolvedValue({ data: [] });
+        renderWithProviders(<TradeDetail />);
+
+        await screen.findByText('My Book');
+        expect(screen.queryByTestId('tracking-warning-banner')).not.toBeInTheDocument();
     });
 });

@@ -10,7 +10,21 @@ import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import { buildTradeRatingPayload, mapTradeForView } from '../adapters/trades.js';
 import Tooltip from '../components/common/Tooltip.jsx';
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import styles from './TradeDetail.module.css';
+
+const TRACKING_PATTERNS = [
+  /^(9[0-5])\d{20}$/,
+  /^1Z[0-9A-Z]{16}$/i,
+  /^(?:96|98)\d{16}$/,
+  /^\d{15}$/,
+];
+
+function isValidTrackingNumber(value) {
+  if (!value) return false;
+  const normalized = value.trim().toUpperCase();
+  return TRACKING_PATTERNS.some((p) => p.test(normalized));
+}
 
 const MESSAGE_MAX_LENGTH = 1000;
 
@@ -130,6 +144,8 @@ export default function TradeDetail() {
   const [msgContent, setMsgContent] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [showShipForm, setShowShipForm] = useState(false);
+  const [showTrackingWarning, setShowTrackingWarning] = useState(false);
+  const [pendingShipSubmit, setPendingShipSubmit] = useState(false);
   const [showRateForm, setShowRateForm] = useState(false);
   const [ratingScore, setRatingScore] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
@@ -233,10 +249,19 @@ export default function TradeDetail() {
 
   const messages = messagesData?.results ?? messagesData ?? [];
 
-  const isCompleted = tradeView.status === 'completed';
+  const isCompleted = ['completed', 'auto_closed'].includes(tradeView.status);
   const canMarkShipped = ['confirmed', 'shipping', 'one_received'].includes(tradeView.status) && !tradeView.myShipped;
   const canMarkReceived = ['shipping', 'one_received'].includes(tradeView.status) && tradeView.theyShipped && !tradeView.iReceived;
   const canRate = isCompleted && !tradeView.iRated;
+
+  const daysUntilClose = trade.auto_close_at
+    ? Math.ceil((new Date(trade.auto_close_at) - new Date()) / (1000 * 60 * 60 * 24))
+    : null;
+  const showTrackingWarningBanner =
+    canMarkShipped &&
+    daysUntilClose !== null &&
+    daysUntilClose <= 7 &&
+    !isValidTrackingNumber(tradeView.myTracking);
   const messageLength = msgContent.length;
 
   function submitMessageIfValid() {
@@ -273,6 +298,11 @@ export default function TradeDetail() {
               {trade.created_at && (
                 <p className={styles.tradeDate}>
                   Started {format(new Date(trade.created_at), 'MMMM d, yyyy')}
+                </p>
+              )}
+              {trade.auto_close_at && !['completed', 'auto_closed'].includes(tradeView.status) && (
+                <p className={styles.autoCloseDate}>
+                  Auto-closes {format(new Date(trade.auto_close_at), 'MMMM d, yyyy')}
                 </p>
               )}
             </div>
@@ -329,6 +359,14 @@ export default function TradeDetail() {
             <div className="alert alert-error">{actionError}</div>
           )}
 
+          {showTrackingWarningBanner && (
+            <div className="alert alert-error" data-testid="tracking-warning-banner">
+              No valid tracking number on file. If not provided before{' '}
+              {format(new Date(trade.auto_close_at), 'MMMM d, yyyy')}, this trade will
+              auto-close with a 1-star review.
+            </div>
+          )}
+
           <div className={styles.actions}>
             {canMarkShipped && (
               <>
@@ -351,7 +389,13 @@ export default function TradeDetail() {
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
                       <button
                         className="btn btn-success"
-                        onClick={() => markShippedMutation.mutate()}
+                        onClick={() => {
+                          if (trackingNumber && !isValidTrackingNumber(trackingNumber)) {
+                            setShowTrackingWarning(true);
+                          } else {
+                            markShippedMutation.mutate();
+                          }
+                        }}
                         disabled={markShippedMutation.isPending}
                       >
                         {markShippedMutation.isPending ? 'Marking...' : 'Confirm Shipped'}
@@ -460,6 +504,36 @@ export default function TradeDetail() {
             )}
           </div>
         </div>
+
+        <AlertDialog.Root open={showTrackingWarning} onOpenChange={setShowTrackingWarning}>
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay className={styles.dialogOverlay} />
+            <AlertDialog.Content className={styles.dialogContent}>
+              <AlertDialog.Title className={styles.dialogTitle}>
+                Unrecognized tracking number
+              </AlertDialog.Title>
+              <AlertDialog.Description className={styles.dialogDescription}>
+                This tracking number doesn&apos;t match a known USPS, UPS, or FedEx format. Are you sure it&apos;s correct?
+              </AlertDialog.Description>
+              <div className={styles.dialogActions}>
+                <AlertDialog.Cancel asChild>
+                  <button className="btn btn-outline-danger">Go Back</button>
+                </AlertDialog.Cancel>
+                <AlertDialog.Action asChild>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setShowTrackingWarning(false);
+                      markShippedMutation.mutate();
+                    }}
+                  >
+                    Continue Anyway
+                  </button>
+                </AlertDialog.Action>
+              </div>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog.Root>
 
         {/* Right: Messages */}
         <div className={styles.sidebar}>

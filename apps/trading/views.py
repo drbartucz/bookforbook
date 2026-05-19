@@ -448,7 +448,10 @@ class TradeRateView(APIView):
                     "rater_id", flat=True
                 )
             )
-            if rated_ids >= all_rater_ids and trade.status != Trade.Status.COMPLETED:
+            if rated_ids >= all_rater_ids and trade.status not in [
+                Trade.Status.COMPLETED,
+                Trade.Status.AUTO_CLOSED,
+            ]:
                 trade.status = Trade.Status.COMPLETED
                 trade.completed_at = timezone.now()
                 trade.save(update_fields=["status", "completed_at"])
