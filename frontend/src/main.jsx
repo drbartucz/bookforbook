@@ -5,6 +5,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.jsx';
 import './index.css';
 
+if (import.meta.env.VITE_UMAMI_SRC && import.meta.env.VITE_UMAMI_WEBSITE_ID) {
+  const script = document.createElement('script');
+  script.defer = true;
+  script.src = import.meta.env.VITE_UMAMI_SRC;
+  script.dataset.websiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID;
+  document.head.appendChild(script);
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

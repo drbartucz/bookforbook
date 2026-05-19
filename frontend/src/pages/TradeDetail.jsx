@@ -182,6 +182,7 @@ export default function TradeDetail() {
   const markReceivedMutation = useMutation({
     mutationFn: () => tradesApi.markReceived(id),
     onSuccess: () => {
+      window.umami?.track('trade_received');
       queryClient.invalidateQueries({ queryKey: ['trade', id] });
       setActionError(null);
     },

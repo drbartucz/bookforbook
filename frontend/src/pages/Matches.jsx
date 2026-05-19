@@ -65,6 +65,7 @@ export default function Matches() {
   const acceptMutation = useMutation({
     mutationFn: (id) => matchesApi.accept(id),
     onSuccess: () => {
+      window.umami?.track('match_accepted');
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       setActionError(null);
       setRequiresAddressVerification(false);
