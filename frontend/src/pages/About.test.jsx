@@ -9,6 +9,8 @@ vi.mock('./About.module.css', () => ({
     hero: 'hero',
     title: 'title',
     subtitle: 'subtitle',
+    sectionTitle: 'sectionTitle',
+    stepsList: 'stepsList',
     section: 'section',
     grid: 'grid',
     card: 'card',
@@ -29,10 +31,10 @@ describe('About Page', () => {
   it('renders the about page content', () => {
     render(<About />);
 
-    expect(screen.getByText('Create an account')).toBeInTheDocument();
-    expect(screen.getByText('contact')).toBeInTheDocument();
+    expect(screen.getByText(/Create an account/i)).toBeInTheDocument();
+    expect(screen.getByText(/rate your trade partner/i)).toBeInTheDocument();
     expect(screen.getByText('Sustainable')).toBeInTheDocument();
-    expect(screen.getByText('Community')).toBeInTheDocument();
+    expect(screen.getByText('Connections')).toBeInTheDocument();
     expect(screen.getByText('Cost-Effective')).toBeInTheDocument();
   });
 
@@ -57,6 +59,6 @@ describe('About Page', () => {
 
     // After click, it should be open
     expect(item).toHaveAttribute('data-state', 'open');
-    expect(screen.getByText(/BookForBook is a peer-to-peer book swapping platform/i)).toBeVisible();
+    expect(screen.getByText(/BookForBook is a free book swap platform/i)).toBeVisible();
   });
 });

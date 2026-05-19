@@ -43,8 +43,14 @@ const FAQ_DATA = [
 export default function About() {
   return (
     <div className={styles.container}>
-      <header className={styles.subtitle}>
-        <ol>
+      <header className={styles.hero}>
+        <h1 className={styles.title}>About BookForBook</h1>
+        <p className={styles.subtitle}>A free platform for swapping books you've read for books you want to read — for just the price of shipping.</p>
+      </header>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>How It Works</h2>
+        <ol className={styles.stepsList}>
           <li>Create an account and verify your address.</li>
           <li>List the books you have and the books you want.</li>
           <li>If you don't get a match right away, browse the "Discover" tab to find books offered by people that already want what you have.</li>
@@ -53,9 +59,10 @@ export default function About() {
           <li>When you receive your book, mark the trade as "received".</li>
           <li>Finally, rate your trade partner and leave feedback for the community! The more positive reviews you receive, the more books you can trade at once!</li>
         </ol>
-      </header>
+      </section>
 
       <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Why BookForBook?</h2>
         <div className={styles.grid}>
           <div className={styles.card}>
             <span className={styles.icon} aria-hidden="true">🌱</span>
