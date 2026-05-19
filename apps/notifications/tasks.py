@@ -295,6 +295,48 @@ def finalize_scheduled_account_deletions(grace_days: int = 30):
         )
 
 
+def send_closure_warning(user_id: str, trade_id: str, reason: str):
+    """Warn a user that their trade will auto-close within 2 days."""
+    from django.conf import settings
+
+    user = get_user_or_warn(user_id, "send_closure_warning")
+    if user is None:
+        return
+    trade = get_trade_or_warn(trade_id, "send_closure_warning")
+    if trade is None:
+        return
+
+    from apps.notifications.models import Notification
+    from apps.notifications.email import send_closure_warning_email
+
+    trade_url = f"{settings.FRONTEND_URL}/trades/{trade.pk}"
+
+    if reason == "not_started":
+        body = (
+            "Your trade has not been shipped yet and will auto-close in 2 days. "
+            "If no shipment is recorded, your book will be returned to your available list "
+            f"and you will receive a 1-star review. View your trade: {trade_url}"
+        )
+    else:
+        body = (
+            "Your trade will auto-close in 2 days and no valid tracking number is on file. "
+            "Please ship your book and enter a tracking number to avoid a 1-star review. "
+            f"View your trade: {trade_url}"
+        )
+
+    Notification.objects.create(
+        user=user,
+        notification_type="trade_closure_warning",
+        title="Trade closing soon",
+        body=body,
+        metadata={"trade_id": trade_id},
+    )
+
+    send_closure_warning_email(user, trade, reason)
+
+    logger.info("Sent closure warning to user %s for trade %s", user_id, trade_id)
+
+
 def check_inactivity():
     """
     Daily task: scan all users and send inactivity warnings / delist books.

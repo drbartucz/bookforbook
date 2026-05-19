@@ -46,6 +46,11 @@ describe('About Page', () => {
     expect(screen.getByText('How does shipping work?')).toBeInTheDocument();
   });
 
+  it('renders the auto-close FAQ entry', () => {
+    render(<About />);
+    expect(screen.getByText('What happens if a trade is never completed?')).toBeInTheDocument();
+  });
+
   it('toggles FAQ items when clicked', async () => {
     render(<About />);
 

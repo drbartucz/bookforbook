@@ -105,6 +105,7 @@ class Trade(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     auto_close_at = models.DateTimeField(null=True, blank=True)
     rating_reminders_sent = models.PositiveIntegerField(default=0)
+    closure_warning_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Trade"

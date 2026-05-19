@@ -122,6 +122,31 @@ def send_rating_reminder_email(user, trade) -> bool:
     return send_email(user.email, subject, text_body)
 
 
+def send_closure_warning_email(user, trade, reason: str) -> bool:
+    trade_url = f"{settings.FRONTEND_URL}/trades/{trade.pk}"
+    subject = "Action required: your BookForBook trade closes in 2 days"
+    if reason == "not_started":
+        detail = (
+            "Neither party has shipped yet. "
+            "If no shipment is recorded before the deadline, your book will be "
+            "returned to your available list and you will receive a 1-star review."
+        )
+    else:
+        detail = (
+            "No valid tracking number is on file for your shipment. "
+            "Please ship your book and enter the tracking number before the deadline "
+            "to avoid a 1-star review."
+        )
+    text_body = (
+        f"Hi {user.username},\n\n"
+        f"Your trade is closing in 2 days.\n\n"
+        f"{detail}\n\n"
+        f"View your trade here:\n{trade_url}\n\n"
+        f"— The BookForBook Team"
+    )
+    return send_email(user.email, subject, text_body)
+
+
 def send_inactivity_warning_1m_email(user) -> bool:
     subject = "We miss you on BookForBook!"
     text_body = (

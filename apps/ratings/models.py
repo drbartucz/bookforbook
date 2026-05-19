@@ -35,7 +35,7 @@ class Rating(models.Model):
     class Meta:
         verbose_name = 'Rating'
         verbose_name_plural = 'Ratings'
-        unique_together = [('trade', 'rater')]
+        unique_together = [('trade', 'rater', 'rated')]
         ordering = ['-created_at']
 
     def __str__(self):

@@ -19,6 +19,9 @@ Crontab example:
     0 3 * * 0 /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=rating_reminders
     0 3 * * 0 /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=auto_close
 
+    # Daily — warn users approaching auto-close
+    0 4 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=trade_closure_warnings
+
     # Or run all at once (less granular):
     0 3 * * * /home/bookforbook/private/bookforbook/.venv/bin/python /home/bookforbook/private/bookforbook/manage.py run_periodic_tasks --task=all
 """
@@ -37,6 +40,7 @@ TASKS = {
     "account_deletions": "apps.notifications.tasks.finalize_scheduled_account_deletions",
     "rating_reminders": "apps.trading.tasks.send_rating_reminders",
     "auto_close": "apps.trading.tasks.auto_close_trades",
+    "trade_closure_warnings": "apps.trading.tasks.send_trade_closure_warnings",
 }
 
 
