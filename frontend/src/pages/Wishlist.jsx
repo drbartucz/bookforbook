@@ -128,6 +128,7 @@ export default function Wishlist() {
   const addMutation = useMutation({
     mutationFn: (itemData) => wishlistApi.add(itemData),
     onSuccess: (response) => {
+      window.umami?.track('wishlist_added');
       // Fire background enrichment only after the add succeeds, so we don't
       // waste rate-limit budget or backend work when the add fails.
       const isbn = response?.data?.book?.isbn_13;
