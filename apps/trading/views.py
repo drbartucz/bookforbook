@@ -14,6 +14,7 @@ class _ProposalCreateThrottle(UserRateThrottle):
 
 from apps.accounts.permissions import EmailVerifiedPermission
 from apps.accounts.views import user_has_verified_shipping_address
+from apps.matching.services.direct_matcher import user_at_match_limit
 
 from .models import Trade, TradeProposal, TradeShipment
 from .serializers import (
@@ -123,6 +124,24 @@ class ProposalAcceptView(APIView):
                     "detail": "You need a USPS-verified shipping address before accepting a proposal.",
                     "code": "address_verification_required",
                     "verification_url": "/account",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if user_at_match_limit(request.user):
+            return Response(
+                {
+                    "detail": "You have reached your active match limit. Complete existing trades to make room.",
+                    "code": "match_limit_reached",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if user_at_match_limit(proposal.proposer):
+            return Response(
+                {
+                    "detail": "The proposer has reached their active match limit.",
+                    "code": "match_limit_reached",
                 },
                 status=status.HTTP_409_CONFLICT,
             )

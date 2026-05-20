@@ -51,6 +51,11 @@ class TradeProposalCreateSerializer(serializers.Serializer):
                 'You must have a verified shipping address before proposing a trade.'
             )
 
+        if proposer.is_institutional and not proposer.is_verified:
+            raise serializers.ValidationError(
+                'Institutional accounts must be verified by an admin before proposing trades.'
+            )
+
         # Validate recipient
         try:
             recipient = User.objects.get(pk=attrs['recipient_id'], is_active=True)
@@ -59,6 +64,11 @@ class TradeProposalCreateSerializer(serializers.Serializer):
 
         if recipient == proposer:
             raise serializers.ValidationError({'recipient_id': 'You cannot propose a trade with yourself.'})
+
+        if recipient.is_institutional and not recipient.is_verified:
+            raise serializers.ValidationError(
+                {'recipient_id': 'This institutional account has not been verified by an admin yet.'}
+            )
 
         # Validate proposer_book
         try:

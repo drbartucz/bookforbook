@@ -83,7 +83,7 @@ All primary keys are UUIDs. All personal address fields are encrypted at rest.
 - `account_type`: `individual` | `library` | `bookstore`
 - `email_verified`: required before any trading activity
 - Address fields (`full_name`, `address_line_1`, `address_line_2`, `city`, `state`, `zip_code`) — **encrypted at rest**, only revealed to confirmed trade partners
-- `max_active_matches = min(max(rating_count, 1), 10)` — capacity grows with ratings received
+- `max_active_matches = min(max(rating_count, 2), 10)` — capacity grows with ratings received
 - Inactivity tracking: `inactivity_warned_1m`, `inactivity_warned_2m`, `books_delisted_at`
 
 ### Book (ISBN cache)
@@ -158,7 +158,7 @@ browse/         available/, available/?q=, partner/:id/books/, shipping-estimate
 
 1. **Email verification required** before adding books, matching, or messaging. Browse is allowed without verification.
 
-2. **Match capacity**: `max_active_matches = min(max(rating_count, 1), 10)`. New users get 1 active match slot; up to 10 for experienced traders. Checked before proposing any match.
+2. **Match capacity**: `max_active_matches = min(max(rating_count, 2), 10)`. New users get 2 active match slots; up to 10 for experienced traders. Checked before proposing any match.
 
 3. **Optional account-age gate**: matching eligibility is controlled by `MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS` (default `0`, disabled). Increase to values like `24` or `48` if bot-abuse mitigation is needed.
 

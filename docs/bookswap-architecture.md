@@ -54,7 +54,7 @@ User
 ├── total_trades        integer, default 0
 ├── avg_recent_rating   decimal, computed from last 10 ratings
 ├── rating_count        integer, default 0
-├── max_active_matches  computed: min(max(rating_count, 1), 10)
+├── max_active_matches  computed: min(max(rating_count, 2), 10)
 │
 ├── # Inactivity tracking
 ├── inactivity_warned_1m  nullable timestamp (1-month warning sent)
@@ -519,14 +519,14 @@ SELECT AVG(score) FROM (
 Users earn match capacity through completed trades with ratings:
 
 ```
-New user (0 ratings):       1 active match at a time
-After 1st rating received:  1 active match
+New user (0 ratings):       2 active matches at a time
+After 1st rating received:  2 active matches
 After 2nd rating:           2 active matches
 After 3rd rating:           3 active matches
 ...
 After 10+ ratings:          10 active matches (maximum)
 
-Formula: max_active_matches = min(max(rating_count, 1), 10)
+Formula: max_active_matches = min(max(rating_count, 2), 10)
 ```
 
 **Enforcement:**
@@ -885,5 +885,5 @@ This architecture is designed to be built incrementally with Claude Code. Recomm
 - **Account deletion:** Full GDPR-style deletion with 30-day grace period, data export, and anonymization of ratings.
 - **Dispute resolution:** None. The rating system is the sole accountability mechanism.
 - **Inactivity:** Email warning at 1 month, final warning at 2 months, auto-delist (but keep in account) at 3 months. Re-list automatically on next login.
-- **Match limits:** New users get 1 active match. Capacity grows with ratings received: `min(max(rating_count, 1), 10)`.
+- **Match limits:** New users get 2 active matches. Capacity grows with ratings received: `min(max(rating_count, 2), 10)`.
 - **Trade auto-close:** Weekly rating reminders after trade confirmation. After 3 weeks with no rating, trade is auto-closed and book is assumed received.
