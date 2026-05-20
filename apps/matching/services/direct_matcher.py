@@ -261,16 +261,43 @@ def _find_book_for_trade(user_a, user_b) -> Optional[UserBook]:
     return None
 
 
+def _declined_pairing_exists(book_x_id, book_y_id) -> bool:
+    """Return True if this book pair was previously declined."""
+    from apps.matching.models import DeclinedPairing
+
+    a_id, b_id = sorted([book_x_id, book_y_id], key=str)
+    return DeclinedPairing.objects.filter(
+        user_book_a_id=a_id,
+        user_book_b_id=b_id,
+    ).exists()
+
+
 def _duplicate_match_exists(user_a, user_b, book_a: UserBook, book_b: UserBook) -> bool:
-    """Check if an equivalent active direct match already exists."""
-    existing = MatchLeg.objects.filter(
+    """Check if an equivalent active direct match already exists, or if this exact
+    pairing was previously declined."""
+    active = MatchLeg.objects.filter(
         match__status=Match.Status.PROPOSED,
         match__match_type=Match.MatchType.DIRECT,
         user_book=book_a,
         sender=user_a,
         receiver=user_b,
     ).exists()
-    return existing
+    if active:
+        return True
+    return _declined_pairing_exists(book_a.pk, book_b.pk)
+
+
+def record_declined_direct_match(match: Match) -> None:
+    """
+    Persist a DeclinedPairing for both books in a declined direct match so the
+    periodic scanner will not recreate the same pairing. Must be called inside
+    a transaction after the leg/match statuses are saved.
+    """
+    from apps.matching.models import DeclinedPairing
+
+    ub_ids = list(match.legs.values_list('user_book_id', flat=True))
+    if len(ub_ids) == 2:
+        DeclinedPairing.record_by_ids(ub_ids[0], ub_ids[1])
 
 
 @transaction.atomic
