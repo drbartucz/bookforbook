@@ -84,7 +84,7 @@ Background tasks are defined in `tasks.py` per app and dispatched via `django_q.
 - All address fields (`full_name`, `address_line_1`, `address_line_2`) use `EncryptedCharField` (django-encrypted-model-fields, Fernet). These are never returned in API responses except to confirmed trade partners.
 - `account_type`: `individual` | `library` | `bookstore`
 - `is_institutional` property: true for library/bookstore accounts
-- `max_active_matches = min(max(rating_count, 1), 10)` — match capacity grows with trade history
+- `max_active_matches = min(max(rating_count, 2), 10)` — match capacity grows with trade history
 - `last_active_at` is updated only on successful login (not on every request)
 
 ### Matching engine (`apps/matching/services/`)

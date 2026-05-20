@@ -484,7 +484,7 @@ Once accepted, the donor ships the book to your institution. No address reveal i
 | 1-for-1 only | Every trade is exactly one book in each direction |
 | Continental USA only | Shipping addresses must be in the 48 continental states (no Hawaii, Alaska, territories) |
 | Email verification | Required before listing books, matching, or trading. Browsing is open to all. |
-| Match capacity | New users: 1 active match slot. Grows to 10 with trading history. |
+| Match capacity | New users: 2 active match slots. Grows to 10 with trading history. |
 | Match age gate | Controlled by `MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS` (default `0`, disabled). Raise if bot abuse appears. |
 | Address privacy | Shipping addresses are encrypted and only revealed to confirmed trade partners |
 | Ring size | Exchange rings are capped at 5 participants |
@@ -510,7 +510,7 @@ Yes. Add it to your have-list again after the first trade completes.
 The trade auto-closes after 3 weeks. Their rating (or lack thereof) reflects this. You can leave a 1-star rating with a note.
 
 **Can I be in multiple trades at once?**
-Yes, up to your match capacity (1 slot for new users, up to 10 as you build history).
+Yes, up to your match capacity (2 slots for new users, up to 10 as you build history).
 
 **What if I'm in a ring and someone declines?**
 The system attempts to reform the ring without that person. If it can't, the ring is cancelled and all books return to available.
