@@ -1,4 +1,5 @@
 import pytest
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from unittest.mock import patch
@@ -9,8 +10,10 @@ from apps.tests.factories import (
     UserBookFactory,
     MatchFactory,
     MatchLegFactory,
+    WishlistItemFactory,
 )
-from apps.matching.models import Match, MatchLeg
+from apps.matching.models import DeclinedPairing, Match, MatchLeg
+from apps.matching.services.direct_matcher import run_direct_matching
 from apps.trading.models import Trade
 
 
@@ -338,3 +341,44 @@ class TestMatchViews:
 
         assert response.status_code == status.HTTP_200_OK
         assert mock_on_commit.called
+
+    def test_decline_records_declined_pairing(self, api_client):
+        user_a = UserFactory()
+        user_b = UserFactory()
+        ub_a = UserBookFactory(user=user_a, book=BookFactory())
+        ub_b = UserBookFactory(user=user_b, book=BookFactory())
+
+        match = MatchFactory(match_type=Match.MatchType.DIRECT)
+        MatchLegFactory(match=match, sender=user_a, receiver=user_b, user_book=ub_a)
+        MatchLegFactory(match=match, sender=user_b, receiver=user_a, user_book=ub_b)
+
+        api_client.force_authenticate(user=user_a)
+        url = reverse("match-decline", kwargs={"pk": match.pk})
+        response = api_client.post(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert DeclinedPairing.objects.count() == 1
+        pairing = DeclinedPairing.objects.get()
+        recorded_ids = {str(pairing.user_book_a_id), str(pairing.user_book_b_id)}
+        assert recorded_ids == {str(ub_a.pk), str(ub_b.pk)}
+
+    @override_settings(MATCH_ELIGIBILITY_MIN_ACCOUNT_AGE_HOURS=0)
+    def test_decline_prevents_rematch(self, api_client):
+        book = BookFactory()
+        user_a = UserFactory()
+        user_b = UserFactory()
+        ub_a = UserBookFactory(user=user_a, book=book)
+        ub_b = UserBookFactory(user=user_b, book=BookFactory())
+        WishlistItemFactory(user=user_b, book=book)
+        WishlistItemFactory(user=user_a, book=ub_b.book)
+
+        first_run = run_direct_matching()
+        assert len(first_run) == 1
+        match = first_run[0]
+
+        api_client.force_authenticate(user=user_a)
+        url = reverse("match-decline", kwargs={"pk": match.pk})
+        api_client.post(url)
+
+        second_run = run_direct_matching()
+        assert len(second_run) == 0

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Match, MatchLeg
+from .models import DeclinedPairing, Match, MatchLeg
 
 
 class MatchLegInline(admin.TabularInline):
@@ -26,3 +26,10 @@ class MatchLegAdmin(admin.ModelAdmin):
     search_fields = ['sender__username', 'receiver__username']
     readonly_fields = ['id']
     raw_id_fields = ['match', 'sender', 'receiver', 'user_book']
+
+
+@admin.register(DeclinedPairing)
+class DeclinedPairingAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user_book_a', 'user_book_b', 'declined_at']
+    readonly_fields = ['id', 'declined_at']
+    raw_id_fields = ['user_book_a', 'user_book_b']

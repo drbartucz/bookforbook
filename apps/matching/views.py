@@ -210,7 +210,7 @@ class MatchDeclineView(APIView):
             match.status = Match.Status.EXPIRED
             match.save(update_fields=["status"])
 
-            # For ring matches, attempt retry
+            # For ring matches, attempt retry; for direct matches record the pairing
             if match.match_type == Match.MatchType.RING:
 
                 def _enqueue_ring_retry():
@@ -230,6 +230,11 @@ class MatchDeclineView(APIView):
 
                 transaction.on_commit(_enqueue_ring_retry)
             else:
+                from apps.matching.services.direct_matcher import (
+                    record_declined_direct_match,
+                )
+
+                record_declined_direct_match(match)
                 _notify_match_cancelled(match)
 
         return Response({"detail": "Match declined."})

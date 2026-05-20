@@ -146,8 +146,12 @@ def retry_ring_after_decline_task(match_id: str, declining_user_id: str):
         return
 
     try:
-        from apps.matching.services.ring_detector import retry_ring_after_decline
+        from apps.matching.services.ring_detector import (
+            record_declined_ring_leg,
+            retry_ring_after_decline,
+        )
 
+        record_declined_ring_leg(match, declining_user)
         new_match = retry_ring_after_decline(match, declining_user)
         if new_match:
             from django_q.tasks import async_task

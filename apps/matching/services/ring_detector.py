@@ -17,6 +17,7 @@ from apps.inventory.models import UserBook, WishlistItem, condition_meets_minimu
 from apps.matching.models import Match, MatchLeg
 from apps.matching.services.direct_matcher import (
     _active_match_exists_for_user_book,
+    _declined_pairing_exists,
     user_at_match_limit,
 )
 from apps.matching.services.prioritization import (
@@ -228,6 +229,12 @@ def _try_create_ring_match(
             return None
         legs.append((sender_id, receiver_id, book_id))
 
+    # Reject the ring if any adjacent book pair was previously declined
+    n = len(legs)
+    for i in range(n):
+        if _declined_pairing_exists(legs[i][2], legs[(i + 1) % n][2]):
+            return None
+
     return _create_ring_match(legs, users)
 
 
@@ -267,6 +274,24 @@ def _create_ring_match(
     except Exception:
         logger.exception("Failed to create ring match")
         return None
+
+
+def record_declined_ring_leg(match: Match, declining_user) -> None:
+    """
+    Record the specific book edge the declining user was responsible for so the
+    matcher won't recreate a ring containing that same adjacent pairing.
+    """
+    from apps.matching.models import DeclinedPairing
+
+    try:
+        declined_leg = match.legs.get(sender=declining_user)
+    except MatchLeg.DoesNotExist:
+        return
+    try:
+        reverse_leg = match.legs.get(sender=declined_leg.receiver)
+    except MatchLeg.DoesNotExist:
+        return
+    DeclinedPairing.record_by_ids(declined_leg.user_book_id, reverse_leg.user_book_id)
 
 
 def retry_ring_after_decline(match: Match, declining_user) -> Optional[Match]:
