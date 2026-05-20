@@ -10,7 +10,6 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import EmailVerifiedPermission
 from apps.accounts.views import user_has_verified_shipping_address
 from apps.inventory.models import UserBook, WishlistItem
-from apps.matching.services.direct_matcher import user_at_match_limit
 
 from .models import Match, MatchLeg
 from .serializers import DiscoveryPartnerSerializer, MatchSerializer
@@ -141,15 +140,6 @@ class MatchAcceptView(APIView):
                 {
                     "detail": "You need a USPS-verified shipping address before accepting a match.",
                     "code": "address_verification_required",
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        if user_at_match_limit(user):
-            return Response(
-                {
-                    "detail": "You have reached your active match limit. Complete existing trades to make room.",
-                    "code": "match_limit_reached",
                 },
                 status=status.HTTP_409_CONFLICT,
             )
