@@ -29,6 +29,7 @@ class BackupRecord(models.Model):
     )
     file_name = models.CharField(max_length=500, blank=True)
     file_size_bytes = models.BigIntegerField(null=True, blank=True)
+    storage_backend = models.CharField(max_length=200, blank=True)
     error_message = models.TextField(blank=True)
     # True = scheduled nightly; False = manually triggered from admin.
     is_automatic = models.BooleanField(default=True)

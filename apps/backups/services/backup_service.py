@@ -14,15 +14,25 @@ warning.
 import logging
 import os
 
+from django.core.files.storage import FileSystemStorage
 from django.core.management import call_command
 from django.utils import timezone
+from dbbackup.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
 
 def _ensure_filesystem_storage_path_exists(storage_backend) -> None:
-    """Create local filesystem backup directory if it doesn't exist yet."""
+    """Create local filesystem backup directory if it doesn't exist yet.
+
+    Only acts on FileSystemStorage — S3-compatible backends use a location
+    prefix, not a local path, so os.makedirs would create a spurious directory.
+    """
     underlying = getattr(storage_backend, "storage", None)
+    # Only create directories for real filesystem storage. S3Boto3Storage uses
+    # "location" as an S3 key prefix (e.g. "db-backups"), not a local path.
+    if not isinstance(underlying, FileSystemStorage):
+        return
     location = getattr(underlying, "location", None)
     if isinstance(location, str) and location:
         os.makedirs(location, exist_ok=True)
@@ -36,11 +46,21 @@ def run_database_backup(record_id: str) -> None:
     record.status = BackupRecord.Status.RUNNING
     record.save(update_fields=["status"])
 
-    try:
-        from dbbackup.storage import get_storage
+    storage_backend_name = ""
 
+    try:
         storage = get_storage()
-        logger.info("Using backup storage: %s", storage.__class__.__name__)
+        underlying = getattr(storage, "storage", storage)
+        storage_backend_name = type(underlying).__name__
+        logger.info("Using backup storage: %s", storage_backend_name)
+
+        if isinstance(underlying, FileSystemStorage):
+            logger.warning(
+                "Backup is writing to local FILESYSTEM storage, not Backblaze B2. "
+                "Set B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY, and B2_BUCKET_NAME "
+                "environment variables to enable B2 cloud backup."
+            )
+
         _ensure_filesystem_storage_path_exists(storage)
         before: set[str] = set(storage.list_backups())
 
@@ -62,17 +82,27 @@ def run_database_backup(record_id: str) -> None:
         record.status = BackupRecord.Status.SUCCESS
         record.file_name = filename
         record.file_size_bytes = file_size
+        record.storage_backend = storage_backend_name
         record.completed_at = timezone.now()
         record.save(
-            update_fields=["status", "file_name", "file_size_bytes", "completed_at"]
+            update_fields=[
+                "status",
+                "file_name",
+                "file_size_bytes",
+                "storage_backend",
+                "completed_at",
+            ]
         )
         logger.info("Database backup completed: %s", filename or "(unknown filename)")
 
     except Exception as exc:
         record.status = BackupRecord.Status.FAILED
         record.error_message = str(exc)[:2000]
+        record.storage_backend = storage_backend_name
         record.completed_at = timezone.now()
-        record.save(update_fields=["status", "error_message", "completed_at"])
+        record.save(
+            update_fields=["status", "error_message", "storage_backend", "completed_at"]
+        )
         logger.exception("Database backup failed for record %s: %s", record_id, exc)
         raise
 

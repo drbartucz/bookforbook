@@ -10,35 +10,40 @@ from apps.backups.services.backup_service import (
 
 @pytest.mark.django_db
 class TestBackupService:
-    @patch("dbbackup.storage.get_storage")
+    @patch("apps.backups.services.backup_service.get_storage")
     @patch("apps.backups.services.backup_service.call_command")
     def test_run_database_backup_success(self, mock_call, mock_get_storage):
         record = BackupRecordFactory(status=BackupRecord.Status.PENDING)
-        
+
+        class FakeS3Storage:
+            pass
+
         mock_storage = MagicMock()
+        mock_storage.storage = FakeS3Storage()
         mock_storage.list_backups.side_effect = [
-            ["old1.psql"], # before
-            ["old1.psql", "new1.psql"] # after
+            ["old1.psql"],  # before
+            ["old1.psql", "new1.psql"],  # after
         ]
         mock_storage.size.return_value = 1024
         mock_get_storage.return_value = mock_storage
-        
+
         run_database_backup(str(record.pk))
-        
+
         record.refresh_from_db()
         assert record.status == BackupRecord.Status.SUCCESS
         assert record.file_name == "new1.psql"
         assert record.file_size_bytes == 1024
+        assert record.storage_backend == "FakeS3Storage"
         assert mock_call.called
 
-    @patch("dbbackup.storage.get_storage")
+    @patch("apps.backups.services.backup_service.get_storage")
     def test_run_database_backup_failure(self, mock_get_storage):
         record = BackupRecordFactory(status=BackupRecord.Status.PENDING)
         mock_get_storage.side_effect = Exception("Storage error")
-        
+
         with pytest.raises(Exception):
             run_database_backup(str(record.pk))
-            
+
         record.refresh_from_db()
         assert record.status == BackupRecord.Status.FAILED
         assert "Storage error" in record.error_message
