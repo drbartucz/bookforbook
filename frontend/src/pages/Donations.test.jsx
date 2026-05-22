@@ -32,7 +32,7 @@ describe('Donations page', () => {
                         created_at: '2026-04-20T12:00:00Z',
                         is_recipient: true,
                         donor: { id: 'user-1', username: 'bart0605' },
-                        institution: { id: 'inst-1', username: 'central-library' },
+                        recipient: { id: 'inst-1', username: 'central-library' },
                         user_book: {
                             condition: 'good',
                             book: {
@@ -55,7 +55,7 @@ describe('Donations page', () => {
         expect(screen.getByAltText('The Bluest Eye')).toHaveAttribute('src', 'https://example.com/bluesteye.jpg');
         expect(screen.getByText('@central-library')).toBeInTheDocument();
 
-        await userEvent.click(screen.getByRole('button', { name: 'Accept Donation' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Accept' }));
 
         await waitFor(() => {
             expect(donations.accept).toHaveBeenCalledWith('donation-1');
@@ -91,7 +91,7 @@ describe('Donations page', () => {
                         created_at: '2026-04-20T12:00:00Z',
                         is_recipient: false,
                         donor: { id: 'user-1', username: 'alice' },
-                        institution: { id: 'inst-1', username: 'library' },
+                        recipient: { id: 'inst-1', username: 'library' },
                         user_book: null,
                         book: null,
                     },
@@ -113,7 +113,7 @@ describe('Donations page', () => {
                         created_at: '2026-04-20T12:00:00Z',
                         is_recipient: true,
                         donor: { id: 'user-1', username: 'alice' },
-                        institution: { id: 'inst-1', username: 'library' },
+                        recipient: { id: 'inst-1', username: 'library' },
                         user_book: { condition: 'good', book: { id: 'book-5', title: 'Error Book', authors: ['Author'] } },
                     },
                 ],
@@ -121,7 +121,7 @@ describe('Donations page', () => {
         });
         donations.accept.mockRejectedValue({ response: { data: { detail: 'Cannot accept this donation.' } } });
         renderWithProviders(<Donations />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Accept Donation' }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Accept' }));
         await waitFor(() => expect(screen.getByText('Cannot accept this donation.')).toBeInTheDocument());
     });
 
@@ -175,14 +175,14 @@ describe('Donations page', () => {
                     created_at: '2026-04-20T12:00:00Z',
                     is_recipient: true,
                     donor: { id: 'user-1', username: 'alice' },
-                    institution: { id: 'inst-1', username: 'library' },
+                    recipient: { id: 'inst-1', username: 'library' },
                     user_book: { condition: 'good', book: { id: 'book-5', title: 'Error Book', authors: [] } },
                 }],
             },
         });
         donations.accept.mockRejectedValueOnce({ response: { data: {} } });
         renderWithProviders(<Donations />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Accept Donation' }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Accept' }));
         await waitFor(() => expect(screen.getByText('Failed to accept.')).toBeInTheDocument());
     });
 
@@ -197,7 +197,7 @@ describe('Donations page', () => {
                         created_at: '2026-04-20T12:00:00Z',
                         is_recipient: false,
                         donor: { id: 'user-1', username: 'sender' },
-                        institution: { id: 'inst-1', username: 'lib' },
+                        recipient: { id: 'inst-1', username: 'lib' },
                         user_book: { condition: 'good', book: { id: 'book-a', title: 'Array Book', authors: ['Writer'] } },
                     },
                 ],
@@ -207,7 +207,7 @@ describe('Donations page', () => {
         expect(await screen.findByText('Array Book')).toBeInTheDocument();
     });
 
-    it('renders donation using to_user fallback when institution and recipient are absent', async () => {
+    it('renders donation using to_user fallback when recipient is absent', async () => {
         donations.list.mockResolvedValue({
             data: {
                 count: 1,
@@ -217,7 +217,7 @@ describe('Donations page', () => {
                     created_at: '2026-04-20T12:00:00Z',
                     is_recipient: false,
                     donor: { id: 'user-1', username: 'alice' },
-                    // No institution or recipient — falls back to to_user
+                    // No recipient — falls back to to_user
                     to_user: { id: 'inst-2', username: 'community-lib' },
                     user_book: { condition: 'good', book: { id: 'book-tou', title: 'To User Book', authors: [] } },
                 }],
@@ -239,7 +239,7 @@ describe('Donations page', () => {
                         created_at: '2026-04-20T12:00:00Z',
                         is_recipient: true,
                         donor: { id: 'user-1', username: 'bart0605' },
-                        institution: { id: 'inst-1', username: 'library' },
+                        recipient: { id: 'inst-1', username: 'library' },
                         user_book: {
                             condition: 'good',
                             book: { id: 'book-3', title: 'Test Book', authors: ['Author'] },
@@ -264,7 +264,7 @@ describe('Donations page', () => {
                     created_at: '2026-04-20T12:00:00Z',
                     is_recipient: true,
                     donor: { id: 'user-2', username: 'bob' },
-                    institution: { id: 'inst-1', username: 'library' },
+                    recipient: { id: 'inst-1', username: 'library' },
                     user_book: { condition: 'good', book: { id: 'bk1', title: 'Error Book', authors: [] } },
                 }],
             },

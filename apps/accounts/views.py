@@ -446,7 +446,7 @@ class UserWantedBooksView(APIView):
         except User.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        from apps.inventory.models import WishlistItem
+        from apps.inventory.models import UserBook, WishlistItem
         from apps.inventory.serializers import WishlistItemSerializer
 
         items = (
@@ -454,7 +454,26 @@ class UserWantedBooksView(APIView):
             .select_related("book")
             .order_by("-created_at")
         )
-        serializer = WishlistItemSerializer(items, many=True)
+
+        viewer_book_id_map = {}
+        if request.user.is_authenticated and request.user != user:
+            book_ids = items.values_list('book_id', flat=True)
+            viewer_books = (
+                UserBook.objects.filter(
+                    user=request.user,
+                    status=UserBook.Status.AVAILABLE,
+                    book_id__in=book_ids,
+                )
+                .values('book_id', 'id')
+                .order_by('created_at')
+            )
+            for vb in viewer_books:
+                if vb['book_id'] not in viewer_book_id_map:
+                    viewer_book_id_map[vb['book_id']] = vb['id']
+
+        serializer = WishlistItemSerializer(
+            items, many=True, context={'viewer_book_id_map': viewer_book_id_map}
+        )
         return Response(serializer.data)
 
 

@@ -630,23 +630,23 @@ class Command(BaseCommand):
 
         self._seed_one_donation(
             donor=users["alice"],
-            institution=library,
+            recipient=library,
             user_book=inventory["alice_austen"],
             message="Hope this helps your collection!",
             label="Donation 1 (alice→library)",
         )
         self._seed_one_donation(
             donor=users["bob"],
-            institution=library,
+            recipient=library,
             user_book=inventory["bob_tolstoy"],
             message="Happy to donate this one!",
             label="Donation 2 (bob→library)",
         )
 
-    def _seed_one_donation(self, donor, institution, user_book, message, label):
+    def _seed_one_donation(self, donor, recipient, user_book, message, label):
         existing = Donation.objects.filter(
             donor=donor,
-            institution=institution,
+            recipient=recipient,
             user_book=user_book,
             status=Donation.Status.OFFERED,
         ).first()
@@ -655,7 +655,7 @@ class Command(BaseCommand):
             return
         Donation.objects.create(
             donor=donor,
-            institution=institution,
+            recipient=recipient,
             user_book=user_book,
             status=Donation.Status.OFFERED,
             message=message,

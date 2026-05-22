@@ -65,6 +65,8 @@ class UserBookSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)
     user_id = serializers.UUIDField(read_only=True, source="user.id")
     username = serializers.CharField(read_only=True, source="user.username")
+    want_count = serializers.SerializerMethodField()
+    is_institution_wanted = serializers.SerializerMethodField()
 
     class Meta:
         model = UserBook
@@ -76,6 +78,8 @@ class UserBookSerializer(serializers.ModelSerializer):
             "condition",
             "condition_notes",
             "status",
+            "want_count",
+            "is_institution_wanted",
             "created_at",
             "updated_at",
         ]
@@ -84,9 +88,17 @@ class UserBookSerializer(serializers.ModelSerializer):
             "user_id",
             "username",
             "book",
+            "want_count",
+            "is_institution_wanted",
             "created_at",
             "updated_at",
         ]
+
+    def get_want_count(self, obj):
+        return getattr(obj, 'want_count', 0) or 0
+
+    def get_is_institution_wanted(self, obj):
+        return bool(getattr(obj, 'is_institution_wanted', False))
 
 
 class UserBookCreateSerializer(serializers.Serializer):
@@ -142,6 +154,8 @@ class UserBookUpdateSerializer(serializers.ModelSerializer):
 class WishlistItemSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)
     user_id = serializers.UUIDField(read_only=True, source="user.id")
+    viewer_can_gift = serializers.SerializerMethodField()
+    viewer_user_book_id = serializers.SerializerMethodField()
 
     class Meta:
         model = WishlistItem
@@ -155,10 +169,21 @@ class WishlistItemSerializer(serializers.ModelSerializer):
             "exclude_abridged",
             "format_preferences",
             "is_active",
+            "viewer_can_gift",
+            "viewer_user_book_id",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "user_id", "book", "created_at", "updated_at"]
+        read_only_fields = ["id", "user_id", "book", "viewer_can_gift", "viewer_user_book_id", "created_at", "updated_at"]
+
+    def get_viewer_can_gift(self, obj):
+        viewer_book_id_map = self.context.get('viewer_book_id_map', {})
+        return obj.book_id in viewer_book_id_map
+
+    def get_viewer_user_book_id(self, obj):
+        viewer_book_id_map = self.context.get('viewer_book_id_map', {})
+        val = viewer_book_id_map.get(obj.book_id)
+        return str(val) if val else None
 
 
 class WishlistItemCreateSerializer(serializers.Serializer):

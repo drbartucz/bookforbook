@@ -18,7 +18,7 @@ class Donation(models.Model):
         on_delete=models.CASCADE,
         related_name='donations_given',
     )
-    institution = models.ForeignKey(
+    recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='donations_received',
@@ -39,7 +39,8 @@ class Donation(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
+        display = getattr(self.recipient, 'institution_name', None) or self.recipient.username
         return (
-            f'Donation: {self.donor.username} → {self.institution.institution_name or self.institution.username} '
+            f'Donation: {self.donor.username} → {display} '
             f'({self.user_book.book.title}) [{self.status}]'
         )

@@ -53,7 +53,7 @@ bookforbook/
 │   ├── inventory/                   # UserBooks (have-list), WishlistItems (want-list)
 │   ├── matching/                    # Match detection engine (direct + ring)
 │   ├── trading/                     # Proposals, Trades, Shipments
-│   ├── donations/                   # Institutional donation workflow
+│   ├── donations/                   # One-directional gifting (individual→institution or individual→individual)
 │   ├── ratings/                     # Rating system + rolling average
 │   ├── notifications/               # Email/in-app notifications, Django-Q2 tasks
 │   ├── messaging/                   # Structured trade messages
@@ -111,8 +111,9 @@ All primary keys are UUIDs. All personal address fields are encrypted at rest.
 ### TradeProposal + TradeProposalItem (user-initiated)
 - Always 1-for-1: exactly one item in each direction (enforce at API level)
 
-### Donation (institutional, one-directional)
-- Separate from trades: no shipping address needed for the institution as receiver
+### Donation (one-directional gift/donation)
+- `recipient` FK accepts any active user: institutions (must be `is_verified=True`) or individuals (book must be on their active wishlist)
+- Donor's address revealed to recipient after acceptance; recipient's address revealed to donor after acceptance
 
 ### Trade (execution record, created after confirmation)
 - `source_type`: `match` | `proposal` | `donation`
@@ -142,7 +143,7 @@ All endpoints under `/api/v1/`. JWT auth required except browse/search/public pr
 auth/           register, verify-email, login, refresh, password-reset
 users/          me (CRUD + export + delete), :id/ (public profile), :id/ratings/
 books/          lookup/ (ISBN), :id/, search/
-my-books/       GET/POST/PATCH/DELETE (have-list)
+my-books/       GET/POST/PATCH/DELETE (have-list), :id/wanted-by/ (gift recipient list)
 wishlist/       GET/POST/PATCH/DELETE (want-list)
 matches/        list, discovery/reverse/, :id/, :id/accept/, :id/decline/
 proposals/      list, create, :id/, accept, decline

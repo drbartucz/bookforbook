@@ -72,7 +72,7 @@ Background tasks are defined in `tasks.py` per app and dispatched via `django_q.
 | `inventory` | `UserBook` (have-list) and `WishlistItem` (want-list) |
 | `matching` | Direct match and exchange ring detection; triggered on new UserBook/WishlistItem and on a 6-hour periodic scan |
 | `trading` | `TradeProposal`, `Trade`, `TradeShipment`, `TradeMessage`; shipment tracking and trade lifecycle |
-| `donations` | One-directional book donations to institutional accounts |
+| `donations` | One-directional gifting: individual → institution (donation) or individual → individual (gift). `Donation.recipient` FK accepts any active user; individual recipients must have the book on their active wishlist. Institutional recipients must be `is_verified=True`. |
 | `ratings` | 1–5 star ratings; rolling average over last 10 ratings via `apps/ratings/services/rolling_average.py` |
 | `notifications` | Email and in-app notifications dispatched as Django-Q2 tasks |
 | `messaging` | Structured trade messages (not free-form chat) |
@@ -116,7 +116,7 @@ Trade confirmed → 3-week auto-close timer starts
 
 ### Institutional accounts (libraries/bookstores)
 
-Institutions require admin approval (`is_verified=True`) before participating. They are excluded from automated match detection but **can** list books on their have-list and participate in manual trade proposals. They also receive donations.
+Institutions require admin approval (`is_verified=True`) before participating. They are excluded from automated match detection but **can** list books on their have-list and participate in manual trade proposals. They also receive donations/gifts via the `Donation` model.
 
 ### Frontend (`frontend/`)
 

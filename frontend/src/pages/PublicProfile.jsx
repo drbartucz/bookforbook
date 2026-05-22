@@ -6,6 +6,7 @@ import useAuth from '../hooks/useAuth.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.jsx';
 import ErrorMessage from '../components/common/ErrorMessage.jsx';
 import ConditionBadge, { CONDITION_CONFIG } from '../components/common/ConditionBadge.jsx';
+import GiftModal from '../components/common/GiftModal.jsx';
 import Tooltip from '../components/common/Tooltip.jsx';
 import { format } from 'date-fns';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
@@ -76,6 +77,7 @@ export default function PublicProfile() {
   const [wishlistPreferences, setWishlistPreferences] = useState(DEFAULT_WISHLIST_PREFERENCES);
   const [wishlistPrefMessage, setWishlistPrefMessage] = useState(null);
   const [wishlistPrefError, setWishlistPrefError] = useState(null);
+  const [giftItem, setGiftItem] = useState(null);
 
   const { data: profile, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['publicProfile', id],
@@ -453,7 +455,7 @@ export default function PublicProfile() {
           <div className={`card ${styles.section}`} data-testid="wanted-books-section">
             <h2 className={styles.sectionTitle}>Wanted Books</h2>
             <p className={styles.sectionSubtitle}>
-              Books this user is looking to receive via trade.
+              Books this user is looking to receive via trade or gift.
             </p>
             {publicWantedBooks.length === 0 ? (
               <p className={styles.emptyText}>No wanted books listed.</p>
@@ -476,6 +478,15 @@ export default function PublicProfile() {
                           <span>
                             Min: <ConditionBadge condition={item.min_condition} />
                           </span>
+                        )}
+                        {!isOwnProfile && item.viewer_can_gift && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ marginTop: '0.5rem' }}
+                            onClick={() => setGiftItem(item)}
+                          >
+                            Gift this
+                          </button>
                         )}
                       </div>
                     </div>
@@ -581,6 +592,17 @@ export default function PublicProfile() {
           </div>
         )}
       </div>
+
+      {giftItem && (
+        <GiftModal
+          open={!!giftItem}
+          onClose={() => setGiftItem(null)}
+          recipientId={id}
+          recipientUsername={profile?.username}
+          userBookId={giftItem.viewer_user_book_id}
+          book={giftItem.book ?? giftItem}
+        />
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import ISBNInput from '../components/common/ISBNInput.jsx';
 import Tooltip from '../components/common/Tooltip.jsx';
 import Pagination from '../components/common/Pagination.jsx';
 import AddressPromptModal from '../components/common/AddressPromptModal.jsx';
+import GiftModal from '../components/common/GiftModal.jsx';
 import { getBookCoverUrl, getBookPrimaryAuthor } from '../utils/book.js';
 import styles from './MyBooks.module.css';
 
@@ -47,11 +48,19 @@ export default function MyBooks() {
   const [editCondition, setEditCondition] = useState('');
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [filterBy, setFilterBy] = useState('');
+  const [giftTarget, setGiftTarget] = useState(null);
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['myBooks', page, sortBy, sortOrder],
-    queryFn: () => myBooksApi.list({ page, page_size: PAGE_SIZE, sort_by: sortBy, sort_order: sortOrder }).then((r) => r.data),
+    queryKey: ['myBooks', page, sortBy, sortOrder, filterBy],
+    queryFn: () => myBooksApi.list({
+      page,
+      page_size: PAGE_SIZE,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+      ...(filterBy ? { filter_by: filterBy } : {}),
+    }).then((r) => r.data),
   });
 
   const addMutation = useMutation({
@@ -230,14 +239,12 @@ export default function MyBooks() {
               <select
                 className="form-input"
                 value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
               >
                 <option value="created_at">Date Added</option>
                 <option value="title">Title</option>
                 <option value="author">Author</option>
+                <option value="demand">Most Wanted</option>
               </select>
             </div>
             <div style={{ flex: 1, minWidth: '150px' }}>
@@ -245,14 +252,19 @@ export default function MyBooks() {
               <select
                 className="form-input"
                 value={sortOrder}
-                onChange={(e) => {
-                  setSortOrder(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => { setSortOrder(e.target.value); setPage(1); }}
               >
                 <option value="desc">Descending</option>
                 <option value="asc">Ascending</option>
               </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                className={`btn btn-sm ${filterBy === 'wanted' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => { setFilterBy(filterBy === 'wanted' ? '' : 'wanted'); setPage(1); }}
+              >
+                {filterBy === 'wanted' ? '✓ Wanted only' : 'Wanted only'}
+              </button>
             </div>
           </div>
 
@@ -278,14 +290,12 @@ export default function MyBooks() {
               <select
                 className="form-input"
                 value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
               >
                 <option value="created_at">Date Added</option>
                 <option value="title">Title</option>
                 <option value="author">Author</option>
+                <option value="demand">Most Wanted</option>
               </select>
             </div>
             <div style={{ flex: 1, minWidth: '150px' }}>
@@ -293,14 +303,19 @@ export default function MyBooks() {
               <select
                 className="form-input"
                 value={sortOrder}
-                onChange={(e) => {
-                  setSortOrder(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => { setSortOrder(e.target.value); setPage(1); }}
               >
                 <option value="desc">Descending</option>
                 <option value="asc">Ascending</option>
               </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                className={`btn btn-sm ${filterBy === 'wanted' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => { setFilterBy(filterBy === 'wanted' ? '' : 'wanted'); setPage(1); }}
+              >
+                {filterBy === 'wanted' ? '✓ Wanted only' : 'Wanted only'}
+              </button>
             </div>
           </div>
           <div className={styles.bookList}>
@@ -341,9 +356,31 @@ export default function MyBooks() {
                       ) : (
                         <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
                       )}
+                      {item.want_count > 0 && (
+                        <Tooltip content="This many people have this book on their wishlist.">
+                          <span className="badge badge-blue" style={{ cursor: 'pointer' }} onClick={() => setGiftTarget(item)}>
+                            {item.want_count} want{item.want_count === 1 ? 's' : ''} this
+                          </span>
+                        </Tooltip>
+                      )}
+                      {item.is_institution_wanted && (
+                        <Tooltip content="At least one verified library or bookstore wants this book.">
+                          <span className="badge badge-amber" style={{ cursor: 'pointer' }} onClick={() => setGiftTarget(item)}>
+                            Wanted by institution
+                          </span>
+                        </Tooltip>
+                      )}
                     </div>
                   </div>
                   <div className={styles.bookActions}>
+                    {item.status === 'available' && (item.want_count > 0 || item.is_institution_wanted) && !isEditing && (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setGiftTarget(item)}
+                      >
+                        Gift
+                      </button>
+                    )}
                     {isEditing ? (
                       <div className={styles.editForm}>
                         <select
@@ -424,6 +461,13 @@ export default function MyBooks() {
       )}
 
       <AddressPromptModal open={showAddressPrompt} onClose={() => setShowAddressPrompt(false)} />
+
+      <GiftModal
+        open={!!giftTarget}
+        onClose={() => setGiftTarget(null)}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['myBooks'] })}
+        userBook={giftTarget}
+      />
     </div>
   );
 }

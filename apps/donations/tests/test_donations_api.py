@@ -44,7 +44,7 @@ def _make_institution():
 def _offer_donation(client, user_book, institution):
     return client.post(
         reverse("donation-list-create"),
-        {"institution_id": str(institution.id), "user_book_id": str(user_book.id)},
+        {"recipient_id": str(institution.id), "user_book_id": str(user_book.id)},
         format="json",
     )
 
@@ -71,9 +71,9 @@ class TestDonationOffer:
         assert resp.data["status"] == "offered"
         assert resp.data["donor"]["id"] == str(donor.id)
 
-    def test_offer_to_non_institution_rejected(self, api_client):
+    def test_offer_to_individual_without_wishlist_rejected(self, api_client):
         donor = UserFactory()
-        regular_user = UserFactory()  # account_type='individual'
+        regular_user = UserFactory()  # account_type='individual', book not on wishlist
         user_book = UserBookFactory(user=donor, book=BookFactory())
 
         client = _auth(api_client, donor)
@@ -206,11 +206,11 @@ class TestDonationAccept:
         client_inst = _auth(api_client, institution)
         client_inst.post(reverse("donation-accept", kwargs={"pk": donation_id}))
 
-        # Donor should now see institution address
+        # Donor should now see recipient address
         client_donor = _auth(api_client, donor)
         detail = client_donor.get(reverse("donation-list-create"))
         donation = next(d for d in detail.data if d["id"] == donation_id)
-        assert donation["institution_address"] is not None
+        assert donation["recipient_address"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -338,7 +338,7 @@ class TestDonationNotificationExceptions:
         # The donation itself was created even though the notification failed
         from apps.donations.models import Donation
 
-        assert Donation.objects.filter(donor=donor, institution=institution).exists()
+        assert Donation.objects.filter(donor=donor, recipient=institution).exists()
 
     def test_accept_notification_exception_still_returns_200(self, api_client):
         """Lines 117-118: exception in notification for donation acceptance."""
@@ -416,7 +416,7 @@ def _setup_accepted_donation(api_client):
 
     offer_resp = client_donor.post(
         reverse("donation-list-create"),
-        {"institution_id": str(institution.id), "user_book_id": str(user_book.id)},
+        {"recipient_id": str(institution.id), "user_book_id": str(user_book.id)},
         format="json",
     )
     donation_id = offer_resp.data["id"]
