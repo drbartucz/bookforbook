@@ -55,7 +55,7 @@ describe('Donations page', () => {
         expect(screen.getByAltText('The Bluest Eye')).toHaveAttribute('src', 'https://example.com/bluesteye.jpg');
         expect(screen.getByText('@central-library')).toBeInTheDocument();
 
-        await userEvent.click(screen.getByRole('button', { name: 'Accept Donation' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Accept' }));
 
         await waitFor(() => {
             expect(donations.accept).toHaveBeenCalledWith('donation-1');
@@ -121,7 +121,7 @@ describe('Donations page', () => {
         });
         donations.accept.mockRejectedValue({ response: { data: { detail: 'Cannot accept this donation.' } } });
         renderWithProviders(<Donations />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Accept Donation' }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Accept' }));
         await waitFor(() => expect(screen.getByText('Cannot accept this donation.')).toBeInTheDocument());
     });
 
@@ -182,7 +182,7 @@ describe('Donations page', () => {
         });
         donations.accept.mockRejectedValueOnce({ response: { data: {} } });
         renderWithProviders(<Donations />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Accept Donation' }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Accept' }));
         await waitFor(() => expect(screen.getByText('Failed to accept.')).toBeInTheDocument());
     });
 
