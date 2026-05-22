@@ -84,6 +84,9 @@ export default function Navbar() {
           <NavLink to="/" end className={navLinkClass}>
             Browse
           </NavLink>
+          <NavLink to="/community" className={navLinkClass}>
+            Community
+          </NavLink>
           <NavLink to="/institutions" className={navLinkClass}>
             Institutions
           </NavLink>
@@ -272,6 +275,9 @@ export default function Navbar() {
         <div className={styles.mobileMenu}>
           <NavLink to="/" end className={navLinkClass} onClick={() => setMobileOpen(false)}>
             Browse
+          </NavLink>
+          <NavLink to="/community" className={navLinkClass} onClick={() => setMobileOpen(false)}>
+            Community
           </NavLink>
           <NavLink to="/institutions" className={navLinkClass} onClick={() => setMobileOpen(false)}>
             Institutions

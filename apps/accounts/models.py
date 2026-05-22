@@ -139,12 +139,24 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     address_verified_at = models.DateTimeField(null=True, blank=True)
 
+    class BadgeChoices(models.TextChoices):
+        TOP_10 = "top_10", "Top 10%"
+        TOP_25 = "top_25", "Top 25%"
+
     # Public stats (denormalized)
     total_trades = models.PositiveIntegerField(default=0)
+    gifts_given_count = models.PositiveIntegerField(default=0)
     avg_recent_rating = models.DecimalField(
         max_digits=3, decimal_places=2, null=True, blank=True
     )
     rating_count = models.PositiveIntegerField(default=0)
+
+    giver_badge = models.CharField(
+        max_length=10, choices=BadgeChoices.choices, null=True, blank=True
+    )
+    trader_badge = models.CharField(
+        max_length=10, choices=BadgeChoices.choices, null=True, blank=True
+    )
 
     # Inactivity tracking
     inactivity_warned_1m = models.DateTimeField(null=True, blank=True)
@@ -187,6 +199,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         except Exception:
             pass
         super().delete(*args, **kwargs)
+
+    @property
+    def karma(self) -> int:
+        return self.total_trades + self.gifts_given_count * 2
 
     @property
     def max_active_matches(self):

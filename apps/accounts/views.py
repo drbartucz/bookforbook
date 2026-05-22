@@ -3,11 +3,13 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
-from django.db.models import Count, Q
+from django.db.models import Count, ExpressionWrapper, Exists, F, IntegerField, OuterRef, Q
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import generics, permissions, status
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -18,6 +20,7 @@ from .permissions import EmailVerifiedPermission
 from .serializers import (
     AccountDeletionSerializer,
     AddressVerificationSerializer,
+    CommunityUserSerializer,
     EmailVerificationSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
@@ -475,6 +478,67 @@ class UserWantedBooksView(APIView):
             items, many=True, context={'viewer_book_id_map': viewer_book_id_map}
         )
         return Response(serializer.data)
+
+
+class _CommunityPagination(PageNumberPagination):
+    page_size = 24
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+class CommunityListView(generics.ListAPIView):
+    """GET /api/v1/community/ — paginated, sortable list of individual users."""
+
+    serializer_class = CommunityUserSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = _CommunityPagination
+    filter_backends = [OrderingFilter, SearchFilter]
+    ordering_fields = [
+        "karma_score",
+        "total_trades",
+        "gifts_given_count",
+        "avg_recent_rating",
+        "created_at",
+    ]
+    ordering = ["-karma_score"]
+    search_fields = ["username"]
+
+    def get_queryset(self):
+        from apps.inventory.models import UserBook
+
+        qs = (
+            User.objects.filter(
+                account_type=User.AccountType.INDIVIDUAL,
+                is_active=True,
+                email_verified=True,
+            )
+            .annotate(
+                karma_score=ExpressionWrapper(
+                    F("total_trades") + F("gifts_given_count") * 2,
+                    output_field=IntegerField(),
+                ),
+                has_available_books=Exists(
+                    UserBook.objects.filter(
+                        user=OuterRef("pk"),
+                        status=UserBook.Status.AVAILABLE,
+                    )
+                ),
+            )
+        )
+
+        giver_badge = self.request.query_params.get("giver_badge", "").strip()
+        if giver_badge:
+            qs = qs.filter(giver_badge=giver_badge)
+
+        trader_badge = self.request.query_params.get("trader_badge", "").strip()
+        if trader_badge:
+            qs = qs.filter(trader_badge=trader_badge)
+
+        has_books = self.request.query_params.get("has_books", "").strip().lower()
+        if has_books == "true":
+            qs = qs.filter(has_available_books=True)
+
+        return qs
 
 
 class InstitutionListView(generics.ListAPIView):

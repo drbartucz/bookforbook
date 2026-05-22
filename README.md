@@ -517,6 +517,9 @@ Returns a list of potential recipients (individuals + verified institutions) wit
 
 ## FAQ
 
+**What is Karma?**
+Karma reflects your contribution to the community. Each completed trade earns 1 karma point; each book you gift (to an individual or institution) earns 2 points. Karma is displayed on your public profile.
+
 **Do I pay anything?**
 No. The platform is free. You pay only your own shipping costs (typically $4–6 USPS Media Mail per book).
 

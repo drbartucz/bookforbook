@@ -262,6 +262,14 @@ export default function PublicProfile() {
         {/* Stats */}
         <div className={styles.stats}>
           <div className={styles.stat}>
+            <p className={styles.statValue}>
+              <span className={styles.karmaIcon}>✦</span>
+              {profile.karma ?? 0}
+              <Tooltip content="Karma = trades + (gifts × 2)" />
+            </p>
+            <p className={styles.statLabel}>Karma</p>
+          </div>
+          <div className={styles.stat}>
             <p className={styles.statValue}>{profile.total_trades ?? 0}</p>
             <p className={styles.statLabel}>Trades</p>
           </div>
@@ -286,6 +294,31 @@ export default function PublicProfile() {
             </div>
           )}
         </div>
+
+        {(profile.giver_badge || profile.trader_badge) && (
+          <div className={styles.badgeRow}>
+            {profile.giver_badge === 'top_10' && (
+              <span className={`${styles.badgeChip} ${styles.badgeChipAmber}`}>
+                ⭐ Top 10% Giver
+              </span>
+            )}
+            {profile.giver_badge === 'top_25' && (
+              <span className={`${styles.badgeChip} ${styles.badgeChipAmber}`}>
+                ⭐ Top 25% Giver
+              </span>
+            )}
+            {profile.trader_badge === 'top_10' && (
+              <span className={`${styles.badgeChip} ${styles.badgeChipBlue}`}>
+                🔄 Top 10% Trader
+              </span>
+            )}
+            {profile.trader_badge === 'top_25' && (
+              <span className={`${styles.badgeChip} ${styles.badgeChipBlue}`}>
+                🔄 Top 25% Trader
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className={styles.content}>
