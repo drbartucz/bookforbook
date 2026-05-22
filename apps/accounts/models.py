@@ -200,9 +200,11 @@ class User(AbstractBaseUser, PermissionsMixin):
             pass
         super().delete(*args, **kwargs)
 
+    GIFT_KARMA_MULTIPLIER = 2
+
     @property
     def karma(self) -> int:
-        return self.total_trades + self.gifts_given_count * 2
+        return self.total_trades + self.gifts_given_count * self.GIFT_KARMA_MULTIPLIER
 
     @property
     def max_active_matches(self):
