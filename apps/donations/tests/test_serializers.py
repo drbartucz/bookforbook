@@ -59,6 +59,16 @@ class TestDonationSerializers:
         assert not serializer.is_valid()
         assert 'user_book_id' in serializer.errors
 
+    def test_self_gifting_rejected(self):
+        donor = UserFactory()
+        ub = UserBookFactory(user=donor, status=UserBook.Status.AVAILABLE)
+
+        request = MagicMock(user=donor)
+        data = {"recipient_id": str(donor.id), "user_book_id": str(ub.id)}
+        serializer = DonationCreateSerializer(data=data, context={'request': request})
+        assert not serializer.is_valid()
+        assert 'recipient_id' in serializer.errors
+
     def test_donation_create_condition_validation_for_individual(self):
         donor = UserFactory()
         recipient = UserFactory()

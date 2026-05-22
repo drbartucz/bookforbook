@@ -81,3 +81,15 @@ class TestDonationViews:
         assert donation.status == Donation.Status.CANCELLED
         ub.refresh_from_db()
         assert ub.status == UserBook.Status.AVAILABLE
+
+    def test_donation_decline_does_not_increment_gifts_given_count(self, api_client):
+        donor = UserFactory(gifts_given_count=0)
+        inst = UserFactory(account_type=User.AccountType.LIBRARY)
+        api_client.force_authenticate(user=inst)
+
+        donation = DonationFactory(donor=donor, recipient=inst, status=Donation.Status.OFFERED)
+        url = reverse('donation-decline', kwargs={'pk': donation.pk})
+        api_client.post(url)
+
+        donor.refresh_from_db()
+        assert donor.gifts_given_count == 0
