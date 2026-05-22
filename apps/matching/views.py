@@ -13,6 +13,7 @@ from apps.inventory.models import UserBook, WishlistItem
 
 from .models import Match, MatchLeg
 from .serializers import DiscoveryPartnerSerializer, MatchSerializer
+from .services.direct_matcher import user_at_match_limit
 
 logger = logging.getLogger(__name__)
 
@@ -300,13 +301,14 @@ class ReverseDiscoveryView(APIView):
 
     def get(self, request):
         user = request.user
+        at_limit = user_at_match_limit(user)
 
         # 1. Get current user's available books
         my_available_books = UserBook.objects.filter(
             user=user, status=UserBook.Status.AVAILABLE
         ).select_related("book")
         if not my_available_books.exists():
-            return Response([])
+            return Response({"at_match_limit": at_limit, "results": []})
 
         my_book_ids = list(my_available_books.values_list("book_id", flat=True))
 
@@ -400,4 +402,4 @@ class ReverseDiscoveryView(APIView):
         final_results.sort(key=lambda x: len(x["they_want"]), reverse=True)
 
         serializer = DiscoveryPartnerSerializer(final_results, many=True)
-        return Response(serializer.data)
+        return Response({"at_match_limit": at_limit, "results": serializer.data})
