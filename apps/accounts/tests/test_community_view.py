@@ -12,12 +12,12 @@ class TestCommunityListView:
     URL = "community-list"
 
     def _make_individual(self, **kwargs):
-        return UserFactory(
-            account_type=User.AccountType.INDIVIDUAL,
-            is_active=True,
-            email_verified=True,
-            **kwargs,
-        )
+        defaults = {
+            'account_type': User.AccountType.INDIVIDUAL,
+            'email_verified': True,
+        }
+        defaults.update(kwargs)
+        return UserFactory(**defaults)
 
     def test_returns_200_for_anonymous(self, api_client):
         response = api_client.get(reverse(self.URL))
