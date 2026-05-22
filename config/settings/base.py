@@ -1,3 +1,4 @@
+import glob
 import os
 import shutil
 from datetime import timedelta
@@ -262,10 +263,23 @@ DBBACKUP_STORAGE_OPTIONS = {"location": str(BASE_DIR / "backups")}
 def _find_pg_tool(name: str) -> str:
     if path := shutil.which(name):
         return path
+    # Debian/Ubuntu apt paths (/usr/lib/postgresql/<version>/bin/)
     for version in range(18, 11, -1):
         candidate = f"/usr/lib/postgresql/{version}/bin/{name}"
         if os.path.isfile(candidate):
             return candidate
+    # Nix profile paths (Railway/Nixpacks runtime)
+    for nix_profile in (
+        "/root/.nix-profile/bin",
+        "/nix/var/nix/profiles/default/bin",
+    ):
+        candidate = f"{nix_profile}/{name}"
+        if os.path.isfile(candidate):
+            return candidate
+    # Nix store glob (hash changes per build, so match any version)
+    matches = glob.glob(f"/nix/store/*-postgresql-*/bin/{name}")
+    if matches:
+        return matches[0]
     return name  # fall back to bare name; will fail with a clear OS error if missing
 
 DBBACKUP_CONNECTORS = {
