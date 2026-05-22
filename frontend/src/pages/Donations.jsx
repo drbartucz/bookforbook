@@ -108,7 +108,7 @@ export default function Donations() {
               const userBook = donation.user_book ?? donation.book;
               const book = userBook?.book ?? userBook;
               const donor = donation.donor ?? donation.from_user;
-              const recipient = donation.institution ?? donation.recipient ?? donation.to_user;
+              const recipient = donation.recipient ?? donation.to_user;
               const isPending = donation.status === 'offered';
               const isRecipient = donation.is_recipient ?? false;
 
