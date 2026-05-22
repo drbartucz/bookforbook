@@ -159,6 +159,7 @@ export const myBooks = {
   add: (data) => apiClient.post('/my-books/', data),
   update: (id, data) => apiClient.patch(`/my-books/${id}/`, data),
   remove: (id) => apiClient.delete(`/my-books/${id}/`),
+  wantedBy: (bookId) => apiClient.get(`/my-books/${bookId}/wanted-by/`),
 };
 
 // ── Wishlist (Want-list) ──────────────────────────────────────────────────────
@@ -198,9 +199,10 @@ export const trades = {
   sendMessage: (id, data) => apiClient.post(`/trades/${id}/messages/`, data),
 };
 
-// ── Donations ─────────────────────────────────────────────────────────────────
+// ── Donations / Gifts ─────────────────────────────────────────────────────────
 export const donations = {
   list: (params) => apiClient.get('/donations/', { params }),
+  // data: { recipient_id, user_book_id, message? }
   offer: (data) => apiClient.post('/donations/', data),
   accept: (id) => apiClient.post(`/donations/${id}/accept/`),
   decline: (id) => apiClient.post(`/donations/${id}/decline/`),

@@ -2,7 +2,6 @@ import logging
 
 from django.db import transaction
 from django.http import Http404
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -23,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 class DonationListCreateView(APIView):
     """
-    GET  /api/v1/donations/ — user's donations as donor or institution.
-    POST /api/v1/donations/ — offer a donation.
+    GET  /api/v1/donations/ — user's donations as donor or recipient.
+    POST /api/v1/donations/ — offer a donation/gift.
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -38,13 +37,20 @@ class DonationListCreateView(APIView):
         from django.db.models import Q
 
         user = request.user
-        donations = (
-            Donation.objects.filter(Q(donor=user) | Q(institution=user))
-            .select_related("donor", "institution", "user_book__book")
-            .order_by("-created_at")
-        )
+        direction = request.query_params.get("direction", "")
+
+        qs = Donation.objects.select_related("donor", "recipient", "user_book__book")
+
+        if direction == "offered":
+            qs = qs.filter(donor=user)
+        elif direction == "received":
+            qs = qs.filter(recipient=user)
+        else:
+            qs = qs.filter(Q(donor=user) | Q(recipient=user))
+
+        qs = qs.order_by("-created_at")
         return Response(
-            DonationSerializer(donations, many=True, context={"request": request}).data
+            DonationSerializer(qs, many=True, context={"request": request}).data
         )
 
     def post(self, request):
@@ -54,20 +60,24 @@ class DonationListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         donation = serializer.save()
 
-        # Notify institution
+        recipient = donation.recipient
+        is_institutional = recipient.is_institutional
+        verb = "donate" if is_institutional else "gift"
+        display_name = getattr(recipient, 'institution_name', None) or recipient.username
+
         try:
             from apps.notifications.models import Notification
 
             Notification.objects.create(
-                user=donation.institution,
+                user=recipient,
                 notification_type="donation_offered",
-                title="Donation offer received",
-                body=f"{donation.donor.username} would like to donate {donation.user_book.book.title}.",
+                title="Gift offer received" if not is_institutional else "Donation offer received",
+                body=f"{donation.donor.username} would like to {verb} {donation.user_book.book.title} to you.",
                 metadata={"donation_id": str(donation.pk)},
             )
         except Exception:
             logger.exception(
-                "Failed to notify institution of donation offer %s", donation.pk
+                "Failed to notify recipient of donation offer %s", donation.pk
             )
 
         return Response(
@@ -77,22 +87,20 @@ class DonationListCreateView(APIView):
 
 
 class DonationAcceptView(APIView):
-    """POST /api/v1/donations/:id/accept/ — institution accepts a donation."""
+    """POST /api/v1/donations/:id/accept/ — recipient accepts a donation/gift."""
 
     permission_classes = [permissions.IsAuthenticated, EmailVerifiedPermission]
 
     def post(self, request, pk):
         with transaction.atomic():
-            # Lock the donation row for update
             donation = (
                 Donation.objects.select_for_update()
-                .filter(pk=pk, institution=request.user, status=Donation.Status.OFFERED)
+                .filter(pk=pk, recipient=request.user, status=Donation.Status.OFFERED)
                 .first()
             )
             if not donation:
                 raise Http404
 
-            # Lock the user_book row for update
             from apps.inventory.models import UserBook
 
             user_book = (
@@ -106,11 +114,9 @@ class DonationAcceptView(APIView):
             donation.status = Donation.Status.ACCEPTED
             donation.save(update_fields=["status"])
 
-            # Reserve the book
             user_book.status = UserBook.Status.RESERVED
             user_book.save(update_fields=["status"])
 
-            # Create a Trade record — must succeed for the accept to be valid
             from apps.trading.models import Trade, TradeShipment
 
             trade = Trade.objects.create(
@@ -121,21 +127,25 @@ class DonationAcceptView(APIView):
             TradeShipment.objects.create(
                 trade=trade,
                 sender=donation.donor,
-                receiver=donation.institution,
+                receiver=donation.recipient,
                 user_book=donation.user_book,
             )
 
-            # Notify donor
+            recipient = donation.recipient
+            is_institutional = recipient.is_institutional
+            display_name = getattr(recipient, 'institution_name', None) or recipient.username
+            noun = "donation" if is_institutional else "gift"
+
             try:
                 from apps.notifications.models import Notification
 
                 Notification.objects.create(
                     user=donation.donor,
                     notification_type="donation_accepted",
-                    title="Donation accepted!",
+                    title=f"{noun.capitalize()} accepted!",
                     body=(
-                        f"{donation.institution.institution_name or donation.institution.username} "
-                        f"has accepted your donation of {donation.user_book.book.title}. "
+                        f"{display_name} has accepted your {noun} of "
+                        f"{donation.user_book.book.title}. "
                         f"Shipping address is now available."
                     ),
                     metadata={"donation_id": str(donation.pk)},
@@ -149,7 +159,7 @@ class DonationAcceptView(APIView):
 
 
 class DonationDeclineView(APIView):
-    """POST /api/v1/donations/:id/decline/ — institution declines a donation."""
+    """POST /api/v1/donations/:id/decline/ — recipient declines a donation/gift."""
 
     permission_classes = [permissions.IsAuthenticated]
 
@@ -157,7 +167,7 @@ class DonationDeclineView(APIView):
         with transaction.atomic():
             donation = (
                 Donation.objects.select_for_update()
-                .filter(pk=pk, institution=request.user, status=Donation.Status.OFFERED)
+                .filter(pk=pk, recipient=request.user, status=Donation.Status.OFFERED)
                 .first()
             )
             if not donation:
@@ -166,18 +176,19 @@ class DonationDeclineView(APIView):
             donation.status = Donation.Status.CANCELLED
             donation.save(update_fields=["status"])
 
-        # Notify donor
+        recipient = donation.recipient
+        is_institutional = recipient.is_institutional
+        display_name = getattr(recipient, 'institution_name', None) or recipient.username
+        noun = "donation" if is_institutional else "gift"
+
         try:
             from apps.notifications.models import Notification
 
             Notification.objects.create(
                 user=donation.donor,
                 notification_type="donation_declined",
-                title="Donation declined",
-                body=(
-                    f"{donation.institution.institution_name or donation.institution.username} "
-                    f"has declined your donation offer."
-                ),
+                title=f"{noun.capitalize()} declined",
+                body=f"{display_name} has declined your {noun} offer.",
                 metadata={"donation_id": str(donation.pk)},
             )
         except Exception:
@@ -185,4 +196,4 @@ class DonationDeclineView(APIView):
                 "Failed to notify donor of donation decline %s", donation.pk
             )
 
-        return Response({"detail": "Donation offer declined."})
+        return Response({"detail": "Offer declined."})

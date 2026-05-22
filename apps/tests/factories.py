@@ -154,7 +154,7 @@ class DonationFactory(factory.django.DjangoModelFactory):
         model = Donation
 
     donor = factory.SubFactory(UserFactory)
-    institution = factory.SubFactory(UserFactory, account_type=User.AccountType.LIBRARY)
+    recipient = factory.SubFactory(UserFactory, account_type=User.AccountType.LIBRARY)
     user_book = factory.SubFactory(UserBookFactory)
     status = Donation.Status.OFFERED
 

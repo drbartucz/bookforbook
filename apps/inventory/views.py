@@ -120,17 +120,49 @@ class MyBooksView(APIView):
     permission_classes = [EmailVerifiedPermission]
 
     def get(self, request):
+        from django.db.models import Count, Exists, OuterRef, Q
+
         queryset = (
             UserBook.objects.filter(user=request.user)
             .select_related("book")
             .exclude(status=UserBook.Status.REMOVED)
+            .annotate(
+                want_count=Count(
+                    'book__wishlist_entries',
+                    filter=Q(
+                        book__wishlist_entries__is_active=True,
+                        book__wishlist_entries__user__is_active=True,
+                    ) & ~Q(book__wishlist_entries__user=request.user),
+                    distinct=True,
+                ),
+                is_institution_wanted=Exists(
+                    WishlistItem.objects.filter(
+                        book=OuterRef('book'),
+                        is_active=True,
+                        user__is_active=True,
+                        user__account_type__in=[
+                            User.AccountType.LIBRARY,
+                            User.AccountType.BOOKSTORE,
+                        ],
+                        user__is_verified=True,
+                    )
+                ),
+            )
         )
+
+        filter_by = request.query_params.get("filter_by", "")
+        if filter_by == "wanted":
+            queryset = queryset.filter(Q(want_count__gt=0) | Q(is_institution_wanted=True))
 
         sort_by = request.query_params.get("sort_by", "created_at")
         sort_order = request.query_params.get("sort_order", "desc")
-        queryset = apply_book_sorting(queryset, sort_by, sort_order)
 
-        # Apply pagination
+        if sort_by == "demand":
+            ordering = "-want_count" if sort_order == "desc" else "want_count"
+            queryset = queryset.order_by(ordering)
+        else:
+            queryset = apply_book_sorting(queryset, sort_by, sort_order)
+
         paginator = PageNumberPagination()
         paginated = paginator.paginate_queryset(queryset, request)
         serializer = UserBookSerializer(paginated, many=True)
@@ -197,6 +229,42 @@ class MyBookDetailView(APIView):
         obj.status = UserBook.Status.REMOVED
         obj.save(update_fields=["status"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BookWantedByView(APIView):
+    """
+    GET /api/v1/my-books/:pk/wanted-by/
+    Returns individuals and institutions who have the given UserBook's book
+    on their wishlist, so the owner can choose a gift recipient.
+    """
+
+    permission_classes = [EmailVerifiedPermission]
+
+    def get(self, request, pk):
+        from apps.accounts.serializers import UserPublicProfileSerializer
+
+        user_book = get_object_or_404(UserBook, pk=pk, user=request.user, status=UserBook.Status.AVAILABLE)
+
+        wishlist_entries = (
+            WishlistItem.objects.filter(
+                book=user_book.book,
+                is_active=True,
+                user__is_active=True,
+            )
+            .exclude(user=request.user)
+            .select_related("user")
+            .order_by("created_at")
+        )
+
+        results = []
+        for item in wishlist_entries:
+            results.append({
+                "user": UserPublicProfileSerializer(item.user).data,
+                "wishlist_item_id": str(item.pk),
+                "min_condition": item.min_condition,
+            })
+
+        return Response(results)
 
 
 class WishlistView(APIView):

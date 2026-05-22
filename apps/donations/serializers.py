@@ -8,16 +8,16 @@ from .models import Donation
 
 class DonationSerializer(serializers.ModelSerializer):
     donor = UserPublicProfileSerializer(read_only=True)
-    institution = UserPublicProfileSerializer(read_only=True)
+    recipient = UserPublicProfileSerializer(read_only=True)
     user_book = UserBookSerializer(read_only=True)
-    institution_address = serializers.SerializerMethodField()
+    recipient_address = serializers.SerializerMethodField()
     is_recipient = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
         fields = [
-            'id', 'donor', 'institution', 'user_book',
-            'status', 'message', 'institution_address', 'is_recipient',
+            'id', 'donor', 'recipient', 'user_book',
+            'status', 'message', 'recipient_address', 'is_recipient',
             'created_at', 'updated_at',
         ]
         read_only_fields = fields
@@ -26,58 +26,71 @@ class DonationSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        return request.user == obj.institution
+        return request.user == obj.recipient
 
-    def get_institution_address(self, obj):
-        """Reveal institution address only after donation is accepted."""
+    def get_recipient_address(self, obj):
+        """Reveal recipient address only after donation is accepted."""
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return None
         if obj.status not in [Donation.Status.ACCEPTED, Donation.Status.SHIPPED, Donation.Status.RECEIVED]:
             return None
-        if request.user != obj.donor and request.user != obj.institution:
+        if request.user != obj.donor and request.user != obj.recipient:
             return None
-        # Reveal institution's address to the donor
         if request.user == obj.donor:
-            institution = obj.institution
+            r = obj.recipient
             return {
-                'institution_name': institution.institution_name,
-                'full_name': institution.full_name,
-                'address_line_1': institution.address_line_1,
-                'address_line_2': institution.address_line_2,
-                'city': institution.city,
-                'state': institution.state,
-                'zip_code': institution.zip_code,
+                'institution_name': getattr(r, 'institution_name', None),
+                'full_name': r.full_name,
+                'address_line_1': r.address_line_1,
+                'address_line_2': r.address_line_2,
+                'city': r.city,
+                'state': r.state,
+                'zip_code': r.zip_code,
             }
         return None
 
 
 class DonationCreateSerializer(serializers.Serializer):
-    institution_id = serializers.UUIDField()
+    recipient_id = serializers.UUIDField()
     user_book_id = serializers.UUIDField()
     message = serializers.CharField(required=False, allow_blank=True, max_length=1000)
 
     def validate(self, attrs):
         from apps.accounts.models import User
-        from apps.inventory.models import UserBook
+        from apps.inventory.models import UserBook, WishlistItem
 
         request = self.context['request']
         donor = request.user
 
-        # Validate institution
         try:
-            institution = User.objects.get(
-                pk=attrs['institution_id'],
-                account_type__in=[User.AccountType.LIBRARY, User.AccountType.BOOKSTORE],
-                is_verified=True,
-                is_active=True,
-            )
+            recipient = User.objects.get(pk=attrs['recipient_id'], is_active=True)
         except User.DoesNotExist:
-            raise serializers.ValidationError(
-                {'institution_id': 'Institution not found or not verified.'}
-            )
+            raise serializers.ValidationError({'recipient_id': 'User not found.'})
 
-        # Validate user_book belongs to donor and is available
+        if recipient == donor:
+            raise serializers.ValidationError({'recipient_id': 'You cannot gift a book to yourself.'})
+
+        if recipient.is_institutional:
+            if not recipient.is_verified:
+                raise serializers.ValidationError(
+                    {'recipient_id': 'Institution not found or not verified.'}
+                )
+        else:
+            # For individuals, the book must be on their active wishlist
+            try:
+                user_book_for_check = UserBook.objects.get(pk=attrs['user_book_id'])
+            except UserBook.DoesNotExist:
+                raise serializers.ValidationError({'user_book_id': 'Book not available.'})
+            if not WishlistItem.objects.filter(
+                user=recipient,
+                book=user_book_for_check.book,
+                is_active=True,
+            ).exists():
+                raise serializers.ValidationError(
+                    {'recipient_id': 'This book is not on that user\'s wishlist.'}
+                )
+
         try:
             user_book = UserBook.objects.get(
                 pk=attrs['user_book_id'],
@@ -87,7 +100,7 @@ class DonationCreateSerializer(serializers.Serializer):
         except UserBook.DoesNotExist:
             raise serializers.ValidationError({'user_book_id': 'Book not available.'})
 
-        attrs['institution'] = institution
+        attrs['recipient'] = recipient
         attrs['user_book'] = user_book
         attrs['donor'] = donor
         return attrs
@@ -95,7 +108,7 @@ class DonationCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         return Donation.objects.create(
             donor=validated_data['donor'],
-            institution=validated_data['institution'],
+            recipient=validated_data['recipient'],
             user_book=validated_data['user_book'],
             message=validated_data.get('message', ''),
         )

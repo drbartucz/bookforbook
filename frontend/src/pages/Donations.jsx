@@ -65,9 +65,9 @@ export default function Donations() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Donations</h1>
+        <h1 className="page-title">Donations &amp; Gifts</h1>
         <p className="page-subtitle">
-          Institutions (libraries, bookstores) can receive book donations from individuals.
+          Books given to institutions (libraries, bookstores) or gifted to individuals — no trade required.
         </p>
       </div>
 
@@ -97,7 +97,7 @@ export default function Donations() {
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>No donations found</p>
           <p className={styles.emptySubtitle}>
-            Browse institution profiles to see their wanted book lists and offer donations.
+            Browse someone's profile to gift them a book from their wishlist, or donate to a library or bookstore.
           </p>
         </div>
       ) : (
@@ -171,7 +171,7 @@ export default function Donations() {
                         onClick={() => acceptMutation.mutate(donation.id)}
                         disabled={acceptMutation.isPending}
                       >
-                        Accept Donation
+                        Accept
                       </button>
                       <button
                         className="btn btn-outline-danger btn-sm"
