@@ -510,7 +510,7 @@ class CommunityListView(generics.ListAPIView):
             )
             .annotate(
                 karma_score=ExpressionWrapper(
-                    F("total_trades") + F("gifts_given_count") * 2,
+                    F("total_trades") + F("gifts_given_count") * User.GIFT_KARMA_MULTIPLIER,
                     output_field=IntegerField(),
                 ),
                 has_available_books=Exists(
