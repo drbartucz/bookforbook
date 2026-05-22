@@ -1,6 +1,7 @@
 import logging
 
 from django.db import transaction
+from django.db.models import F
 from django.http import Http404
 from django.utils import timezone
 from rest_framework import permissions, status
@@ -116,6 +117,12 @@ class DonationAcceptView(APIView):
 
             user_book.status = UserBook.Status.RESERVED
             user_book.save(update_fields=["status"])
+
+            from apps.accounts.models import User as UserModel
+
+            UserModel.objects.filter(pk=donation.donor_id).update(
+                gifts_given_count=F("gifts_given_count") + 1
+            )
 
             from apps.trading.models import Trade, TradeShipment
 

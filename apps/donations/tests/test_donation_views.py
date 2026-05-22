@@ -50,6 +50,22 @@ class TestDonationViews:
             donation.refresh_from_db()
             assert donation.status == Donation.Status.ACCEPTED
 
+    def test_donation_accept_increments_gifts_given_count(self, api_client):
+        donor = UserFactory(gifts_given_count=0)
+        inst = UserFactory(account_type=User.AccountType.LIBRARY, is_verified=True)
+        api_client.force_authenticate(user=inst)
+
+        donation = DonationFactory(donor=donor, recipient=inst, status=Donation.Status.OFFERED)
+
+        url = reverse('donation-accept', kwargs={'pk': donation.pk})
+
+        with patch("apps.donations.views.user_has_verified_shipping_address", return_value=True, create=True):
+            response = api_client.post(url)
+            assert response.status_code == status.HTTP_200_OK
+
+        donor.refresh_from_db()
+        assert donor.gifts_given_count == 1
+
     def test_donation_decline(self, api_client):
         inst = UserFactory(account_type=User.AccountType.LIBRARY)
         api_client.force_authenticate(user=inst)

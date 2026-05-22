@@ -144,6 +144,10 @@ class UserPublicProfileSerializer(serializers.ModelSerializer):
 
     offered_count = serializers.IntegerField(read_only=True)
     wanted_count = serializers.IntegerField(read_only=True)
+    karma = serializers.SerializerMethodField()
+
+    def get_karma(self, obj) -> int:
+        return obj.total_trades + obj.gifts_given_count * 2
 
     class Meta:
         model = User
@@ -155,10 +159,42 @@ class UserPublicProfileSerializer(serializers.ModelSerializer):
             "institution_name",
             "institution_url",
             "total_trades",
+            "gifts_given_count",
+            "karma",
+            "giver_badge",
+            "trader_badge",
             "offered_count",
             "wanted_count",
             "avg_recent_rating",
             "rating_count",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class CommunityUserSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for the community discovery list."""
+
+    karma = serializers.SerializerMethodField()
+
+    def get_karma(self, obj) -> int:
+        karma_score = getattr(obj, "karma_score", None)
+        if karma_score is not None:
+            return karma_score
+        return obj.total_trades + obj.gifts_given_count * 2
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "account_type",
+            "karma",
+            "total_trades",
+            "gifts_given_count",
+            "avg_recent_rating",
+            "giver_badge",
+            "trader_badge",
             "created_at",
         ]
         read_only_fields = fields

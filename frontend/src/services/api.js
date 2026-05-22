@@ -223,6 +223,11 @@ export const browse = {
   shippingEstimate: (data) => apiClient.post('/browse/shipping-estimate/', data),
 };
 
+// ── Community ─────────────────────────────────────────────────────────────────
+export const community = {
+  list: (params) => apiClient.get('/users/community/', { params }),
+};
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 export const notifications = {
   list: (params) => apiClient.get('/notifications/', { params }),
