@@ -51,6 +51,9 @@ class DonationSerializer(serializers.ModelSerializer):
         return None
 
 
+_CONDITION_RANK = {'like_new': 4, 'very_good': 3, 'good': 2, 'acceptable': 1}
+
+
 class DonationCreateSerializer(serializers.Serializer):
     recipient_id = serializers.UUIDField()
     user_book_id = serializers.UUIDField()
@@ -82,13 +85,18 @@ class DonationCreateSerializer(serializers.Serializer):
                 user_book_for_check = UserBook.objects.get(pk=attrs['user_book_id'])
             except UserBook.DoesNotExist:
                 raise serializers.ValidationError({'user_book_id': 'Book not available.'})
-            if not WishlistItem.objects.filter(
+            wishlist_item = WishlistItem.objects.filter(
                 user=recipient,
                 book=user_book_for_check.book,
                 is_active=True,
-            ).exists():
+            ).first()
+            if not wishlist_item:
                 raise serializers.ValidationError(
-                    {'recipient_id': 'This book is not on that user\'s wishlist.'}
+                    {'recipient_id': "This book is not on that user's wishlist."}
+                )
+            if _CONDITION_RANK.get(user_book_for_check.condition, 0) < _CONDITION_RANK.get(wishlist_item.min_condition, 0):
+                raise serializers.ValidationError(
+                    {'user_book_id': "Your book's condition does not meet the recipient's minimum preference."}
                 )
 
         try:

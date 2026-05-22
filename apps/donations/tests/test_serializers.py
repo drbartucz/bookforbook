@@ -3,9 +3,9 @@ from unittest.mock import MagicMock
 
 from apps.donations.serializers import DonationSerializer, DonationCreateSerializer
 from apps.donations.models import Donation
-from apps.inventory.models import UserBook
+from apps.inventory.models import UserBook, ConditionChoices, WishlistItem
 from apps.accounts.models import User
-from apps.tests.factories import UserFactory, UserBookFactory, DonationFactory
+from apps.tests.factories import UserFactory, UserBookFactory, DonationFactory, WishlistItemFactory
 
 @pytest.mark.django_db
 class TestDonationSerializers:
@@ -58,3 +58,23 @@ class TestDonationSerializers:
         serializer = DonationCreateSerializer(data=data, context={'request': request})
         assert not serializer.is_valid()
         assert 'user_book_id' in serializer.errors
+
+    def test_donation_create_condition_validation_for_individual(self):
+        donor = UserFactory()
+        recipient = UserFactory()
+        ub = UserBookFactory(user=donor, status=UserBook.Status.AVAILABLE, condition=ConditionChoices.ACCEPTABLE)
+
+        request = MagicMock(user=donor)
+
+        # Recipient wants like_new — donor's acceptable copy should be rejected
+        wishlist = WishlistItemFactory(user=recipient, book=ub.book, min_condition=ConditionChoices.LIKE_NEW)
+        data = {"recipient_id": str(recipient.id), "user_book_id": str(ub.id)}
+        serializer = DonationCreateSerializer(data=data, context={'request': request})
+        assert not serializer.is_valid()
+        assert 'user_book_id' in serializer.errors
+
+        # Recipient lowers minimum to acceptable — same book should now be valid
+        wishlist.min_condition = ConditionChoices.ACCEPTABLE
+        wishlist.save()
+        serializer = DonationCreateSerializer(data=data, context={'request': request})
+        assert serializer.is_valid(), serializer.errors
