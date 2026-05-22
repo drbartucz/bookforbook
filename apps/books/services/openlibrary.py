@@ -165,6 +165,13 @@ def get_or_create_book(isbn: str, minimal: bool = False):
 
 def _book_needs_enrichment(book) -> bool:
     """Return True when cached book metadata is incomplete enough to re-fetch."""
+    # Apply throttle first — including placeholder-title books — so a permanently
+    # unknown ISBN doesn't get re-fetched on every request.
+    if book.last_enriched_at:
+        throttle_limit = timezone.now() - timedelta(days=ENRICHMENT_THROTTLE_DAYS)
+        if book.last_enriched_at > throttle_limit:
+            return False
+
     if _is_placeholder_title(book.title):
         return True
 
@@ -172,14 +179,6 @@ def _book_needs_enrichment(book) -> bool:
     is_complete = book.authors and book.physical_format and book.description
     if is_complete:
         return False
-
-    # Less aggressive re-enrichment:
-    # If we tried to enrich recently (within the throttle window), don't try again.
-    # This prevents hammering the API for books that Open Library simply doesn't have data for.
-    if book.last_enriched_at:
-        throttle_limit = timezone.now() - timedelta(days=ENRICHMENT_THROTTLE_DAYS)
-        if book.last_enriched_at > throttle_limit:
-            return False
 
     return True
 
@@ -235,6 +234,14 @@ def _update_book_from_data(book, data: dict) -> None:
         book.save(update_fields=content_fields)
     else:
         book.save(update_fields=["last_enriched_at"])
+
+    if _is_placeholder_title(book.title):
+        logger.warning(
+            "ISBN %s still has a placeholder title after enrichment; "
+            "Open Library may not have data for this ISBN. "
+            "Consider adding a manual override to KNOWN_ISBN_METADATA_OVERRIDES.",
+            book.isbn_13,
+        )
 
 
 def normalize_isbn(isbn: str) -> str | None:
