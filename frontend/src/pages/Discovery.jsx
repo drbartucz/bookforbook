@@ -12,11 +12,14 @@ export default function Discovery() {
   const queryClient = useQueryClient();
   const [addedToWishlist, setAddedToWishlist] = useState(new Set());
 
-  const { data: partners, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['discovery-partners'],
     queryFn: () => matchesApi.reverseDiscovery().then((r) => r.data),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
+
+  const partners = data?.results ?? [];
+  const atMatchLimit = data?.at_match_limit ?? false;
 
   const addToWishlistMutation = useMutation({
     mutationFn: ({ identifier }) => wishlistApi.add({ isbn: identifier }),
@@ -44,6 +47,12 @@ export default function Discovery() {
           These users want books you have available. Browse their collections to find something you want in return!
         </p>
       </div>
+
+      {atMatchLimit && (
+        <div className={styles.limitWarning} role="alert">
+          <strong>Match limit reached.</strong> You have too many active matches or proposals to start a new trade right now. Complete or cancel an existing one to free up a slot.
+        </div>
+      )}
 
       {partners.length === 0 ? (
         <div className={styles.empty}>

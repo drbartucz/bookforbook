@@ -64,7 +64,7 @@ describe('Discovery Page', () => {
   });
 
   it('renders empty state when no partners found', async () => {
-    matchesApi.reverseDiscovery.mockResolvedValue({ data: [] });
+    matchesApi.reverseDiscovery.mockResolvedValue({ data: { at_match_limit: false, results: [] } });
     render(<Discovery />, { wrapper });
     expect(await screen.findByText(/no potential partners found yet/i)).toBeInTheDocument();
   });
@@ -76,7 +76,7 @@ describe('Discovery Page', () => {
   });
 
   it('renders partners and their books correctly', async () => {
-    matchesApi.reverseDiscovery.mockResolvedValue({ data: mockPartners });
+    matchesApi.reverseDiscovery.mockResolvedValue({ data: { at_match_limit: false, results: mockPartners } });
     render(<Discovery />, { wrapper });
 
     expect(await screen.findByText('@partner1')).toBeInTheDocument();
@@ -86,8 +86,22 @@ describe('Discovery Page', () => {
     expect(screen.getByRole('button', { name: /i want this/i })).toBeInTheDocument();
   });
 
+  it('shows a warning banner when the user is at their match limit', async () => {
+    matchesApi.reverseDiscovery.mockResolvedValue({ data: { at_match_limit: true, results: mockPartners } });
+    render(<Discovery />, { wrapper });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText(/match limit reached/i)).toBeInTheDocument();
+  });
+
+  it('does not show the warning banner when the user is under their match limit', async () => {
+    matchesApi.reverseDiscovery.mockResolvedValue({ data: { at_match_limit: false, results: mockPartners } });
+    render(<Discovery />, { wrapper });
+    await screen.findByText('@partner1');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('allows adding a book to wishlist', async () => {
-    matchesApi.reverseDiscovery.mockResolvedValue({ data: mockPartners });
+    matchesApi.reverseDiscovery.mockResolvedValue({ data: { at_match_limit: false, results: mockPartners } });
     wishlistApi.add.mockResolvedValue({ data: {} });
     
     render(<Discovery />, { wrapper });
