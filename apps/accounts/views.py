@@ -239,7 +239,11 @@ class UserMeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        serializer = UserMeSerializer(request.user)
+        user = request.user
+        if user.last_active_at < timezone.now() - timedelta(hours=24):
+            user.last_active_at = timezone.now()
+            user.save(update_fields=["last_active_at"])
+        serializer = UserMeSerializer(user)
         return Response(serializer.data)
 
     def patch(self, request):

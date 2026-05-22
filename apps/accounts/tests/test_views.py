@@ -1,5 +1,7 @@
 import pytest
+from datetime import timedelta
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from unittest.mock import patch
 from django.utils.http import urlsafe_base64_encode
@@ -59,6 +61,30 @@ class TestAccountViews:
         
         assert response.status_code == status.HTTP_200_OK
         assert response.data['email'] == user.email
+
+    def test_me_get_refreshes_last_active_at_when_stale(self, api_client):
+        user = UserFactory()
+        stale_time = timezone.now() - timedelta(hours=25)
+        User.objects.filter(pk=user.pk).update(last_active_at=stale_time)
+        user.refresh_from_db()
+        api_client.force_authenticate(user=user)
+
+        api_client.get(reverse("user-me"))
+
+        user.refresh_from_db()
+        assert user.last_active_at > stale_time
+
+    def test_me_get_skips_update_when_active_recently(self, api_client):
+        user = UserFactory()
+        recent_time = timezone.now() - timedelta(hours=1)
+        User.objects.filter(pk=user.pk).update(last_active_at=recent_time)
+        user.refresh_from_db()
+        api_client.force_authenticate(user=user)
+
+        api_client.get(reverse("user-me"))
+
+        user.refresh_from_db()
+        assert abs((user.last_active_at - recent_time).total_seconds()) < 2
 
     def test_user_me_update_view(self, api_client):
         user = UserFactory(full_name="Old Name")
