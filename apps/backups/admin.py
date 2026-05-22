@@ -5,7 +5,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 
-from .models import BackupRecord
+from .models import BackupRecord, BackupSettings
 
 
 @admin.register(BackupRecord)
@@ -16,6 +16,7 @@ class BackupRecordAdmin(admin.ModelAdmin):
         "created_at",
         "backup_type",
         "status_badge",
+        "storage_backend",
         "file_name",
         "file_size_display",
         "duration_display",
@@ -28,6 +29,7 @@ class BackupRecordAdmin(admin.ModelAdmin):
         "id",
         "backup_type",
         "status",
+        "storage_backend",
         "file_name",
         "file_size_bytes",
         "error_message",
@@ -171,4 +173,28 @@ class BackupRecordAdmin(admin.ModelAdmin):
             request,
             "admin/backups/backuprecord/restore_confirm.html",
             context,
+        )
+
+
+@admin.register(BackupSettings)
+class BackupSettingsAdmin(admin.ModelAdmin):
+    """Singleton admin for backup notification preferences.
+
+    The changelist redirects straight to the single configuration object so
+    the user never sees an empty list page.  Adding or deleting the record is
+    blocked; the object is created on first access via BackupSettings.get().
+    """
+
+    fields = ["email_on_success", "email_on_failure"]
+
+    def has_add_permission(self, request) -> bool:  # type: ignore[override]
+        return False
+
+    def has_delete_permission(self, request, obj=None) -> bool:  # type: ignore[override]
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        obj = BackupSettings.get()
+        return redirect(
+            reverse("admin:backups_backupsettings_change", args=[obj.pk])
         )

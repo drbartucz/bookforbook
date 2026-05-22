@@ -14,18 +14,73 @@ warning.
 import logging
 import os
 
+from django.conf import settings as django_settings
+from django.core.files.storage import FileSystemStorage
 from django.core.management import call_command
 from django.utils import timezone
+from dbbackup.storage import get_storage
+
+from apps.notifications.email import send_email
 
 logger = logging.getLogger(__name__)
 
 
 def _ensure_filesystem_storage_path_exists(storage_backend) -> None:
-    """Create local filesystem backup directory if it doesn't exist yet."""
+    """Create local filesystem backup directory if it doesn't exist yet.
+
+    Only acts on FileSystemStorage — S3-compatible backends use a location
+    prefix, not a local path, so os.makedirs would create a spurious directory.
+    """
     underlying = getattr(storage_backend, "storage", None)
+    # Only create directories for real filesystem storage. S3Boto3Storage uses
+    # "location" as an S3 key prefix (e.g. "db-backups"), not a local path.
+    if not isinstance(underlying, FileSystemStorage):
+        return
     location = getattr(underlying, "location", None)
     if isinstance(location, str) and location:
         os.makedirs(location, exist_ok=True)
+
+
+def _send_backup_notification(record) -> None:
+    """Email the admin alert address based on BackupSettings switches."""
+    from apps.backups.models import BackupRecord, BackupSettings
+
+    try:
+        backup_settings = BackupSettings.get()
+        recipient = getattr(django_settings, "ADMIN_ACCOUNT_ALERT_EMAIL", "")
+        if not recipient:
+            return
+
+        if (
+            record.status == BackupRecord.Status.SUCCESS
+            and backup_settings.email_on_success
+        ):
+            subject = "[BookForBook] Database backup succeeded"
+            body = (
+                f"Database backup completed successfully.\n\n"
+                f"File: {record.file_name or '(unknown)'}\n"
+                f"Size: {f'{record.file_size_mb} MB' if record.file_size_mb else '(unknown)'}\n"
+                f"Storage: {record.storage_backend or '(unknown)'}\n"
+                f"Duration: {f'{record.duration_seconds}s' if record.duration_seconds else '(unknown)'}\n"
+                f"Completed: {record.completed_at.isoformat() if record.completed_at else '(unknown)'}"
+            )
+            send_email(recipient, subject, body)
+
+        elif (
+            record.status == BackupRecord.Status.FAILED
+            and backup_settings.email_on_failure
+        ):
+            subject = "[BookForBook] Database backup FAILED"
+            body = (
+                f"Database backup FAILED.\n\n"
+                f"Error: {record.error_message or '(no error message)'}\n"
+                f"Storage: {record.storage_backend or '(unknown)'}\n"
+                f"Failed at: {record.completed_at.isoformat() if record.completed_at else '(unknown)'}"
+            )
+            send_email(recipient, subject, body)
+
+    except Exception:
+        logger.exception("Failed to send backup notification for record %s", record.pk)
 
 
 def run_database_backup(record_id: str) -> None:
@@ -36,11 +91,21 @@ def run_database_backup(record_id: str) -> None:
     record.status = BackupRecord.Status.RUNNING
     record.save(update_fields=["status"])
 
-    try:
-        from dbbackup.storage import get_storage
+    storage_backend_name = ""
 
+    try:
         storage = get_storage()
-        logger.info("Using backup storage: %s", storage.__class__.__name__)
+        underlying = getattr(storage, "storage", storage)
+        storage_backend_name = type(underlying).__name__
+        logger.info("Using backup storage: %s", storage_backend_name)
+
+        if isinstance(underlying, FileSystemStorage):
+            logger.warning(
+                "Backup is writing to local FILESYSTEM storage, not Backblaze B2. "
+                "Set B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY, and B2_BUCKET_NAME "
+                "environment variables to enable B2 cloud backup."
+            )
+
         _ensure_filesystem_storage_path_exists(storage)
         before: set[str] = set(storage.list_backups())
 
@@ -51,29 +116,65 @@ def run_database_backup(record_id: str) -> None:
         new_files = after - before
         filename = new_files.pop() if new_files else ""
 
+        if not filename and after:
+            # Before/after diff found nothing new (can happen when cleanup
+            # removes an old file and the filenames sort ambiguously). Fall
+            # back to the lexicographically largest name; backup filenames are
+            # timestamped so max == most recent.
+            filename = max(after)
+            logger.warning(
+                "Could not detect new backup via list diff; "
+                "falling back to most recent file: %s", filename
+            )
+
+        # Verify the file is actually reachable in storage.
+        if filename:
+            if not underlying.exists(filename):
+                raise RuntimeError(
+                    f"Backup file '{filename}' was listed but cannot be accessed "
+                    "in storage. Check B2 credentials and bucket configuration."
+                )
+            logger.info("Backup file verified in storage: %s", filename)
+        else:
+            raise RuntimeError(
+                "Backup command completed but no backup files found in storage. "
+                "Verify B2 credentials and that the bucket exists."
+            )
+
         # Best-effort size — only works for filesystem; S3 skips silently.
         file_size: int | None = None
-        if filename:
-            try:
-                file_size = storage.size(filename)
-            except Exception:
-                pass
+        try:
+            file_size = storage.size(filename)
+        except Exception:
+            pass
 
         record.status = BackupRecord.Status.SUCCESS
         record.file_name = filename
         record.file_size_bytes = file_size
+        record.storage_backend = storage_backend_name
         record.completed_at = timezone.now()
         record.save(
-            update_fields=["status", "file_name", "file_size_bytes", "completed_at"]
+            update_fields=[
+                "status",
+                "file_name",
+                "file_size_bytes",
+                "storage_backend",
+                "completed_at",
+            ]
         )
-        logger.info("Database backup completed: %s", filename or "(unknown filename)")
+        logger.info("Database backup completed: %s", filename)
+        _send_backup_notification(record)
 
     except Exception as exc:
         record.status = BackupRecord.Status.FAILED
         record.error_message = str(exc)[:2000]
+        record.storage_backend = storage_backend_name
         record.completed_at = timezone.now()
-        record.save(update_fields=["status", "error_message", "completed_at"])
+        record.save(
+            update_fields=["status", "error_message", "storage_backend", "completed_at"]
+        )
         logger.exception("Database backup failed for record %s: %s", record_id, exc)
+        _send_backup_notification(record)
         raise
 
 

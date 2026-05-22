@@ -1,4 +1,5 @@
 import os
+import shutil
 from datetime import timedelta
 from pathlib import Path
 
@@ -254,6 +255,25 @@ DBBACKUP_CLEANUP_KEEP_MEDIA = 3
 # Default to filesystem storage (overridden to S3 in production).
 DBBACKUP_STORAGE = "django.core.files.storage.FileSystemStorage"
 DBBACKUP_STORAGE_OPTIONS = {"location": str(BASE_DIR / "backups")}
+
+# Locate pg_dump at settings load time so the correct path is used even when
+# it is not on the default PATH (common on Railway / Nixpacks builds where the
+# Nix store puts PostgreSQL binaries outside /usr/bin).
+def _find_pg_tool(name: str) -> str:
+    if path := shutil.which(name):
+        return path
+    for version in range(18, 11, -1):
+        candidate = f"/usr/lib/postgresql/{version}/bin/{name}"
+        if os.path.isfile(candidate):
+            return candidate
+    return name  # fall back to bare name; will fail with a clear OS error if missing
+
+DBBACKUP_CONNECTORS = {
+    "default": {
+        "DUMP_CMD": _find_pg_tool("pg_dump"),
+        "RESTORE_CMD": _find_pg_tool("pg_restore"),
+    }
+}
 
 # USPS Developer API (OAuth2 + Addresses v3)
 USPS_CLIENT_ID = config("USPS_CLIENT_ID", default="")
