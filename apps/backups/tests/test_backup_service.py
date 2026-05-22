@@ -73,20 +73,20 @@ class TestBackupService:
 
     @patch("apps.backups.services.backup_service.get_storage")
     @patch("apps.backups.services.backup_service.call_command")
-    def test_fallback_to_max_filename_when_diff_empty(self, mock_call, mock_get_storage):
-        """If before==after (no new file detected), fall back to max filename."""
+    def test_empty_diff_raises_not_false_positive(self, mock_call, mock_get_storage):
+        """If before==after (no new file detected), raise rather than picking an old backup."""
         record = BackupRecordFactory(status=BackupRecord.Status.PENDING)
         existing = ["backup-2024-01-01.psql", "backup-2024-01-02.psql"]
         mock_get_storage.return_value = _make_mock_storage(
             before=existing,
-            after=existing,  # diff is empty — cleanup removed an old file
+            after=existing,  # diff is empty — dbbackup produced nothing new
         )
 
-        run_database_backup(str(record.pk))
+        with pytest.raises(RuntimeError, match="no new file was detected"):
+            run_database_backup(str(record.pk))
 
         record.refresh_from_db()
-        assert record.status == BackupRecord.Status.SUCCESS
-        assert record.file_name == "backup-2024-01-02.psql"  # max of the list
+        assert record.status == BackupRecord.Status.FAILED
 
     @patch("apps.backups.services.backup_service.get_storage")
     def test_run_database_backup_failure(self, mock_get_storage):

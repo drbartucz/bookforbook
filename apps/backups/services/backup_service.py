@@ -31,9 +31,9 @@ def _ensure_filesystem_storage_path_exists(storage_backend) -> None:
     Only acts on FileSystemStorage — S3-compatible backends use a location
     prefix, not a local path, so os.makedirs would create a spurious directory.
     """
-    underlying = getattr(storage_backend, "storage", None)
-    # Only create directories for real filesystem storage. S3Boto3Storage uses
-    # "location" as an S3 key prefix (e.g. "db-backups"), not a local path.
+    # Use storage_backend itself as the fallback so a bare (unwrapped)
+    # FileSystemStorage is handled correctly alongside dbbackup's wrapper.
+    underlying = getattr(storage_backend, "storage", storage_backend)
     if not isinstance(underlying, FileSystemStorage):
         return
     location = getattr(underlying, "location", None)
@@ -114,18 +114,16 @@ def run_database_backup(record_id: str) -> None:
 
         after: set[str] = set(storage.list_backups())
         new_files = after - before
-        filename = new_files.pop() if new_files else ""
-
-        if not filename and after:
-            # Before/after diff found nothing new (can happen when cleanup
-            # removes an old file and the filenames sort ambiguously). Fall
-            # back to the lexicographically largest name; backup filenames are
-            # timestamped so max == most recent.
-            filename = max(after)
-            logger.warning(
-                "Could not detect new backup via list diff; "
-                "falling back to most recent file: %s", filename
+        if not new_files:
+            # The set difference is empty: dbbackup did not create a new file.
+            # Do NOT fall back to an existing backup — that would silently
+            # report a stale file as a fresh backup (false positive).
+            raise RuntimeError(
+                "Backup command completed but no new file was detected in storage. "
+                "dbbackup may have failed silently or the before/after file lists "
+                "are identical. Check dbbackup and storage configuration."
             )
+        filename = new_files.pop()
 
         # Verify the file is actually reachable in storage.
         if filename:
