@@ -4,6 +4,35 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
+class BackupSettings(models.Model):
+    """Singleton configuration for backup notifications.
+
+    Always use BackupSettings.get() rather than querying directly.
+    """
+
+    email_on_success = models.BooleanField(
+        default=False,
+        help_text="Send an email to the admin alert address whenever a backup succeeds.",
+    )
+    email_on_failure = models.BooleanField(
+        default=True,
+        help_text="Send an email to the admin alert address whenever a backup fails.",
+    )
+
+    class Meta:
+        verbose_name = "Backup Settings"
+        verbose_name_plural = "Backup Settings"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get(cls) -> "BackupSettings":
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class BackupRecord(models.Model):
     """Audit log for every database backup run (automatic or manual)."""
 
