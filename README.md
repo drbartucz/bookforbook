@@ -453,14 +453,14 @@ Individual users can offer a donation directly to your institution:
 ```
 POST /api/v1/donations/
 {
-  "institution_id": "library-uuid",
+  "recipient_id": "library-uuid",
   "user_book_id": "book-uuid"
 }
 ```
 
 You review incoming donation offers:
 ```
-GET /api/v1/donations/
+GET /api/v1/donations/?direction=received
 ```
 
 **Accept:**
@@ -473,7 +473,27 @@ POST /api/v1/donations/{id}/accept/
 POST /api/v1/donations/{id}/decline/
 ```
 
-Once accepted, the donor ships the book to your institution. No address reveal is needed on your end — the donor sees your institution's public address.
+Once accepted, the donor ships the book to your institution. Your shipping address is revealed to the donor after you accept.
+
+### Peer-to-peer Gifting (Individuals)
+
+Individual users can also gift books directly to other individuals whose wishlist includes the book — no trade required.
+
+```
+POST /api/v1/donations/
+{
+  "recipient_id": "individual-user-uuid",
+  "user_book_id": "book-uuid"
+}
+```
+
+The book must be on the recipient's active wishlist. To discover who wants a specific book you own:
+
+```
+GET /api/v1/my-books/{user-book-id}/wanted-by/
+```
+
+Returns a list of potential recipients (individuals + verified institutions) with their wishlist preferences.
 
 ---
 
