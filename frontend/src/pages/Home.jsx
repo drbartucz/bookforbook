@@ -42,12 +42,13 @@ export default function Home() {
   const debouncedWantedSearch = useDebounce(wantedSearch, 400);
 
   const offerQuery = useQuery({
-    queryKey: ['browse', 'available', debouncedOfferSearch, offerCondition, offerPage],
+    queryKey: ['browse', 'available', debouncedOfferSearch, offerCondition, offerPage, isAuthenticated],
     queryFn: async () => {
       const params = { page: offerPage, page_size: PAGE_SIZE };
       const trimmedSearch = debouncedOfferSearch.trim();
       if (trimmedSearch) params.q = trimmedSearch;
       if (offerCondition) params.condition = offerCondition;
+      if (!isAuthenticated) params.has_cover = 'true';
       const res = await browse.available(params);
       return res.data;
     },
@@ -56,11 +57,12 @@ export default function Home() {
   });
 
   const wantedQuery = useQuery({
-    queryKey: ['browse', 'wanted', debouncedWantedSearch, wantedPage],
+    queryKey: ['browse', 'wanted', debouncedWantedSearch, wantedPage, isAuthenticated],
     queryFn: async () => {
       const params = { page: wantedPage, page_size: PAGE_SIZE };
       const trimmedSearch = debouncedWantedSearch.trim();
       if (trimmedSearch) params.q = trimmedSearch;
+      if (!isAuthenticated) params.has_cover = 'true';
       const res = await browse.wanted(params);
       return res.data;
     },
