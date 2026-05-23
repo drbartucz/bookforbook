@@ -94,6 +94,9 @@ KNOWN_ISBN_METADATA_OVERRIDES = {
         "title": "The Professor and the Madman",
         "physical_format": "Audio CD",
     },
+    "9781510780866": {
+        "physical_format": "Paperback",
+    },
 }
 
 
