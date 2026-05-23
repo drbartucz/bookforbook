@@ -1,6 +1,7 @@
 import glob
 import os
 import shutil
+import subprocess
 from datetime import timedelta
 from pathlib import Path
 
@@ -287,6 +288,17 @@ def _find_pg_tool(name: str) -> str:
         matches = glob.glob(pattern)
         if matches:
             return matches[0]
+    # Last resort: ask bash — it sources Nix profiles that may not appear in the
+    # Python process PATH (e.g. when gunicorn is started without a login shell).
+    try:
+        result = subprocess.run(
+            ["bash", "-lc", f"which {name}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0 and (found := result.stdout.strip()):
+            return found
+    except Exception:
+        pass
     return name  # fall back to bare name; will fail with a clear OS error if missing
 
 DBBACKUP_CONNECTORS = {

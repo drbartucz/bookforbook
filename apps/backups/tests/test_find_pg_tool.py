@@ -49,10 +49,23 @@ class TestFindPgTool:
         ):
             assert _find_pg_tool("pg_dump") == store_path
 
-    def test_bare_name_fallback_when_not_found(self):
+    def test_bash_login_shell_fallback(self):
+        bash_path = "/nix/var/nix/profiles/default/bin/pg_dump"
+        mock_result = type("R", (), {"returncode": 0, "stdout": bash_path + "\n"})()
         with (
             patch("config.settings.base.shutil.which", return_value=None),
             patch("config.settings.base.os.path.isfile", return_value=False),
             patch("config.settings.base.glob.glob", return_value=[]),
+            patch("config.settings.base.subprocess.run", return_value=mock_result),
+        ):
+            assert _find_pg_tool("pg_dump") == bash_path
+
+    def test_bare_name_fallback_when_not_found(self):
+        mock_result = type("R", (), {"returncode": 1, "stdout": ""})()
+        with (
+            patch("config.settings.base.shutil.which", return_value=None),
+            patch("config.settings.base.os.path.isfile", return_value=False),
+            patch("config.settings.base.glob.glob", return_value=[]),
+            patch("config.settings.base.subprocess.run", return_value=mock_result),
         ):
             assert _find_pg_tool("pg_dump") == "pg_dump"
