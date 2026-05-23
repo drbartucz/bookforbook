@@ -86,4 +86,15 @@ describe('useNotificationStore', () => {
 
     expect(result.current.notifications).toHaveLength(3);
   });
+
+  it('does not add a duplicate notification when one with the same message is already visible', () => {
+    const { result } = renderHook(() => useNotificationStore());
+
+    act(() => {
+      result.current.addNotification('You have been automatically logged out.', 'warning');
+      result.current.addNotification('You have been automatically logged out.', 'warning');
+    });
+
+    expect(result.current.notifications).toHaveLength(1);
+  });
 });

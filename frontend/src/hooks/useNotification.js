@@ -4,9 +4,10 @@ const useNotificationStore = create((set) => ({
   notifications: [],
   addNotification: (message, type = 'info', duration = 5000) => {
     const id = Date.now();
-    set((state) => ({
-      notifications: [...state.notifications, { id, message, type }],
-    }));
+    set((state) => {
+      if (state.notifications.some((n) => n.message === message)) return state;
+      return { notifications: [...state.notifications, { id, message, type }] };
+    });
     if (duration > 0) {
       setTimeout(() => {
         set((state) => ({
