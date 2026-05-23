@@ -413,6 +413,12 @@ class BrowseAvailableView(generics.ListAPIView):
                 | Q(isbn_13__icontains=q)
             )
 
+        if self.request.query_params.get("has_cover") == "true":
+            qs = qs.exclude(cover_image_url__isnull=True).exclude(cover_image_url="")
+
+        if not self.request.user.is_authenticated:
+            qs = qs.order_by("?")
+
         return qs
 
 
@@ -459,6 +465,12 @@ class BrowseWantedView(generics.ListAPIView):
                 | Q(authors__icontains=q)
                 | Q(isbn_13__icontains=q)
             )
+
+        if self.request.query_params.get("has_cover") == "true":
+            qs = qs.exclude(cover_image_url__isnull=True).exclude(cover_image_url="")
+
+        if not self.request.user.is_authenticated:
+            qs = qs.order_by("?")
 
         return qs
 
