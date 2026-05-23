@@ -262,13 +262,20 @@ DBBACKUP_STORAGE_OPTIONS = {"location": str(BASE_DIR / "backups")}
 # it is not on the default PATH (common on Railway / Nixpacks builds where the
 # Nix store puts PostgreSQL binaries outside /usr/bin).
 def _find_pg_tool(name: str) -> str:
-    if path := shutil.which(name):
-        return path
-    # Debian/Ubuntu apt paths (/usr/lib/postgresql/<version>/bin/)
+    # Allow explicit override to handle server/client version mismatches on Railway.
+    env_key = "PG_DUMP_PATH" if name == "pg_dump" else "PG_RESTORE_PATH"
+    if override := os.environ.get(env_key):
+        return override
+    # Prefer Debian/Ubuntu versioned paths first (highest version wins) so that
+    # a version-specific install (e.g. postgresql-client-18) takes precedence over
+    # an older default pg_dump on PATH — avoiding server version mismatch errors.
     for version in range(18, 11, -1):
         candidate = f"/usr/lib/postgresql/{version}/bin/{name}"
         if os.path.isfile(candidate):
             return candidate
+    # Fall back to whatever is on PATH.
+    if path := shutil.which(name):
+        return path
     # Nix profile paths (Railway/Nixpacks runtime)
     for nix_profile in (
         "/root/.nix-profile/bin",

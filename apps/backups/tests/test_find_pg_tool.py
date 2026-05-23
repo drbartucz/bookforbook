@@ -6,9 +6,32 @@ from config.settings.base import _find_pg_tool
 
 @pytest.mark.unit
 class TestFindPgTool:
+    def test_env_var_override_pg_dump(self, monkeypatch):
+        monkeypatch.setenv("PG_DUMP_PATH", "/custom/bin/pg_dump")
+        assert _find_pg_tool("pg_dump") == "/custom/bin/pg_dump"
+
+    def test_env_var_override_pg_restore(self, monkeypatch):
+        monkeypatch.setenv("PG_RESTORE_PATH", "/custom/bin/pg_restore")
+        assert _find_pg_tool("pg_restore") == "/custom/bin/pg_restore"
+
     def test_found_on_path(self):
-        with patch("config.settings.base.shutil.which", return_value="/usr/bin/pg_dump"):
+        # Debian versioned paths are checked first; mock isfile so none match,
+        # then shutil.which provides the result.
+        with (
+            patch("config.settings.base.os.path.isfile", return_value=False),
+            patch("config.settings.base.shutil.which", return_value="/usr/bin/pg_dump"),
+        ):
             assert _find_pg_tool("pg_dump") == "/usr/bin/pg_dump"
+
+    def test_debian_versioned_path_beats_which(self):
+        # A versioned Debian binary (e.g. pg18) is preferred over a lower-version
+        # binary that shutil.which might find on PATH.
+        target = "/usr/lib/postgresql/18/bin/pg_dump"
+        with (
+            patch("config.settings.base.os.path.isfile", side_effect=lambda p: p == target),
+            patch("config.settings.base.shutil.which", return_value="/usr/bin/pg_dump"),
+        ):
+            assert _find_pg_tool("pg_dump") == target
 
     def test_debian_apt_fallback(self):
         # Matches /usr/lib/postgresql/14/bin/pg_dump (first existing version wins)
