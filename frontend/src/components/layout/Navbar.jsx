@@ -104,17 +104,6 @@ export default function Navbar() {
               <NavLink to="/discovery" className={navLinkClass}>
                 Discover
               </NavLink>
-              <NavLink to="/matches" className={navLinkClass}>
-                Matches
-                {totalPending > 0 && (
-                  <Tooltip content={`${totalPending} match${totalPending === 1 ? '' : 'es'} waiting for your response.`} position="bottom">
-                    <span className={styles.badge}>{totalPending > 99 ? '99+' : totalPending}</span>
-                  </Tooltip>
-                )}
-              </NavLink>
-              <NavLink to="/trades" className={navLinkClass}>
-                Trades
-              </NavLink>
             </>
           )}
         </div>
@@ -211,6 +200,25 @@ export default function Navbar() {
                       My Profile
                     </Link>
                     <Link
+                      to="/matches"
+                      className={styles.dropdownItem}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      My Matches
+                      {totalPending > 0 && (
+                        <Tooltip content={`${totalPending} match${totalPending === 1 ? '' : 'es'} waiting for your response.`} position="bottom">
+                          <span className={styles.badge}>{totalPending > 99 ? '99+' : totalPending}</span>
+                        </Tooltip>
+                      )}
+                    </Link>
+                    <Link
+                      to="/trades"
+                      className={styles.dropdownItem}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      My Trades
+                    </Link>
+                    <Link
                       to="/discovery"
                       className={styles.dropdownItem}
                       onClick={() => setMenuOpen(false)}
@@ -299,20 +307,20 @@ export default function Navbar() {
               <NavLink to="/discovery" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 Discover
               </NavLink>
-              <NavLink to="/matches" className={navLinkClass} onClick={() => setMobileOpen(false)}>
-                Matches {totalPending > 0 && `(${totalPending})`}
-              </NavLink>
               <NavLink to="/proposals" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 Proposals
-              </NavLink>
-              <NavLink to="/trades" className={navLinkClass} onClick={() => setMobileOpen(false)}>
-                Trades
               </NavLink>
               <NavLink to="/donations" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 Donations
               </NavLink>
               <NavLink to="/account" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 My Profile
+              </NavLink>
+              <NavLink to="/matches" className={navLinkClass} onClick={() => setMobileOpen(false)}>
+                My Matches {totalPending > 0 && `(${totalPending})`}
+              </NavLink>
+              <NavLink to="/trades" className={navLinkClass} onClick={() => setMobileOpen(false)}>
+                My Trades
               </NavLink>
               <button
                 className={`${styles.navLink} ${styles.mobileLogout}`}
