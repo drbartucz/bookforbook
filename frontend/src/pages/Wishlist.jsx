@@ -57,7 +57,7 @@ function normalizePhysicalFormatToKey(physicalFormat) {
 }
 
 const DEFAULT_WISHLIST_PREFERENCES = {
-  min_condition: 'any',
+  min_condition: 'good',
   edition_preference: 'same_language',
   allow_translations: false,
   exclude_abridged: true,
