@@ -39,7 +39,7 @@ test.describe('Public Profile', () => {
     await page.goto(profileUrl);
     await expect(page.getByRole('heading', { name: /^@alice_e2e$/i })).toBeVisible({ timeout: 15_000 });
 
-    await expect(page.getByText(/trades/i).first()).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('Trades', { exact: true }).first()).toBeVisible({ timeout: 8_000 });
     await expect(page.getByText(/member since/i)).toBeVisible({ timeout: 8_000 });
   });
 
