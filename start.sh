@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Collect static files (runs here because Railway env vars aren't available during Docker build)
+python manage.py collectstatic --noinput
+
 # Run migrations
 python manage.py migrate --noinput
 
