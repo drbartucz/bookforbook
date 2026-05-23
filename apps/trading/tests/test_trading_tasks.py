@@ -169,6 +169,33 @@ class TestAutoCloseTrades:
         assert ratings[0].score == 1
         assert ratings[1].score == 5
 
+    def test_two_party_trade_credits_each_user_exactly_once(self):
+        """A standard 2-party trade has 2 shipments (A→B and B→A).
+        Each user appears as sender in one shipment and receiver in the other,
+        so the old per-shipment increment would give each user +2 instead of +1."""
+        user_a = UserFactory(total_trades=0)
+        user_b = UserFactory(total_trades=0)
+        trade = make_expired_trade(status=Trade.Status.SHIPPING)
+        ub_a = UserBookFactory(status=UserBook.Status.RESERVED)
+        ub_b = UserBookFactory(status=UserBook.Status.RESERVED)
+        TradeShipmentFactory(
+            trade=trade, sender=user_a, receiver=user_b, user_book=ub_a,
+            status=TradeShipment.Status.SHIPPED,
+            tracking_number="1Z999AA10123456784",
+        )
+        TradeShipmentFactory(
+            trade=trade, sender=user_b, receiver=user_a, user_book=ub_b,
+            status=TradeShipment.Status.SHIPPED,
+            tracking_number="1Z999AA10123456784",
+        )
+
+        auto_close_trades()
+
+        user_a.refresh_from_db()
+        user_b.refresh_from_db()
+        assert user_a.total_trades == 1
+        assert user_b.total_trades == 1
+
     def test_idempotent_second_call_is_noop(self):
         """Calling auto_close_trades twice on the same trade does not double-process it."""
         sender = UserFactory(total_trades=0)
