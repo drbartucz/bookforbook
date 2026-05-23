@@ -217,8 +217,10 @@ describe('Navbar', () => {
             data: { total_pending: 100, unread_notifications: 0 },
         });
         renderWithProviders(<Navbar />);
+        // The badge lives inside the user dropdown — open it first
+        const menuButton = screen.getByRole('button', { name: /reader/i });
+        await userEvent.click(menuButton);
         await waitFor(() => {
-            // There should be a '99+' badge for the matches link
             const badges = screen.getAllByText('99+');
             expect(badges.length).toBeGreaterThan(0);
         });
