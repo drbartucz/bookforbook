@@ -8,6 +8,7 @@
  *   - Notifications API endpoint is called
  */
 import { test, expect } from '../../fixtures/index.js';
+import { ALICE } from '../../constants.js';
 
 test.describe('Notifications', () => {
   test('notification bell visible for authenticated user', async ({ alicePage: page }) => {
@@ -66,16 +67,16 @@ test.describe('Notifications', () => {
     await expect(page.getByRole('button', { name: /notifications/i })).toHaveCount(0);
   });
 
-  test('pending match count badge shows in navbar matches link', async ({
+  test('pending match count badge shows in user menu matches link', async ({
     alicePage: page,
   }) => {
-    // The Matches nav link shows a badge when total_pending > 0
-    // Alice has a seeded pending match, so badge should be visible
+    // My Matches lives in the user dropdown — open it first
     await page.goto('/dashboard');
 
-    // The badge is a <span> inside the Matches NavLink
-    // Use a broad check — either badge appears or nav link is visible
-    const matchesLink = page.getByRole('link', { name: /matches/i });
-    await expect(matchesLink).toBeVisible();
+    await page.getByRole('button', { name: new RegExp(ALICE.username, 'i') }).click();
+
+    // My Matches link should be visible in the open dropdown
+    const myMatchesLink = page.getByRole('link', { name: /my matches/i });
+    await expect(myMatchesLink).toBeVisible({ timeout: 8_000 });
   });
 });
