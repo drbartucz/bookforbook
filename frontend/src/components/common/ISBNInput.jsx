@@ -46,6 +46,7 @@ export default function ISBNInput({
   const fileInputRef = useRef(null);
   const uploadedPreviewUrlRef = useRef(null);
   const latestScanRequestIdRef = useRef(0);
+  const currentLookupIsbnRef = useRef(null);
 
   const displayBook = foundBook ?? localBook;
   const previewAuthor = getBookPrimaryAuthor(displayBook);
@@ -74,8 +75,17 @@ export default function ISBNInput({
       const res = await booksApi.lookupISBN(isbn);
       if (isStaleScanRequest()) return;
       const bookData = res.data;
+      currentLookupIsbnRef.current = isbn;
       setLocalBook(bookData);
       if (onBookFound) onBookFound(bookData);
+
+      // Background enrich: fills in format and other fields Tier 1 may have missed
+      booksApi.enrichISBN(isbn).then((enrichRes) => {
+        if (currentLookupIsbnRef.current !== isbn) return;
+        const enriched = enrichRes.data;
+        setLocalBook(enriched);
+        if (onBookFound) onBookFound(enriched);
+      }).catch(() => {});
     } catch (err) {
       if (isStaleScanRequest()) return;
       const msg =
@@ -84,6 +94,7 @@ export default function ISBNInput({
         'Book not found for this ISBN.';
       setLookupError(msg);
       setLocalBook(null);
+      currentLookupIsbnRef.current = null;
       if (onBookFound) onBookFound(null);
     } finally {
       if (!isStaleScanRequest()) {
@@ -114,6 +125,7 @@ export default function ISBNInput({
     onChange(e.target.value.trim());
     if (localBook) {
       setLocalBook(null);
+      currentLookupIsbnRef.current = null;
       if (onBookFound) onBookFound(null);
     }
     setIsbnCandidates(null);
