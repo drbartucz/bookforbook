@@ -121,6 +121,7 @@ def auto_close_trades():
                 else:
                     # SHIPPING or ONE_RECEIVED — evaluate per shipment
                     trade_manager = _get_trade_manager()
+                    credited_user_ids: set = set()
 
                     for shipment in all_shipments:
                         shipped_ok = (
@@ -141,9 +142,8 @@ def auto_close_trades():
                             shipment.user_book.status = UserBook.Status.TRADED
                             shipment.user_book.save(update_fields=["status"])
 
-                            User.objects.filter(
-                                pk__in=[shipment.sender_id, shipment.receiver_id]
-                            ).update(total_trades=F("total_trades") + 1)
+                            credited_user_ids.add(shipment.sender_id)
+                            credited_user_ids.add(shipment.receiver_id)
 
                             Rating.objects.create(
                                 trade=trade,
@@ -169,6 +169,11 @@ def auto_close_trades():
                                 book_condition_accurate=True,
                             )
                             _notify_shipment_failure(trade, shipment)
+
+                    if credited_user_ids:
+                        User.objects.filter(pk__in=credited_user_ids).update(
+                            total_trades=F("total_trades") + 1
+                        )
 
                     # Recompute rolling averages inside the transaction
                     for shipment in all_shipments:
