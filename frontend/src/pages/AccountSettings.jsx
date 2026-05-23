@@ -39,7 +39,7 @@ export default function AccountSettings() {
         state: '',
         zip_code: '',
     });
-    const [institutionForm, setInstitutionForm] = useState({ institution_url: '', institution_about: '' });
+    const [institutionForm, setInstitutionForm] = useState({ institution_url: '', institution_about: '', institution_bookshop_url: '' });
     const [institutionError, setInstitutionError] = useState(null);
     const [institutionSuccess, setInstitutionSuccess] = useState(null);
 
@@ -64,6 +64,7 @@ export default function AccountSettings() {
         setInstitutionForm({
             institution_url: me.institution_url ?? '',
             institution_about: me.institution_about ?? '',
+            institution_bookshop_url: me.institution_bookshop_url ?? '',
         });
     }, [me]);
 
@@ -181,9 +182,23 @@ export default function AccountSettings() {
         event.preventDefault();
         setInstitutionError(null);
         setInstitutionSuccess(null);
+        const bookshopUrl = institutionForm.institution_bookshop_url.trim();
+        if (bookshopUrl) {
+            try {
+                const host = new URL(bookshopUrl).hostname.replace(/^www\./, '');
+                if (host !== 'bookshop.org') {
+                    setInstitutionError('Only bookshop.org URLs are accepted for the wishlist link.');
+                    return;
+                }
+            } catch {
+                setInstitutionError('Please enter a valid bookshop.org URL.');
+                return;
+            }
+        }
         updateInstitutionMutation.mutate({
             institution_url: institutionForm.institution_url.trim() || null,
             institution_about: institutionForm.institution_about.trim() || null,
+            institution_bookshop_url: bookshopUrl || null,
         });
     }
 
@@ -410,6 +425,19 @@ export default function AccountSettings() {
                                 onChange={handleInstitutionChange}
                                 rows={5}
                                 placeholder="Tell readers about your institution, your collection, and what kinds of books you're looking for..."
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="institution_bookshop_url">Bookshop.org wishlist URL (optional)</label>
+                            <input
+                                id="institution_bookshop_url"
+                                name="institution_bookshop_url"
+                                type="url"
+                                className="form-input"
+                                value={institutionForm.institution_bookshop_url}
+                                onChange={handleInstitutionChange}
+                                placeholder="https://bookshop.org/wishlists/..."
+                                autoComplete="off"
                             />
                         </div>
                         <div className={styles.actions}>

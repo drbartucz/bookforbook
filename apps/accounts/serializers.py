@@ -159,6 +159,7 @@ class UserPublicProfileSerializer(serializers.ModelSerializer):
             "institution_name",
             "institution_url",
             "institution_about",
+            "institution_bookshop_url",
             "total_trades",
             "gifts_given_count",
             "karma",
@@ -219,6 +220,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             "institution_name",
             "institution_url",
             "institution_about",
+            "institution_bookshop_url",
             "full_name",
             "address_line_1",
             "address_line_2",
@@ -277,6 +279,7 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
             "institution_name",
             "institution_url",
             "institution_about",
+            "institution_bookshop_url",
             "full_name",
             "address_line_1",
             "address_line_2",
@@ -292,6 +295,17 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Username may only contain letters, digits, and @/./+/-/_ characters."
             )
+        return value
+
+    def validate_institution_bookshop_url(self, value: str) -> str:
+        if value:
+            from urllib.parse import urlparse
+
+            host = urlparse(value).netloc.lower()
+            if host not in ("bookshop.org", "www.bookshop.org"):
+                raise serializers.ValidationError(
+                    "Only bookshop.org URLs are accepted here."
+                )
         return value
 
     def validate_state(self, value):
