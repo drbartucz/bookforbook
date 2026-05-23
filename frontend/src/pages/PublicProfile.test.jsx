@@ -54,7 +54,7 @@ describe('PublicProfile page', () => {
             data: {
                 id: 'institution-1',
                 username: 'central-library',
-                account_type: 'institution',
+                account_type: 'library',
                 is_verified: true,
                 total_trades: 12,
             },
@@ -144,7 +144,7 @@ describe('PublicProfile page', () => {
             data: {
                 id: 'institution-1',
                 username: 'central-library',
-                account_type: 'institution',
+                account_type: 'library',
                 is_verified: true,
                 total_trades: 12,
             },
@@ -730,7 +730,7 @@ describe('PublicProfile page', () => {
         useAuth.mockReturnValue({ isAuthenticated: false, user: null });
 
         users.getPublicProfile.mockResolvedValue({
-            data: { id: 'institution-1', username: 'central-lib', account_type: 'institution', is_verified: true, total_trades: 5 },
+            data: { id: 'institution-1', username: 'central-lib', account_type: 'library', is_verified: true, total_trades: 5 },
         });
         users.getUserRatings.mockResolvedValue({ data: [] });
         institutions.getWantedList.mockResolvedValue({

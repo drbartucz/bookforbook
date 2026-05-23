@@ -214,7 +214,7 @@ describe('AccountSettings page', () => {
                 id: 'user-1',
                 username: 'library1',
                 email: 'lib@example.com',
-                account_type: 'institution',
+                account_type: 'library',
                 institution_name: 'City Central Library',
                 full_name: '',
                 address_line_1: '',
