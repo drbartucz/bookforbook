@@ -293,7 +293,7 @@ describe('Navbar', () => {
 
         const mobileNavLinkNames = [
             'Browse', 'Institutions', 'Dashboard', 'My Books',
-            'Wishlist', /^Matches/, 'Proposals', 'Trades', 'Donations', 'My Profile',
+            'Wishlist', 'Proposals', 'Donations', 'My Profile', /^My Matches/, 'My Trades',
         ];
 
         for (const name of mobileNavLinkNames) {
