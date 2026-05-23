@@ -7,6 +7,7 @@ import ISBNInput from './ISBNInput.jsx';
 vi.mock('../../services/api.js', () => ({
     books: {
         lookupISBN: vi.fn(),
+        enrichISBN: vi.fn().mockResolvedValue({ data: {} }),
         fromImage: vi.fn(),
     },
 }));

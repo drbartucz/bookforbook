@@ -78,14 +78,6 @@ export default function ISBNInput({
       currentLookupIsbnRef.current = isbn;
       setLocalBook(bookData);
       if (onBookFound) onBookFound(bookData);
-
-      // Background enrich: fills in format and other fields Tier 1 may have missed
-      booksApi.enrichISBN(isbn).then((enrichRes) => {
-        if (currentLookupIsbnRef.current !== isbn) return;
-        const enriched = enrichRes.data;
-        setLocalBook(enriched);
-        if (onBookFound) onBookFound(enriched);
-      }).catch(() => {});
     } catch (err) {
       if (isStaleScanRequest()) return;
       const msg =
@@ -100,6 +92,20 @@ export default function ISBNInput({
       if (!isStaleScanRequest()) {
         setLooking(false);
       }
+    }
+
+    // Background enrich outside the try/catch so any error here never clears
+    // the book state set above. Wrapping in Promise.resolve ensures a sync
+    // throw from a missing/unmocked enrichISBN is caught by .catch().
+    if (currentLookupIsbnRef.current === isbn) {
+      Promise.resolve().then(async () => {
+        const enrichRes = await booksApi.enrichISBN(isbn);
+        if (currentLookupIsbnRef.current !== isbn) return;
+        const enriched = enrichRes?.data;
+        if (!enriched?.title) return;
+        setLocalBook(enriched);
+        if (onBookFound) onBookFound(enriched);
+      }).catch(() => {});
     }
   }
 
