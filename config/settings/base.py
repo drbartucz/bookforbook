@@ -272,14 +272,21 @@ def _find_pg_tool(name: str) -> str:
     for nix_profile in (
         "/root/.nix-profile/bin",
         "/nix/var/nix/profiles/default/bin",
+        "/nix/var/nix/profiles/system/sw/bin",
     ):
         candidate = f"{nix_profile}/{name}"
         if os.path.isfile(candidate):
             return candidate
-    # Nix store glob (hash changes per build, so match any version)
-    matches = glob.glob(f"/nix/store/*-postgresql-*/bin/{name}")
-    if matches:
-        return matches[0]
+    # Nix store glob — '*-postgresql-*' misses versioned names like
+    # 'postgresql_16' or 'postgresql16' that Nixpacks may use. Try all variants.
+    for pattern in (
+        f"/nix/store/*-postgresql-*/bin/{name}",   # e.g. postgresql-16.3
+        f"/nix/store/*-postgresql_*-*/bin/{name}", # e.g. postgresql_16-16.3
+        f"/nix/store/*-postgresql[0-9]*-*/bin/{name}", # e.g. postgresql16-16.3
+    ):
+        matches = glob.glob(pattern)
+        if matches:
+            return matches[0]
     return name  # fall back to bare name; will fail with a clear OS error if missing
 
 DBBACKUP_CONNECTORS = {

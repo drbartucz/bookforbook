@@ -37,6 +37,18 @@ class TestFindPgTool:
         ):
             assert _find_pg_tool("pg_dump") == store_path
 
+    def test_nix_store_versioned_name_fallback(self):
+        # Railway/Nixpacks may name the store entry 'postgresql_16' not 'postgresql'
+        store_path = "/nix/store/xyz-postgresql_16-16.3/bin/pg_dump"
+        def _glob(pattern):
+            return [store_path] if "postgresql_" in pattern else []
+        with (
+            patch("config.settings.base.shutil.which", return_value=None),
+            patch("config.settings.base.os.path.isfile", return_value=False),
+            patch("config.settings.base.glob.glob", side_effect=_glob),
+        ):
+            assert _find_pg_tool("pg_dump") == store_path
+
     def test_bare_name_fallback_when_not_found(self):
         with (
             patch("config.settings.base.shutil.which", return_value=None),
