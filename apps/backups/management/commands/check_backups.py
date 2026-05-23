@@ -1,4 +1,6 @@
+import os
 import shutil
+import subprocess
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -27,6 +29,16 @@ class Command(BaseCommand):
                 "  Railway/Nixpacks: add 'postgresql' to pkgs in nixpacks.toml\n"
                 "  Docker: RUN apt-get install -y postgresql-client"
             ))
+            self.stdout.write(f"  PATH: {os.environ.get('PATH', '(not set)')}")
+            try:
+                result = subprocess.run(
+                    ["find", "/usr", "/nix", "-name", "pg_dump", "-type", "f"],
+                    capture_output=True, text=True, timeout=15,
+                )
+                found = result.stdout.strip()
+                self.stdout.write(f"  find /usr /nix -name pg_dump: {found or '(nothing found)'}")
+            except Exception as exc:
+                self.stdout.write(f"  find: {exc}")
 
         if shutil.which(pg_restore_cmd):
             self.stdout.write(self.style.SUCCESS(f"pg_restore: FOUND ({pg_restore_cmd})"))
