@@ -49,12 +49,33 @@ describe('PublicProfile page', () => {
         users.getUserWantedBooks.mockResolvedValue({ data: [] });
     });
 
+    it('renders bookstore type badge on the public profile', async () => {
+        useParams.mockReturnValue({ id: 'bookstore-1' });
+        useAuth.mockReturnValue({ isAuthenticated: false, user: null });
+
+        users.getPublicProfile.mockResolvedValue({
+            data: {
+                id: 'bookstore-1',
+                username: 'cool-books',
+                account_type: 'bookstore',
+                is_verified: true,
+                total_trades: 5,
+            },
+        });
+        users.getUserRatings.mockResolvedValue({ data: [] });
+
+        renderWithProviders(<PublicProfile />);
+
+        expect(await screen.findByText('@cool-books')).toBeInTheDocument();
+        expect(screen.getByText('Bookstore')).toBeInTheDocument();
+    });
+
     it('renders institution wanted books from the current API shape', async () => {
         users.getPublicProfile.mockResolvedValue({
             data: {
                 id: 'institution-1',
                 username: 'central-library',
-                account_type: 'institution',
+                account_type: 'library',
                 is_verified: true,
                 total_trades: 12,
             },
@@ -144,7 +165,7 @@ describe('PublicProfile page', () => {
             data: {
                 id: 'institution-1',
                 username: 'central-library',
-                account_type: 'institution',
+                account_type: 'library',
                 is_verified: true,
                 total_trades: 12,
             },
@@ -155,6 +176,7 @@ describe('PublicProfile page', () => {
         renderWithProviders(<PublicProfile />);
 
         expect(await screen.findByText('@central-library')).toBeInTheDocument();
+        expect(screen.getByText('Library')).toBeInTheDocument();
         expect(screen.queryByText('Shipping Address')).not.toBeInTheDocument();
         expect(screen.queryByText('Wishlist Match Preferences')).not.toBeInTheDocument();
         expect(users.getMe).not.toHaveBeenCalled();
@@ -730,7 +752,7 @@ describe('PublicProfile page', () => {
         useAuth.mockReturnValue({ isAuthenticated: false, user: null });
 
         users.getPublicProfile.mockResolvedValue({
-            data: { id: 'institution-1', username: 'central-lib', account_type: 'institution', is_verified: true, total_trades: 5 },
+            data: { id: 'institution-1', username: 'central-lib', account_type: 'library', is_verified: true, total_trades: 5 },
         });
         users.getUserRatings.mockResolvedValue({ data: [] });
         institutions.getWantedList.mockResolvedValue({

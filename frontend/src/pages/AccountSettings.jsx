@@ -274,7 +274,11 @@ export default function AccountSettings() {
                         </div>
                         <div>
                             <dt>Account type</dt>
-                            <dd>{account?.account_type === 'institution' ? 'Institution' : 'Individual'}</dd>
+                            <dd>
+                                {['library', 'bookstore'].includes(account?.account_type)
+                                    ? account.account_type.charAt(0).toUpperCase() + account.account_type.slice(1)
+                                    : 'Individual'}
+                            </dd>
                         </div>
                         {account?.institution_name && (
                             <div>

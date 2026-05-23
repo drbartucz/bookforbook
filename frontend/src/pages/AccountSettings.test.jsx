@@ -208,13 +208,13 @@ describe('AccountSettings page', () => {
         expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
     });
 
-    it('shows institution name when account is an institution type', async () => {
+    it('shows specific institution type when account is a library', async () => {
         usersApi.getMe.mockResolvedValueOnce({
             data: {
                 id: 'user-1',
                 username: 'library1',
                 email: 'lib@example.com',
-                account_type: 'institution',
+                account_type: 'library',
                 institution_name: 'City Central Library',
                 full_name: '',
                 address_line_1: '',
@@ -227,9 +227,29 @@ describe('AccountSettings page', () => {
         });
         renderWithProviders(<AccountSettings />);
         expect(await screen.findByText('City Central Library')).toBeInTheDocument();
-        // "Institution" appears as both label (dt) and value (dd) — use a more specific query
-        const dd = document.querySelector('dd');
-        expect(dd).toBeTruthy(); // account type dd rendered
+        expect(screen.getByText('Library')).toBeInTheDocument();
+    });
+
+    it('shows specific institution type when account is a bookstore', async () => {
+        usersApi.getMe.mockResolvedValueOnce({
+            data: {
+                id: 'user-1',
+                username: 'bookstore1',
+                email: 'books@example.com',
+                account_type: 'bookstore',
+                institution_name: 'Downtown Books',
+                full_name: '',
+                address_line_1: '',
+                address_line_2: '',
+                city: '',
+                state: '',
+                zip_code: '',
+                address_verification_status: 'unverified',
+            },
+        });
+        renderWithProviders(<AccountSettings />);
+        expect(await screen.findByText('Downtown Books')).toBeInTheDocument();
+        expect(screen.getByText('Bookstore')).toBeInTheDocument();
     });
 
     it('shows USPS error in form area after failed address verification', async () => {

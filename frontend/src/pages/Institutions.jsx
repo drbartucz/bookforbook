@@ -134,9 +134,9 @@ function InstitutionCard({ institution }) {
           {institution.is_verified && (
             <span className="badge badge-green">Verified</span>
           )}
-          {institution.institution_type && (
+          {(institution.account_type || institution.institution_type) && (
             <span className="badge badge-blue">
-              {institution.institution_type}
+              {institution.account_type || institution.institution_type}
             </span>
           )}
         </div>
