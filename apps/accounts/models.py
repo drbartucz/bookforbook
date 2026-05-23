@@ -122,6 +122,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     institution_name = models.CharField(max_length=255, null=True, blank=True)
     institution_url = models.URLField(null=True, blank=True)
+    institution_about = models.TextField(null=True, blank=True)
+    institution_bookshop_url = models.URLField(null=True, blank=True)
 
     # Shipping info — encrypted at rest
     full_name = EncryptedCharField(max_length=255, blank=True, default="")

@@ -39,6 +39,9 @@ export default function AccountSettings() {
         state: '',
         zip_code: '',
     });
+    const [institutionForm, setInstitutionForm] = useState({ institution_url: '', institution_about: '', institution_bookshop_url: '' });
+    const [institutionError, setInstitutionError] = useState(null);
+    const [institutionSuccess, setInstitutionSuccess] = useState(null);
 
     const { data: me, isLoading, isError, error, refetch } = useQuery({
         queryKey: ['me'],
@@ -57,6 +60,11 @@ export default function AccountSettings() {
             city: me.city ?? '',
             state: me.state ?? '',
             zip_code: me.zip_code ?? '',
+        });
+        setInstitutionForm({
+            institution_url: me.institution_url ?? '',
+            institution_about: me.institution_about ?? '',
+            institution_bookshop_url: me.institution_bookshop_url ?? '',
         });
     }, [me]);
 
@@ -114,6 +122,31 @@ export default function AccountSettings() {
         },
     });
 
+    const updateInstitutionMutation = useMutation({
+        mutationFn: (payload) => usersApi.updateMe(payload).then((response) => response.data),
+        onSuccess: async (updatedMe) => {
+            setInstitutionError(null);
+            setInstitutionSuccess('Institution profile updated.');
+            queryClient.setQueryData(['me'], updatedMe);
+            updateUser({ ...(user ?? {}), ...updatedMe });
+        },
+        onError: (mutationError) => {
+            const responseData = mutationError?.response?.data;
+            if (typeof responseData?.detail === 'string') {
+                setInstitutionError(responseData.detail);
+                return;
+            }
+            if (responseData && typeof responseData === 'object') {
+                const fieldMessage = Object.values(responseData).flat().find(Boolean);
+                if (fieldMessage) {
+                    setInstitutionError(String(fieldMessage));
+                    return;
+                }
+            }
+            setInstitutionError('Could not save institution profile. Please try again.');
+        },
+    });
+
     function handleChange(event) {
         const { name, value } = event.target;
         setSuccessMessage(null);
@@ -135,6 +168,37 @@ export default function AccountSettings() {
             city: form.city.trim(),
             state: form.state.trim(),
             zip_code: form.zip_code.trim(),
+        });
+    }
+
+    function handleInstitutionChange(event) {
+        const { name, value } = event.target;
+        setInstitutionError(null);
+        setInstitutionSuccess(null);
+        setInstitutionForm((current) => ({ ...current, [name]: value }));
+    }
+
+    function handleInstitutionSubmit(event) {
+        event.preventDefault();
+        setInstitutionError(null);
+        setInstitutionSuccess(null);
+        const bookshopUrl = institutionForm.institution_bookshop_url.trim();
+        if (bookshopUrl) {
+            try {
+                const host = new URL(bookshopUrl).hostname.replace(/^www\./, '');
+                if (host !== 'bookshop.org') {
+                    setInstitutionError('Only bookshop.org URLs are accepted for the wishlist link.');
+                    return;
+                }
+            } catch {
+                setInstitutionError('Please enter a valid bookshop.org URL.');
+                return;
+            }
+        }
+        updateInstitutionMutation.mutate({
+            institution_url: institutionForm.institution_url.trim() || null,
+            institution_about: institutionForm.institution_about.trim() || null,
+            institution_bookshop_url: bookshopUrl || null,
         });
     }
 
@@ -326,6 +390,64 @@ export default function AccountSettings() {
                     </form>
                 </div>
             </div>
+
+            {(account?.account_type === 'library' || account?.account_type === 'bookstore') && (
+                <div className={`card ${styles.panel}`}>
+                    <h2 className={styles.sectionTitle}>Institution profile</h2>
+                    <p className={styles.helperText}>
+                        This information is shown publicly on your institution profile and the institutions directory.
+                    </p>
+
+                    {institutionError && <div className="alert alert-error">{institutionError}</div>}
+                    {institutionSuccess && <div className="alert alert-success">{institutionSuccess}</div>}
+
+                    <form className={styles.form} onSubmit={handleInstitutionSubmit}>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="institution_url">Website URL</label>
+                            <input
+                                id="institution_url"
+                                name="institution_url"
+                                type="url"
+                                className="form-input"
+                                value={institutionForm.institution_url}
+                                onChange={handleInstitutionChange}
+                                placeholder="https://example.org"
+                                autoComplete="url"
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="institution_about">About Us</label>
+                            <textarea
+                                id="institution_about"
+                                name="institution_about"
+                                className={`form-input ${styles.textarea}`}
+                                value={institutionForm.institution_about}
+                                onChange={handleInstitutionChange}
+                                rows={5}
+                                placeholder="Tell readers about your institution, your collection, and what kinds of books you're looking for..."
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="institution_bookshop_url">Bookshop.org wishlist URL (optional)</label>
+                            <input
+                                id="institution_bookshop_url"
+                                name="institution_bookshop_url"
+                                type="url"
+                                className="form-input"
+                                value={institutionForm.institution_bookshop_url}
+                                onChange={handleInstitutionChange}
+                                placeholder="https://bookshop.org/wishlists/..."
+                                autoComplete="off"
+                            />
+                        </div>
+                        <div className={styles.actions}>
+                            <button type="submit" className="btn btn-primary" disabled={updateInstitutionMutation.isPending}>
+                                {updateInstitutionMutation.isPending ? 'Saving...' : 'Save institution profile'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
 
             <div className={`card ${styles.dangerZone}`}>
                 <h2 className={styles.sectionTitle}>Danger Zone</h2>
