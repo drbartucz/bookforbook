@@ -90,6 +90,28 @@
   }
 }
 
+.institutionUrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--color-primary);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.institutionUrl:hover {
+  text-decoration: underline;
+}
+
+.institutionAbout {
+  font-size: 0.875rem;
+  color: var(--color-gray-600);
+  line-height: 1.6;
+  max-width: 520px;
+  white-space: pre-line;
+}
+
 .stats {
   display: flex;
   gap: 1.5rem;
