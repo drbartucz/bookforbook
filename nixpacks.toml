@@ -5,7 +5,7 @@
 #
 # Both aptPkgs (Debian/Ubuntu) and pkgs (Nix) are listed because Railway's
 # Nixpacks provider can use either backend depending on the build environment.
-aptPkgs = ["libzbar0", "postgresql-client"]
+aptPkgs = ["libzbar0", "postgresql-client-18"]
 pkgs = ["zbar", "postgresql"]
 
 [variables]

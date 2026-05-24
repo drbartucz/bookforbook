@@ -6,15 +6,36 @@ from config.settings.base import _find_pg_tool
 
 @pytest.mark.unit
 class TestFindPgTool:
-    def test_found_on_path(self):
-        with patch("config.settings.base.shutil.which", return_value="/usr/bin/pg_dump"):
+    def test_versioned_debian_path_preferred_over_path(self):
+        # Versioned Debian path takes priority even when shutil.which finds something.
+        target = "/usr/lib/postgresql/18/bin/pg_dump"
+        with (
+            patch("config.settings.base.os.path.isfile", side_effect=lambda p: p == target),
+            patch("config.settings.base.shutil.which", return_value="/usr/bin/pg_dump"),
+        ):
+            assert _find_pg_tool("pg_dump") == target
+
+    def test_higher_version_wins_when_multiple_exist(self):
+        # When 17 and 16 both exist, 17 wins (range iterates high to low).
+        available = {
+            "/usr/lib/postgresql/17/bin/pg_dump",
+            "/usr/lib/postgresql/16/bin/pg_dump",
+        }
+        with patch("config.settings.base.os.path.isfile", side_effect=lambda p: p in available):
+            assert _find_pg_tool("pg_dump") == "/usr/lib/postgresql/17/bin/pg_dump"
+
+    def test_found_on_path_when_no_versioned_binary(self):
+        # Falls back to PATH when no versioned Debian binary is present.
+        with (
+            patch("config.settings.base.os.path.isfile", return_value=False),
+            patch("config.settings.base.shutil.which", return_value="/usr/bin/pg_dump"),
+        ):
             assert _find_pg_tool("pg_dump") == "/usr/bin/pg_dump"
 
-    def test_debian_apt_fallback(self):
-        # Matches /usr/lib/postgresql/14/bin/pg_dump (first existing version wins)
+    def test_debian_apt_path(self):
+        # Versioned Debian path is found (highest matching version returned).
         target = "/usr/lib/postgresql/14/bin/pg_dump"
         with (
-            patch("config.settings.base.shutil.which", return_value=None),
             patch("config.settings.base.os.path.isfile", side_effect=lambda p: p == target),
         ):
             assert _find_pg_tool("pg_dump") == target
