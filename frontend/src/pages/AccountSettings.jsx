@@ -34,7 +34,6 @@ export default function AccountSettings() {
 
     const [profileForm, setProfileForm] = useState({
         username: '',
-        account_type: 'individual',
         institution_name: '',
     });
     const [profileSuccess, setProfileSuccess] = useState(null);
@@ -69,7 +68,6 @@ export default function AccountSettings() {
         }
         setProfileForm({
             username: me.username ?? '',
-            account_type: me.account_type ?? 'individual',
             institution_name: me.institution_name ?? '',
         });
         setAddressForm({
@@ -293,6 +291,7 @@ export default function AccountSettings() {
     const addressStatus = getAddressStatusLabel(account?.address_verification_status);
     const statusHelp = getAddressStatusHelp(account?.address_verification_status);
     const hasAddress = Boolean(account?.address_line_1 && account?.city && account?.state && account?.zip_code);
+    const isInstitutional = ['library', 'bookstore', 'institution'].includes(account?.account_type);
 
     return (
         <div className={styles.page}>
@@ -321,7 +320,7 @@ export default function AccountSettings() {
                 <div className={`card ${styles.panel}`}>
                     <h2 className={styles.sectionTitle}>Account profile</h2>
                     <p className={styles.helperText}>
-                        Your email and username are used for login and identification. Libraries and bookstores should update their account type here.
+                        Update your username{isInstitutional ? ' and institution name' : ''}. To change your account type, contact support.
                     </p>
 
                     {profileError && <div className="alert alert-error">{profileError}</div>}
@@ -352,29 +351,7 @@ export default function AccountSettings() {
                             />
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">Account type</label>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
-                                {[
-                                    { value: 'individual', label: 'Individual' },
-                                    { value: 'library', label: 'Library' },
-                                    { value: 'bookstore', label: 'Bookstore' },
-                                ].map((opt) => (
-                                    <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
-                                        <input
-                                            type="radio"
-                                            name="account_type"
-                                            value={opt.value}
-                                            checked={profileForm.account_type === opt.value}
-                                            onChange={handleProfileChange}
-                                        />
-                                        {opt.label}
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        {(profileForm.account_type === 'library' || profileForm.account_type === 'bookstore') && (
+                        {isInstitutional && (
                             <div className="form-group">
                                 <label className="form-label" htmlFor="institution_name">Institution name</label>
                                 <input
@@ -396,8 +373,16 @@ export default function AccountSettings() {
                         </div>
                     </form>
 
-                    <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-gray-100)' }}>
+                    <div className={styles.profileInfoDivider}>
                         <dl className={styles.infoList}>
+                            <div>
+                                <dt>Account type</dt>
+                                <dd>
+                                    {['library', 'bookstore', 'institution'].includes(account?.account_type)
+                                        ? account.account_type.charAt(0).toUpperCase() + account.account_type.slice(1)
+                                        : 'Individual'}
+                                </dd>
+                            </div>
                             <div>
                                 <dt>
                                     Match capacity
@@ -512,7 +497,7 @@ export default function AccountSettings() {
                 </div>
             </div>
 
-            {(account?.account_type === 'library' || account?.account_type === 'bookstore') && (
+            {isInstitutional && (
                 <div className={`card ${styles.panel}`}>
                     <h2 className={styles.sectionTitle}>Institution profile</h2>
                     <p className={styles.helperText}>

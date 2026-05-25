@@ -228,7 +228,7 @@ describe('AccountSettings page', () => {
         });
         renderWithProviders(<AccountSettings />);
         expect(await screen.findByDisplayValue('City Central Library')).toBeInTheDocument();
-        expect(screen.getByLabelText('Library')).toBeChecked();
+        expect(screen.getByText('Library')).toBeInTheDocument();
     });
 
     it('shows specific institution type when account is a bookstore', async () => {
@@ -250,17 +250,17 @@ describe('AccountSettings page', () => {
         });
         renderWithProviders(<AccountSettings />);
         expect(await screen.findByDisplayValue('Downtown Books')).toBeInTheDocument();
-        expect(screen.getByLabelText('Bookstore')).toBeChecked();
+        expect(screen.getByText('Bookstore')).toBeInTheDocument();
     });
 
-    it('can update account type and institution name', async () => {
+    it('can update username and institution name', async () => {
         usersApi.getMe.mockResolvedValueOnce({
             data: {
                 id: 'user-1',
-                username: 'reader',
-                email: 'reader@example.com',
-                account_type: 'individual',
-                institution_name: '',
+                username: 'library1',
+                email: 'lib@example.com',
+                account_type: 'library',
+                institution_name: 'Old Library Name',
                 full_name: '',
                 address_line_1: '',
                 address_line_2: '',
@@ -273,43 +273,63 @@ describe('AccountSettings page', () => {
         usersApi.updateMe.mockResolvedValueOnce({
             data: {
                 id: 'user-1',
-                username: 'insidebooks',
-                email: 'reader@example.com',
+                username: 'library1',
+                email: 'lib@example.com',
                 account_type: 'library',
-                institution_name: 'Inside Books Library',
+                institution_name: 'New Library Name',
             },
         });
 
         renderWithProviders(<AccountSettings />);
 
-        // Wait for initial load
-        await screen.findByDisplayValue('reader');
+        await screen.findByDisplayValue('Old Library Name');
 
-        // Change to library
-        await userEvent.click(screen.getByLabelText('Library'));
-        
-        // Fill institution name
         const instInput = screen.getByLabelText('Institution name');
         await userEvent.clear(instInput);
-        await userEvent.type(instInput, 'Inside Books Library');
+        await userEvent.type(instInput, 'New Library Name');
 
-        // Change username
-        const userInput = screen.getByLabelText('Username');
-        await userEvent.clear(userInput);
-        await userEvent.type(userInput, 'insidebooks');
-
-        // Submit
         await userEvent.click(screen.getByRole('button', { name: /save profile changes/i }));
 
         await waitFor(() => {
             expect(usersApi.updateMe).toHaveBeenCalledWith(expect.objectContaining({
-                account_type: 'library',
-                institution_name: 'Inside Books Library',
-                username: 'insidebooks',
+                institution_name: 'New Library Name',
+                username: 'library1',
             }));
         });
 
         expect(screen.getByText(/profile updated successfully/i)).toBeInTheDocument();
+    });
+
+    it('shows error when profile update fails', async () => {
+        usersApi.getMe.mockResolvedValueOnce({
+            data: {
+                id: 'user-1',
+                username: 'reader',
+                email: 'reader@example.com',
+                account_type: 'individual',
+                full_name: '',
+                address_line_1: '',
+                address_line_2: '',
+                city: '',
+                state: '',
+                zip_code: '',
+                address_verification_status: 'unverified',
+            },
+        });
+        usersApi.updateMe.mockRejectedValueOnce({
+            response: { data: { detail: 'Username already taken.' } },
+        });
+
+        renderWithProviders(<AccountSettings />);
+        const usernameInput = await screen.findByLabelText('Username');
+        await userEvent.clear(usernameInput);
+        await userEvent.type(usernameInput, 'takenname');
+
+        await userEvent.click(screen.getByRole('button', { name: /save profile changes/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText('Username already taken.')).toBeInTheDocument();
+        });
     });
 
     it('shows USPS error in form area after failed address verification', async () => {
@@ -521,26 +541,22 @@ describe('AccountSettings page', () => {
         await userEvent.click(screen.getByRole('button', { name: /verify and save address/i }));
 
         await waitFor(() => {
-            // updateUser called with spread of {} (user is null) merged with refreshedUser
             expect(updateUser).toHaveBeenCalledWith(expect.objectContaining({ id: 'user-1' }));
         });
     });
 
-    it('falls back to auth user when getMe query returns null data (covers me ?? user right branch at line 170)', async () => {
+    it('falls back to auth user when getMe query returns null data (covers me ?? user right branch)', async () => {
         usersApi.getMe.mockResolvedValueOnce({ data: null });
         renderWithProviders(<AccountSettings />);
-        // Component reaches line 170: account = null ?? user = user from auth
-        // The form renders without crashing
         await waitFor(() => {
             expect(screen.getByText('Account settings')).toBeInTheDocument();
         });
     });
 
-    it('shows error state with "Try again" button when getMe fails, and refetch fires on click (covers line 162 onClick)', async () => {
+    it('shows error state with "Try again" button when getMe fails, and refetch fires on click', async () => {
         usersApi.getMe.mockRejectedValueOnce({ response: { data: { detail: 'Server error.' } } });
         renderWithProviders(<AccountSettings />);
         expect(await screen.findByText('Try again')).toBeInTheDocument();
-        // clicking "Try again" calls refetch() — cover the onClick lambda
         usersApi.getMe.mockResolvedValueOnce({ data: null });
         await userEvent.click(screen.getByRole('button', { name: /try again/i }));
     });
@@ -565,7 +581,7 @@ describe('AccountSettings page', () => {
             response: { data: { detail: 'Delivery address undeliverable.' } },
         });
         renderWithProviders(<AccountSettings />);
-        await screen.findByDisplayValue('Jane Reader'); // wait for load
+        await screen.findByDisplayValue('Jane Reader');
         await userEvent.click(screen.getByRole('button', { name: /verify and save address/i }));
         await waitFor(() => {
             expect(screen.getByText(/last usps error/i)).toBeInTheDocument();

@@ -276,7 +276,6 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "username",
-            "account_type",
             "institution_name",
             "institution_url",
             "institution_about",
@@ -296,6 +295,17 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Username may only contain letters, digits, and @/./+/-/_ characters."
             )
+        return value
+
+    def validate_institution_name(self, value: str) -> str:
+        instance = self.instance
+        if instance and instance.account_type in (
+            User.AccountType.LIBRARY, User.AccountType.BOOKSTORE
+        ):
+            if not value or not value.strip():
+                raise serializers.ValidationError(
+                    "Institution name is required for libraries and bookstores."
+                )
         return value
 
     def validate_institution_bookshop_url(self, value: str) -> str:
