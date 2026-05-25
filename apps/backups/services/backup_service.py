@@ -139,10 +139,9 @@ def run_database_backup(record_id: str) -> None:
                 "Verify B2 credentials and that the bucket exists."
             )
 
-        # Best-effort size — only works for filesystem; S3 skips silently.
         file_size: int | None = None
         try:
-            file_size = storage.size(filename)
+            file_size = underlying.size(filename)
         except Exception:
             pass
 

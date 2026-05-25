@@ -20,6 +20,9 @@ def _make_mock_storage(before, after, size=1024):
         def delete(self, name):
             pass
 
+        def size(self, name):
+            return size
+
     mock_storage = MagicMock()
     mock_storage.storage = FakeS3Storage()
     mock_storage.list_backups.side_effect = [list(before), list(after)]
