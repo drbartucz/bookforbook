@@ -297,6 +297,17 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_institution_name(self, value: str) -> str:
+        instance = self.instance
+        if instance and instance.account_type in (
+            User.AccountType.LIBRARY, User.AccountType.BOOKSTORE
+        ):
+            if not value or not value.strip():
+                raise serializers.ValidationError(
+                    "Institution name is required for libraries and bookstores."
+                )
+        return value
+
     def validate_institution_bookshop_url(self, value: str) -> str:
         if value:
             from urllib.parse import urlparse

@@ -123,6 +123,12 @@
     justify-content: flex-end;
 }
 
+.profileInfoDivider {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-gray-100);
+}
+
 .dangerZone {
     padding: 1.5rem;
     border: 1px solid rgba(220, 38, 38, 0.25);
