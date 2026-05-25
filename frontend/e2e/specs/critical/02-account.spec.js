@@ -15,9 +15,9 @@ test.describe('Account Settings', () => {
     await page.goto('/account');
     await expect(page.getByRole('heading', { name: /account settings/i })).toBeVisible();
 
-    // Profile info section — narrow to <dd> to avoid matching the navbar username span
-    await expect(page.locator('dd').filter({ hasText: ALICE.username })).toBeVisible();
-    await expect(page.locator('dd').filter({ hasText: ALICE.email })).toBeVisible();
+    // Username and email are now form inputs in the profile section
+    await expect(page.getByLabel('Username')).toHaveValue(ALICE.username);
+    await expect(page.getByLabel('Email')).toHaveValue(ALICE.email);
 
     // Address form pre-populated
     await expect(page.getByLabel(/full name/i)).not.toHaveValue('');
