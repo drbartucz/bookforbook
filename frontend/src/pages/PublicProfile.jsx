@@ -93,7 +93,7 @@ export default function PublicProfile() {
   const { data: wantedData } = useQuery({
     queryKey: ['institutionWanted', id],
     queryFn: () => institutionsApi.getWantedList(id, { page_size: 20 }).then((r) => r.data),
-    enabled: !!profile && ['library', 'bookstore'].includes(profile.account_type),
+    enabled: !!profile && ['library', 'bookstore', 'institution'].includes(profile.account_type),
   });
 
   const { data: offeredBooksData } = useQuery({
@@ -105,7 +105,7 @@ export default function PublicProfile() {
   const { data: publicWantedData } = useQuery({
     queryKey: ['userWantedBooks', id],
     queryFn: () => usersApi.getUserWantedBooks(id).then((r) => r.data),
-    enabled: !!profile && !['library', 'bookstore'].includes(profile.account_type),
+    enabled: !!profile && !['library', 'bookstore', 'institution'].includes(profile.account_type),
   });
 
   const { data: meData } = useQuery({
@@ -190,7 +190,7 @@ export default function PublicProfile() {
   const wantedBooks = wantedData?.results ?? wantedData ?? [];
   const offeredBooks = offeredBooksData ?? [];
   const publicWantedBooks = publicWantedData ?? [];
-  const isInstitution = ['library', 'bookstore'].includes(profile.account_type);
+  const isInstitution = ['library', 'bookstore', 'institution'].includes(profile.account_type);
   const hasOwnAddress = Boolean(
     meData?.address_line_1 && meData?.city && meData?.state && meData?.zip_code
   );

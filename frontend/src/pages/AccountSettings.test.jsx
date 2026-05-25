@@ -8,6 +8,7 @@ import AccountSettings from './AccountSettings.jsx';
 vi.mock('../services/api.js', () => ({
     users: {
         getMe: vi.fn(),
+        updateMe: vi.fn(),
         verifyAddress: vi.fn(),
         deleteAccount: vi.fn(),
     },
@@ -226,8 +227,8 @@ describe('AccountSettings page', () => {
             },
         });
         renderWithProviders(<AccountSettings />);
-        expect(await screen.findByText('City Central Library')).toBeInTheDocument();
-        expect(screen.getByText('Library')).toBeInTheDocument();
+        expect(await screen.findByDisplayValue('City Central Library')).toBeInTheDocument();
+        expect(screen.getByLabelText('Library')).toBeChecked();
     });
 
     it('shows specific institution type when account is a bookstore', async () => {
@@ -248,8 +249,67 @@ describe('AccountSettings page', () => {
             },
         });
         renderWithProviders(<AccountSettings />);
-        expect(await screen.findByText('Downtown Books')).toBeInTheDocument();
-        expect(screen.getByText('Bookstore')).toBeInTheDocument();
+        expect(await screen.findByDisplayValue('Downtown Books')).toBeInTheDocument();
+        expect(screen.getByLabelText('Bookstore')).toBeChecked();
+    });
+
+    it('can update account type and institution name', async () => {
+        usersApi.getMe.mockResolvedValueOnce({
+            data: {
+                id: 'user-1',
+                username: 'reader',
+                email: 'reader@example.com',
+                account_type: 'individual',
+                institution_name: '',
+                full_name: '',
+                address_line_1: '',
+                address_line_2: '',
+                city: '',
+                state: '',
+                zip_code: '',
+                address_verification_status: 'unverified',
+            },
+        });
+        usersApi.updateMe.mockResolvedValueOnce({
+            data: {
+                id: 'user-1',
+                username: 'insidebooks',
+                email: 'reader@example.com',
+                account_type: 'library',
+                institution_name: 'Inside Books Library',
+            },
+        });
+
+        renderWithProviders(<AccountSettings />);
+
+        // Wait for initial load
+        await screen.findByDisplayValue('reader');
+
+        // Change to library
+        await userEvent.click(screen.getByLabelText('Library'));
+        
+        // Fill institution name
+        const instInput = screen.getByLabelText('Institution name');
+        await userEvent.clear(instInput);
+        await userEvent.type(instInput, 'Inside Books Library');
+
+        // Change username
+        const userInput = screen.getByLabelText('Username');
+        await userEvent.clear(userInput);
+        await userEvent.type(userInput, 'insidebooks');
+
+        // Submit
+        await userEvent.click(screen.getByRole('button', { name: /save profile changes/i }));
+
+        await waitFor(() => {
+            expect(usersApi.updateMe).toHaveBeenCalledWith(expect.objectContaining({
+                account_type: 'library',
+                institution_name: 'Inside Books Library',
+                username: 'insidebooks',
+            }));
+        });
+
+        expect(screen.getByText(/profile updated successfully/i)).toBeInTheDocument();
     });
 
     it('shows USPS error in form area after failed address verification', async () => {

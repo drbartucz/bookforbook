@@ -31,7 +31,16 @@ export default function AccountSettings() {
     const [successMessage, setSuccessMessage] = useState(null);
     const [deletePassword, setDeletePassword] = useState('');
     const [deleteError, setDeleteError] = useState(null);
-    const [form, setForm] = useState({
+
+    const [profileForm, setProfileForm] = useState({
+        username: '',
+        account_type: 'individual',
+        institution_name: '',
+    });
+    const [profileSuccess, setProfileSuccess] = useState(null);
+    const [profileError, setProfileError] = useState(null);
+
+    const [addressForm, setAddressForm] = useState({
         full_name: '',
         address_line_1: '',
         address_line_2: '',
@@ -39,7 +48,12 @@ export default function AccountSettings() {
         state: '',
         zip_code: '',
     });
-    const [institutionForm, setInstitutionForm] = useState({ institution_url: '', institution_about: '', institution_bookshop_url: '' });
+
+    const [institutionForm, setInstitutionForm] = useState({
+        institution_url: '',
+        institution_about: '',
+        institution_bookshop_url: '',
+    });
     const [institutionError, setInstitutionError] = useState(null);
     const [institutionSuccess, setInstitutionSuccess] = useState(null);
 
@@ -53,7 +67,12 @@ export default function AccountSettings() {
         if (!me) {
             return;
         }
-        setForm({
+        setProfileForm({
+            username: me.username ?? '',
+            account_type: me.account_type ?? 'individual',
+            institution_name: me.institution_name ?? '',
+        });
+        setAddressForm({
             full_name: me.full_name ?? '',
             address_line_1: me.address_line_1 ?? '',
             address_line_2: me.address_line_2 ?? '',
@@ -67,6 +86,32 @@ export default function AccountSettings() {
             institution_bookshop_url: me.institution_bookshop_url ?? '',
         });
     }, [me]);
+
+    const updateProfileMutation = useMutation({
+        mutationFn: (payload) => usersApi.updateMe(payload).then((response) => response.data),
+        onSuccess: async (updatedMe) => {
+            setProfileError(null);
+            setProfileSuccess('Profile updated successfully.');
+            queryClient.setQueryData(['me'], updatedMe);
+            updateUser({ ...(user ?? {}), ...updatedMe });
+        },
+        onError: (mutationError) => {
+            const responseData = mutationError?.response?.data;
+            setProfileSuccess(null);
+            if (typeof responseData?.detail === 'string') {
+                setProfileError(responseData.detail);
+                return;
+            }
+            if (responseData && typeof responseData === 'object') {
+                const fieldMessage = Object.values(responseData).flat().find(Boolean);
+                if (fieldMessage) {
+                    setProfileError(String(fieldMessage));
+                    return;
+                }
+            }
+            setProfileError('Could not update profile. Please try again.');
+        },
+    });
 
     const verifyAddressMutation = useMutation({
         mutationFn: (payload) => usersApi.verifyAddress(payload).then((response) => response.data),
@@ -147,27 +192,39 @@ export default function AccountSettings() {
         },
     });
 
-    function handleChange(event) {
+    function handleProfileChange(event) {
+        const { name, value } = event.target;
+        setProfileSuccess(null);
+        setProfileError(null);
+        setProfileForm((current) => ({ ...current, [name]: value }));
+    }
+
+    function handleProfileSubmit(event) {
+        event.preventDefault();
+        updateProfileMutation.mutate(profileForm);
+    }
+
+    function handleAddressChange(event) {
         const { name, value } = event.target;
         setSuccessMessage(null);
         setServerError(null);
-        setForm((current) => ({
+        setAddressForm((current) => ({
             ...current,
             [name]: name === 'state' ? value.toUpperCase() : value,
         }));
     }
 
-    function handleSubmit(event) {
+    function handleAddressSubmit(event) {
         event.preventDefault();
         setServerError(null);
         setSuccessMessage(null);
         verifyAddressMutation.mutate({
-            full_name: form.full_name.trim(),
-            address_line_1: form.address_line_1.trim(),
-            address_line_2: form.address_line_2.trim(),
-            city: form.city.trim(),
-            state: form.state.trim(),
-            zip_code: form.zip_code.trim(),
+            full_name: addressForm.full_name.trim(),
+            address_line_1: addressForm.address_line_1.trim(),
+            address_line_2: addressForm.address_line_2.trim(),
+            city: addressForm.city.trim(),
+            state: addressForm.state.trim(),
+            zip_code: addressForm.zip_code.trim(),
         });
     }
 
@@ -198,7 +255,7 @@ export default function AccountSettings() {
         updateInstitutionMutation.mutate({
             institution_url: institutionForm.institution_url.trim() || null,
             institution_about: institutionForm.institution_about.trim() || null,
-            institution_bookshop_url: bookshopUrl || null,
+            institution_bookshop_url: institutionForm.institution_bookshop_url.trim() || null,
         });
     }
 
@@ -242,7 +299,7 @@ export default function AccountSettings() {
             <div className={styles.header}>
                 <div>
                     <h1 className="page-title">Account settings</h1>
-                    <p className="page-subtitle">Add and verify the shipping address used for trades and donations.</p>
+                    <p className="page-subtitle">Manage your account profile and shipping address.</p>
                 </div>
                 <div className={styles.statusCard}>
                     <span className={`${styles.statusBadge} ${account?.address_verification_status === 'verified' ? styles.statusVerified : styles.statusPending}`}>
@@ -262,38 +319,98 @@ export default function AccountSettings() {
 
             <div className={styles.grid}>
                 <div className={`card ${styles.panel}`}>
-                    <h2 className={styles.sectionTitle}>Account</h2>
-                    <dl className={styles.infoList}>
-                        <div>
-                            <dt>Username</dt>
-                            <dd>@{account?.username}</dd>
+                    <h2 className={styles.sectionTitle}>Account profile</h2>
+                    <p className={styles.helperText}>
+                        Your email and username are used for login and identification. Libraries and bookstores should update their account type here.
+                    </p>
+
+                    {profileError && <div className="alert alert-error">{profileError}</div>}
+                    {profileSuccess && <div className="alert alert-success">{profileSuccess}</div>}
+
+                    <form className={styles.form} onSubmit={handleProfileSubmit}>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="username">Username</label>
+                            <input
+                                id="username"
+                                name="username"
+                                className="form-input"
+                                value={profileForm.username}
+                                onChange={handleProfileChange}
+                                required
+                            />
                         </div>
-                        <div>
-                            <dt>Email</dt>
-                            <dd>{account?.email}</dd>
+
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="email">Email</label>
+                            <input
+                                id="email"
+                                name="email"
+                                className="form-input"
+                                value={account?.email ?? ''}
+                                disabled
+                                title="Email cannot be changed."
+                            />
                         </div>
-                        <div>
-                            <dt>Account type</dt>
-                            <dd>
-                                {['library', 'bookstore'].includes(account?.account_type)
-                                    ? account.account_type.charAt(0).toUpperCase() + account.account_type.slice(1)
-                                    : 'Individual'}
-                            </dd>
+
+                        <div className="form-group">
+                            <label className="form-label">Account type</label>
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                                {[
+                                    { value: 'individual', label: 'Individual' },
+                                    { value: 'library', label: 'Library' },
+                                    { value: 'bookstore', label: 'Bookstore' },
+                                ].map((opt) => (
+                                    <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+                                        <input
+                                            type="radio"
+                                            name="account_type"
+                                            value={opt.value}
+                                            checked={profileForm.account_type === opt.value}
+                                            onChange={handleProfileChange}
+                                        />
+                                        {opt.label}
+                                    </label>
+                                ))}
+                            </div>
                         </div>
-                        {account?.institution_name && (
-                            <div>
-                                <dt>Institution</dt>
-                                <dd>{account.institution_name}</dd>
+
+                        {(profileForm.account_type === 'library' || profileForm.account_type === 'bookstore') && (
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="institution_name">Institution name</label>
+                                <input
+                                    id="institution_name"
+                                    name="institution_name"
+                                    className="form-input"
+                                    value={profileForm.institution_name}
+                                    onChange={handleProfileChange}
+                                    placeholder="e.g. City Public Library"
+                                    required
+                                />
                             </div>
                         )}
-                        <div>
-                            <dt>
-                                Match capacity
-                                <Tooltip content="New accounts start with 2 active match slots. Complete trades and earn ratings to unlock up to 10 simultaneous matches." />
-                            </dt>
-                            <dd>{account?.max_active_matches ?? 2} slots</dd>
+
+                        <div className={styles.actions}>
+                            <button type="submit" className="btn btn-primary" disabled={updateProfileMutation.isPending}>
+                                {updateProfileMutation.isPending ? 'Saving...' : 'Save profile changes'}
+                            </button>
                         </div>
-                    </dl>
+                    </form>
+
+                    <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-gray-100)' }}>
+                        <dl className={styles.infoList}>
+                            <div>
+                                <dt>
+                                    Match capacity
+                                    <Tooltip content="New accounts start with 2 active match slots. Complete trades and earn ratings to unlock up to 10 simultaneous matches." />
+                                </dt>
+                                <dd>{account?.max_active_matches ?? 2} slots</dd>
+                            </div>
+                            <div>
+                                <dt>Verification status</dt>
+                                <dd>{account?.is_verified ? 'Verified Institution' : 'Standard Account'}</dd>
+                            </div>
+                        </dl>
+                    </div>
                 </div>
 
                 <div className={`card ${styles.panel}`}>
@@ -305,15 +422,15 @@ export default function AccountSettings() {
                     {serverError && <div className="alert alert-error">{serverError}</div>}
                     {successMessage && <div className="alert alert-success">{successMessage}</div>}
 
-                    <form className={styles.form} onSubmit={handleSubmit}>
+                    <form className={styles.form} onSubmit={handleAddressSubmit}>
                         <div className="form-group">
                             <label className="form-label" htmlFor="full_name">Full name</label>
                             <input
                                 id="full_name"
                                 name="full_name"
                                 className="form-input"
-                                value={form.full_name}
-                                onChange={handleChange}
+                                value={addressForm.full_name}
+                                onChange={handleAddressChange}
                                 autoComplete="name"
                                 required
                             />
@@ -325,8 +442,8 @@ export default function AccountSettings() {
                                 id="address_line_1"
                                 name="address_line_1"
                                 className="form-input"
-                                value={form.address_line_1}
-                                onChange={handleChange}
+                                value={addressForm.address_line_1}
+                                onChange={handleAddressChange}
                                 autoComplete="address-line1"
                                 required
                             />
@@ -338,8 +455,8 @@ export default function AccountSettings() {
                                 id="address_line_2"
                                 name="address_line_2"
                                 className="form-input"
-                                value={form.address_line_2}
-                                onChange={handleChange}
+                                value={addressForm.address_line_2}
+                                onChange={handleAddressChange}
                                 autoComplete="address-line2"
                             />
                         </div>
@@ -351,8 +468,8 @@ export default function AccountSettings() {
                                     id="city"
                                     name="city"
                                     className="form-input"
-                                    value={form.city}
-                                    onChange={handleChange}
+                                    value={addressForm.city}
+                                    onChange={handleAddressChange}
                                     autoComplete="address-level2"
                                     required
                                 />
@@ -365,8 +482,8 @@ export default function AccountSettings() {
                                     id="state"
                                     name="state"
                                     className="form-input"
-                                    value={form.state}
-                                    onChange={handleChange}
+                                    value={addressForm.state}
+                                    onChange={handleAddressChange}
                                     autoComplete="address-level1"
                                     maxLength={2}
                                     required
@@ -378,8 +495,8 @@ export default function AccountSettings() {
                                     id="zip_code"
                                     name="zip_code"
                                     className="form-input"
-                                    value={form.zip_code}
-                                    onChange={handleChange}
+                                    value={addressForm.zip_code}
+                                    onChange={handleAddressChange}
                                     autoComplete="postal-code"
                                     required
                                 />

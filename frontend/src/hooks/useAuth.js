@@ -34,7 +34,7 @@ export default function useAuth() {
     refreshToken,
     isAuthenticated: !!accessToken,
     isIndividual: user?.account_type === 'individual',
-    isInstitution: ['library', 'bookstore'].includes(user?.account_type),
+    isInstitution: ['library', 'bookstore', 'institution'].includes(user?.account_type),
     login,
     logout,
     updateUser,

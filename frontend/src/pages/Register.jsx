@@ -21,7 +21,7 @@ export default function Register() {
 
   const password = watch('password');
   const accountType = watch('account_type');
-  const isInstitution = accountType === 'library' || accountType === 'bookstore';
+  const isInstitution = ['library', 'bookstore', 'institution'].includes(accountType);
 
   async function onSubmit(data) {
     setServerError(null);

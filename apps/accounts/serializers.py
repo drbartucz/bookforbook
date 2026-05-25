@@ -276,6 +276,7 @@ class UserMeUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "username",
+            "account_type",
             "institution_name",
             "institution_url",
             "institution_about",
