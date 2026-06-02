@@ -214,6 +214,6 @@ test.describe('Dashboard', () => {
     await page.getByRole('link', { name: /browse books/i }).click();
     // Home page URL is just /
     await expect(page).toHaveURL(/localhost:\d+\/?$/, { timeout: 8_000 });
-    await expect(page.getByRole('heading', { name: /trade books/i })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole('heading', { name: /you could be the reason/i })).toBeVisible({ timeout: 8_000 });
   });
 });
