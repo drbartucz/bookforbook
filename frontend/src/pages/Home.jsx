@@ -109,9 +109,9 @@ export default function Home() {
     <div>
       {/* Hero */}
       <div className={styles.hero}>
-        <h1 className={styles.heroTitle}>Trade books, not money</h1>
+        <h1 className={styles.heroTitle}>You could be the reason someone finds their favorite book.</h1>
         <p className={styles.heroSubtitle}>
-          Trade books you've read for the books you want, or donate to a library or bookshop!
+          Trade the books you've read for the books you want, or donate to a library or bookshop!
         </p>
         {!isAuthenticated && (
           <div className={styles.heroActions}>
@@ -129,207 +129,207 @@ export default function Home() {
       {/* Tabs */}
       <div className={styles.tabs} role="tablist" aria-label="Browse books">
         <button
-        role="tab"
-        aria-selected={activeTab === 'offer'}
-        className={`${styles.tab} ${activeTab === 'offer' ? styles.tabActive : ''}`}
-        onClick={() => handleTabChange('offer')}
-      >
-        Books on Offer
-        {offerTotal > 0 && (
-          <span className={styles.tabCount}>{offerTotal}</span>
-        )}
-      </button>
-      <button
-        role="tab"
-        aria-selected={activeTab === 'wanted'}
-        className={`${styles.tab} ${activeTab === 'wanted' ? styles.tabActive : ''}`}
-        onClick={() => handleTabChange('wanted')}
-      >
-        Books Wanted
-        {wantedTotal > 0 && (
-          <span className={styles.tabCount}>{wantedTotal}</span>
-        )}
-      </button>
-    </div >
+          role="tab"
+          aria-selected={activeTab === 'offer'}
+          className={`${styles.tab} ${activeTab === 'offer' ? styles.tabActive : ''}`}
+          onClick={() => handleTabChange('offer')}
+        >
+          Books on Offer
+          {offerTotal > 0 && (
+            <span className={styles.tabCount}>{offerTotal}</span>
+          )}
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'wanted'}
+          className={`${styles.tab} ${activeTab === 'wanted' ? styles.tabActive : ''}`}
+          onClick={() => handleTabChange('wanted')}
+        >
+          Books Wanted
+          {wantedTotal > 0 && (
+            <span className={styles.tabCount}>{wantedTotal}</span>
+          )}
+        </button>
+      </div >
 
-  {/* ── ON OFFER TAB ─────────────────────────────────────────── */ }
-  {
-    activeTab === 'offer' && (
-      <div role="tabpanel" aria-label="Books on Offer">
-        {/* Filters */}
-        <div className={styles.filters}>
-          <div className={styles.searchWrapper}>
-            <svg className={styles.searchIcon} viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-              <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
-            </svg>
-            <input
-              type="search"
-              className={`form-input ${styles.searchInput}`}
-              placeholder="Search by title, author, or ISBN..."
-              value={offerSearch}
-              onChange={handleOfferSearchChange}
-              aria-label="Search books"
-            />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-            <select
-              className={`form-input ${styles.conditionSelect}`}
-              value={offerCondition}
-              onChange={handleOfferConditionChange}
-              aria-label="Filter by condition"
-            >
-              {CONDITION_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <Tooltip content="Show only books listed at exactly this condition. Use 'Any condition' to see all." />
-          </div>
-        </div>
-
-        {!offerQuery.isLoading && !offerQuery.isError && (
-          <div className={styles.resultsHeader}>
-            <p className={styles.resultsCount}>
-              {offerTotal === 0
-                ? 'No books found'
-                : `${offerTotal} book${offerTotal === 1 ? '' : 's'} available`}
-            </p>
-          </div>
-        )}
-
-        {offerQuery.isLoading ? (
-          <LoadingSpinner center size="lg" label="Loading available books..." />
-        ) : offerQuery.isError ? (
-          <ErrorMessage error={offerQuery.error} onRetry={offerQuery.refetch} />
-        ) : offerBooks.length === 0 ? (
-          <div className={styles.empty}>
-            <p className={styles.emptyTitle}>No books found</p>
-            <p className={styles.emptySubtitle}>
-              {offerSearch || offerCondition
-                ? 'Try adjusting your search or filters.'
-                : 'Be the first to add a book! Sign up and list your books.'}
-            </p>
-            {!isAuthenticated && (
-              <Link to="/register" className="btn btn-primary" style={{ marginTop: '1rem' }}>
-                Start trading
-              </Link>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className={`grid grid-cols-1 grid-sm-2 grid-md-3 grid-lg-4 ${styles.grid}`}>
-              {offerBooks.map((item) => {
-                const isbn = getBookIsbn(item);
-                const alreadyAdded = isbn && addedToWishlist.has(isbn);
-
-                return (
-                  <BookCard
-                    key={item.id}
-                    book={item}
-                    copyCount={item.copy_count ?? 1}
-                    onAction={
-                      isAuthenticated && !alreadyAdded
-                        ? () => addToWishlistMutation.mutate({ isbn })
-                        : undefined
-                    }
-                    actionLabel={alreadyAdded ? 'Added!' : 'Want this'}
-                    actionTooltip="Adds this book to your wishlist. You'll be matched automatically when someone who wants a book you own lists one you want."
-                    actionLoading={
-                      addToWishlistMutation.isPending &&
-                      addToWishlistMutation.variables?.isbn === isbn
-                    }
-                  />
-                );
-              })}
-            </div>
-            <Pagination
-              page={offerPage}
-              totalPages={offerTotalPages}
-              onPageChange={setOfferPage}
-              disabled={offerQuery.isLoading}
-            />
-          </>
-        )}
-      </div>
-    )
-  }
-
-  {/* ── WANTED TAB ───────────────────────────────────────────── */ }
-  {
-    activeTab === 'wanted' && (
-      <div role="tabpanel" aria-label="Books Wanted">
-        {/* Search */}
-        <div className={styles.filters}>
-          <div className={styles.searchWrapper}>
-            <svg className={styles.searchIcon} viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-              <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
-            </svg>
-            <input
-              type="search"
-              className={`form-input ${styles.searchInput}`}
-              placeholder="Search by title, author, or ISBN..."
-              value={wantedSearch}
-              onChange={handleWantedSearchChange}
-              aria-label="Search wanted books"
-            />
-          </div>
-        </div>
-
-        {!wantedQuery.isLoading && !wantedQuery.isError && (
-          <div className={styles.resultsHeader}>
-            <p className={styles.resultsCount}>
-              {wantedTotal === 0
-                ? 'No books found'
-                : `${wantedTotal} book${wantedTotal === 1 ? '' : 's'} wanted`}
-            </p>
-          </div>
-        )}
-
-        {wantedQuery.isLoading ? (
-          <LoadingSpinner center size="lg" label="Loading wanted books..." />
-        ) : wantedQuery.isError ? (
-          <ErrorMessage error={wantedQuery.error} onRetry={wantedQuery.refetch} />
-        ) : wantedBooks.length === 0 ? (
-          <div className={styles.empty}>
-            <p className={styles.emptyTitle}>No books found</p>
-            <p className={styles.emptySubtitle}>
-              {wantedSearch
-                ? 'Try adjusting your search.'
-                : 'No one has added books to their wishlist yet. Sign up and add the books you want!'}
-            </p>
-            {!isAuthenticated && (
-              <Link to="/register" className="btn btn-primary" style={{ marginTop: '1rem' }}>
-                Start trading
-              </Link>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className={`grid grid-cols-1 grid-sm-2 grid-md-3 grid-lg-4 ${styles.grid}`}>
-              {wantedBooks.map((item) => (
-                <BookCard
-                  key={item.id}
-                  book={item}
-                  extra={
-                    item.want_count > 1
-                      ? <span className="badge badge-blue">{item.want_count} people want this</span>
-                      : <span className="badge badge-blue">1 person wants this</span>
-                  }
+      {/* ── ON OFFER TAB ─────────────────────────────────────────── */}
+      {
+        activeTab === 'offer' && (
+          <div role="tabpanel" aria-label="Books on Offer">
+            {/* Filters */}
+            <div className={styles.filters}>
+              <div className={styles.searchWrapper}>
+                <svg className={styles.searchIcon} viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                  <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+                </svg>
+                <input
+                  type="search"
+                  className={`form-input ${styles.searchInput}`}
+                  placeholder="Search by title, author, or ISBN..."
+                  value={offerSearch}
+                  onChange={handleOfferSearchChange}
+                  aria-label="Search books"
                 />
-              ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                <select
+                  className={`form-input ${styles.conditionSelect}`}
+                  value={offerCondition}
+                  onChange={handleOfferConditionChange}
+                  aria-label="Filter by condition"
+                >
+                  {CONDITION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <Tooltip content="Show only books listed at exactly this condition. Use 'Any condition' to see all." />
+              </div>
             </div>
-            <Pagination
-              page={wantedPage}
-              totalPages={wantedTotalPages}
-              onPageChange={setWantedPage}
-              disabled={wantedQuery.isLoading}
-            />
-          </>
-        )}
-      </div>
-    )
-  }
+
+            {!offerQuery.isLoading && !offerQuery.isError && (
+              <div className={styles.resultsHeader}>
+                <p className={styles.resultsCount}>
+                  {offerTotal === 0
+                    ? 'No books found'
+                    : `${offerTotal} book${offerTotal === 1 ? '' : 's'} available`}
+                </p>
+              </div>
+            )}
+
+            {offerQuery.isLoading ? (
+              <LoadingSpinner center size="lg" label="Loading available books..." />
+            ) : offerQuery.isError ? (
+              <ErrorMessage error={offerQuery.error} onRetry={offerQuery.refetch} />
+            ) : offerBooks.length === 0 ? (
+              <div className={styles.empty}>
+                <p className={styles.emptyTitle}>No books found</p>
+                <p className={styles.emptySubtitle}>
+                  {offerSearch || offerCondition
+                    ? 'Try adjusting your search or filters.'
+                    : 'Be the first to add a book! Sign up and list your books.'}
+                </p>
+                {!isAuthenticated && (
+                  <Link to="/register" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+                    Start trading
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className={`grid grid-cols-1 grid-sm-2 grid-md-3 grid-lg-4 ${styles.grid}`}>
+                  {offerBooks.map((item) => {
+                    const isbn = getBookIsbn(item);
+                    const alreadyAdded = isbn && addedToWishlist.has(isbn);
+
+                    return (
+                      <BookCard
+                        key={item.id}
+                        book={item}
+                        copyCount={item.copy_count ?? 1}
+                        onAction={
+                          isAuthenticated && !alreadyAdded
+                            ? () => addToWishlistMutation.mutate({ isbn })
+                            : undefined
+                        }
+                        actionLabel={alreadyAdded ? 'Added!' : 'Want this'}
+                        actionTooltip="Adds this book to your wishlist. You'll be matched automatically when someone who wants a book you own lists one you want."
+                        actionLoading={
+                          addToWishlistMutation.isPending &&
+                          addToWishlistMutation.variables?.isbn === isbn
+                        }
+                      />
+                    );
+                  })}
+                </div>
+                <Pagination
+                  page={offerPage}
+                  totalPages={offerTotalPages}
+                  onPageChange={setOfferPage}
+                  disabled={offerQuery.isLoading}
+                />
+              </>
+            )}
+          </div>
+        )
+      }
+
+      {/* ── WANTED TAB ───────────────────────────────────────────── */}
+      {
+        activeTab === 'wanted' && (
+          <div role="tabpanel" aria-label="Books Wanted">
+            {/* Search */}
+            <div className={styles.filters}>
+              <div className={styles.searchWrapper}>
+                <svg className={styles.searchIcon} viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                  <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+                </svg>
+                <input
+                  type="search"
+                  className={`form-input ${styles.searchInput}`}
+                  placeholder="Search by title, author, or ISBN..."
+                  value={wantedSearch}
+                  onChange={handleWantedSearchChange}
+                  aria-label="Search wanted books"
+                />
+              </div>
+            </div>
+
+            {!wantedQuery.isLoading && !wantedQuery.isError && (
+              <div className={styles.resultsHeader}>
+                <p className={styles.resultsCount}>
+                  {wantedTotal === 0
+                    ? 'No books found'
+                    : `${wantedTotal} book${wantedTotal === 1 ? '' : 's'} wanted`}
+                </p>
+              </div>
+            )}
+
+            {wantedQuery.isLoading ? (
+              <LoadingSpinner center size="lg" label="Loading wanted books..." />
+            ) : wantedQuery.isError ? (
+              <ErrorMessage error={wantedQuery.error} onRetry={wantedQuery.refetch} />
+            ) : wantedBooks.length === 0 ? (
+              <div className={styles.empty}>
+                <p className={styles.emptyTitle}>No books found</p>
+                <p className={styles.emptySubtitle}>
+                  {wantedSearch
+                    ? 'Try adjusting your search.'
+                    : 'No one has added books to their wishlist yet. Sign up and add the books you want!'}
+                </p>
+                {!isAuthenticated && (
+                  <Link to="/register" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+                    Start trading
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className={`grid grid-cols-1 grid-sm-2 grid-md-3 grid-lg-4 ${styles.grid}`}>
+                  {wantedBooks.map((item) => (
+                    <BookCard
+                      key={item.id}
+                      book={item}
+                      extra={
+                        item.want_count > 1
+                          ? <span className="badge badge-blue">{item.want_count} people want this</span>
+                          : <span className="badge badge-blue">1 person wants this</span>
+                      }
+                    />
+                  ))}
+                </div>
+                <Pagination
+                  page={wantedPage}
+                  totalPages={wantedTotalPages}
+                  onPageChange={setWantedPage}
+                  disabled={wantedQuery.isLoading}
+                />
+              </>
+            )}
+          </div>
+        )
+      }
     </div >
   );
 }
