@@ -18,7 +18,7 @@ test.describe('Home / Browse', () => {
   test('guest sees hero section with Register and Sign in CTAs', async ({ guestPage: page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: /trade books, not money/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /You could be the reason someone finds their favorite book/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /register/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /sign in/i })).toBeVisible();
   });
