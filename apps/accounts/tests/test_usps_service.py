@@ -342,3 +342,78 @@ def test_verify_address_raises_when_street_missing_from_response():
                 state="CO",
                 zip_code="80202",
             )
+
+
+def test_verify_address_raises_on_400_with_nested_error_detail_message():
+    bad_resp = MagicMock()
+    bad_resp.status_code = 400
+    bad_resp.json.return_value = {
+        "apiVersion": "/addresses/v3/",
+        "error": {
+            "code": "400",
+            "message": "Bad Request",
+            "errors": [{"title": "Address Not Found", "detail": "Nested detailed error message", "code": "010005"}]
+        }
+    }
+
+    with patch(
+        "apps.accounts.services.usps._get_oauth_token", return_value="tok"
+    ), patch("apps.accounts.services.usps.requests.get", return_value=bad_resp):
+        with pytest.raises(USPSVerificationError, match="Nested detailed error message"):
+            verify_address_with_usps(
+                address_line_1="1 Nowhere Ln",
+                address_line_2="",
+                city="Nowhere",
+                state="CO",
+                zip_code="00000",
+            )
+
+
+def test_verify_address_raises_on_400_with_nested_error_title_fallback():
+    bad_resp = MagicMock()
+    bad_resp.status_code = 400
+    bad_resp.json.return_value = {
+        "apiVersion": "/addresses/v3/",
+        "error": {
+            "code": "400",
+            "message": "Bad Request",
+            "errors": [{"title": "Address Not Found", "detail": "", "code": "010005"}]
+        }
+    }
+
+    with patch(
+        "apps.accounts.services.usps._get_oauth_token", return_value="tok"
+    ), patch("apps.accounts.services.usps.requests.get", return_value=bad_resp):
+        with pytest.raises(USPSVerificationError, match="Address Not Found"):
+            verify_address_with_usps(
+                address_line_1="1 Nowhere Ln",
+                address_line_2="",
+                city="Nowhere",
+                state="CO",
+                zip_code="00000",
+            )
+
+
+def test_verify_address_raises_on_400_with_nested_error_message_fallback():
+    bad_resp = MagicMock()
+    bad_resp.status_code = 400
+    bad_resp.json.return_value = {
+        "apiVersion": "/addresses/v3/",
+        "error": {
+            "code": "400",
+            "message": "Address Not Found Message",
+            "errors": []
+        }
+    }
+
+    with patch(
+        "apps.accounts.services.usps._get_oauth_token", return_value="tok"
+    ), patch("apps.accounts.services.usps.requests.get", return_value=bad_resp):
+        with pytest.raises(USPSVerificationError, match="Address Not Found Message"):
+            verify_address_with_usps(
+                address_line_1="1 Nowhere Ln",
+                address_line_2="",
+                city="Nowhere",
+                state="CO",
+                zip_code="00000",
+            )

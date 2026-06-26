@@ -86,6 +86,7 @@ def _get_oauth_token() -> str:
 
 
 def _extract_error_message(resp: requests.Response) -> str:
+    logger.error("USPS API error response: status_code=%d body=%s", resp.status_code, resp.text)
     try:
         payload = resp.json()
     except ValueError:
@@ -96,15 +97,33 @@ def _extract_error_message(resp: requests.Response) -> str:
             return str(payload["error_description"])
         if payload.get("message"):
             return str(payload["message"])
-        errors = payload.get("errors")
-        if isinstance(errors, list) and errors:
-            first = errors[0]
-            if isinstance(first, dict):
-                detail = first.get("detail") or first.get("message")
-                if detail:
-                    return str(detail)
-            if isinstance(first, str):
-                return first
+
+        # Check inside nested 'error' field from new USPS API v3
+        nested_error = payload.get("error")
+        if isinstance(nested_error, dict):
+            # Try to get errors array inside nested error
+            errors = nested_error.get("errors")
+            if isinstance(errors, list) and errors:
+                first = errors[0]
+                if isinstance(first, dict):
+                    detail = first.get("detail") or first.get("title") or first.get("message")
+                    if detail:
+                        return str(detail)
+                if isinstance(first, str):
+                    return first
+            # Fallback to nested error message
+            if nested_error.get("message"):
+                return str(nested_error["message"])
+        else:
+            errors = payload.get("errors")
+            if isinstance(errors, list) and errors:
+                first = errors[0]
+                if isinstance(first, dict):
+                    detail = first.get("detail") or first.get("title") or first.get("message")
+                    if detail:
+                        return str(detail)
+                if isinstance(first, str):
+                    return first
     return "USPS address verification failed."
 
 
