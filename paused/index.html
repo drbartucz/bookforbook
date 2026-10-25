@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>BookForBook is taking a break</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    :root { --bg: #faf7f2; --fg: #2b2622; --muted: #6b625a; --accent: #8a4b2a; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #1d1a17; --fg: #f1ece5; --muted: #a79d92; --accent: #e0a37c; }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      padding: 24px; background: var(--bg); color: var(--fg);
+      font: 18px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    main { max-width: 32rem; text-align: center; }
+    h1 { font-size: 1.75rem; margin: 0 0 1rem; }
+    p { margin: 0 0 1rem; color: var(--muted); }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>BookForBook is taking a break</h1>
+    <p>We've paused the site for now while we figure out what's next. Thank you to everyone who listed books and traded with us.</p>
+    <p>Questions? Email <a href="mailto:support@bookforbook.com">support@bookforbook.com</a>.</p>
+  </main>
+  <script>
+    // Remove any service worker/caches left by the old PWA so returning users see this page.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (rs) {
+        var had = rs.length > 0;
+        return Promise.all(rs.map(function (r) { return r.unregister(); })).then(function () {
+          if (window.caches) return caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); });
+        }).then(function () {
+          if (had && !sessionStorage.getItem('paused-reloaded')) { sessionStorage.setItem('paused-reloaded', '1'); location.reload(); }
+        });
+      }).catch(function () {});
+    }
+  </script>
+</body>
+</html>
